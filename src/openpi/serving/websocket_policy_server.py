@@ -4,6 +4,8 @@ import logging
 import time
 import traceback
 
+import numpy as np
+
 from openpi_client import base_policy as _base_policy
 from openpi_client import msgpack_numpy
 import websockets.asyncio.server as _server
@@ -59,6 +61,8 @@ class WebsocketPolicyServer:
 
                 from openpi.models import gemma
                 gemma.ACTION_EXPERT_ACTS.clear()
+                gemma._layer_counter.clear()
+                gemma._request_counter += 1
 
                 infer_time = time.monotonic()
                 action = self._policy.infer(obs)
@@ -74,7 +78,6 @@ class WebsocketPolicyServer:
                 print(post_ffn_per_layer[0].shape)    # (B, T_action, D_action)
 
                 # You can stack them into an array (layers, B, T, D):
-                import numpy as np
                 post_ffn_array = np.stack(post_ffn_per_layer, axis=0)
                 print(post_ffn_array.shape)           # (L, B, T_action, D_action)
                 ###

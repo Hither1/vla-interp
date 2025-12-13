@@ -35,6 +35,9 @@ import jax
 import jax.numpy as jnp
 from jax import debug as jax_debug
 
+import os
+import numpy as np
+
 import openpi.models.lora as lora
 import openpi.shared.array_typing as at
 import openpi.training.sharding as sharding
@@ -283,6 +286,12 @@ class FeedForward(nn.Module):
 
 # Global store for debugging (you can make this more structured if you like)
 ACTION_EXPERT_ACTS = {}
+ACT_SAVE_DIR = "/n/netscratch/sham_lab/Lab/chloe00/pi0_activations"   # <<< change this to where you want files stored
+
+os.makedirs(ACT_SAVE_DIR, exist_ok=True)
+
+_request_counter = 0  # increments each inference call (optionally reset in server)
+_layer_counter = {}   # tracks number of activations saved per tag per request
 
 def _record_action_activation(tag, x):
     """Host-side recorder for action expert activations.
@@ -294,9 +303,29 @@ def _record_action_activation(tag, x):
         # x_np is a NumPy array on the host.
         # You can store/print/log as you like here.
         # Example: append to a dict keyed by tag.
+        global _request_counter, _layer_counter
+
+        # Init per-request counter for this tag
+        if tag not in _layer_counter:
+            _layer_counter[tag] = 0
+
+        # Where to save
+        save_path = os.path.join(
+            ACT_SAVE_DIR,
+            f"req{_request_counter:06d}_{tag}_{_layer_counter[tag]:03d}.npy"
+        )
+
+        # Save activation to disk
+        np.save(save_path, x_np)
+
+        # Increment counters
+        _layer_counter[tag] += 1
+
+        # Also store in RAM for debugging (optional)
         ACTION_EXPERT_ACTS.setdefault(tag, []).append(x_np)
-        # Or just print shapes:
-        # print(tag, x_np.shape, "mean", float(x_np.mean()))
+
+        print(f"[GEMMA SAVE] {tag} -> {save_path} shape={x_np.shape}", flush=True)
+
     jax_debug.callback(_cb, x)
 
 
@@ -345,8 +374,8 @@ class Block(nn.Module):
         gates = []
         for i, (x, config) in enumerate(zip(xs, self.configs, strict=True)):
             if x is not None:
-                x, gate = RMSNorm(name=_name("pre_ffw_norm", i))(x, adarms_cond[i])  # noqa: PLW2901
-                x = lora.FeedForward(  # noqa: PLW2901
+                x, gate = RMSNorm(name=_name("pre_ffw_norm", i))(x, adarms_cond[i])  
+                x = lora.FeedForward(  
                     features=config.width,
                     hidden_dim=config.mlp_dim,
                     name=_name("mlp", i),

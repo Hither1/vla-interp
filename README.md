@@ -4,7 +4,7 @@ pip install uv
 then do the uv steps 
 
 export 
-MUJOCO_GL=egl python examples/libero/main.py --args.port 8000
+python examples/libero/main.py --args.port 8000
 
 # openpi
 
