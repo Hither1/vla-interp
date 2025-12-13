@@ -33,6 +33,7 @@ import einops
 import flax.linen as nn
 import jax
 import jax.numpy as jnp
+from jax import debug as jax_debug
 
 import openpi.models.lora as lora
 import openpi.shared.array_typing as at
@@ -280,6 +281,25 @@ class FeedForward(nn.Module):
         return outputs
 
 
+# Global store for debugging (you can make this more structured if you like)
+ACTION_EXPERT_ACTS = {}
+
+def _record_action_activation(tag, x):
+    """Host-side recorder for action expert activations.
+
+    `tag` is a string like 'block_pre_attn', 'block_post_ffn', etc.
+    `x` is the (B, T, D) activation tensor for the action expert.
+    """
+    def _cb(x_np, *, result=None):
+        # x_np is a NumPy array on the host.
+        # You can store/print/log as you like here.
+        # Example: append to a dict keyed by tag.
+        ACTION_EXPERT_ACTS.setdefault(tag, []).append(x_np)
+        # Or just print shapes:
+        # print(tag, x_np.shape, "mean", float(x_np.mean()))
+    jax_debug.callback(_cb, x)
+
+
 @at.typecheck
 class Block(nn.Module):
     """Transformer block."""
@@ -303,6 +323,12 @@ class Block(nn.Module):
                 x, gate = RMSNorm(name=_name("pre_attention_norm", i))(x, adarms_cond[i])  # noqa: PLW2901
             pre_attn.append(x)
             gates.append(gate if x is not None else None)
+        
+
+        # === RECORD: pre-attention norm activation for action expert (expert index 1) ===
+        # if len(pre_attn) > 1 and pre_attn[1] is not None:
+        #     _record_action_activation("block_pre_attn", pre_attn[1])
+
 
         pre_attn = sharding.activation_sharding_constraint(pre_attn)
         post_attn, kv_cache = attn(pre_attn, positions, attn_mask, kv_cache)
@@ -310,6 +336,10 @@ class Block(nn.Module):
         post_attn = sharding.activation_sharding_constraint(post_attn)
         xs = [_gated_residual(x, y, gate) for x, y, gate in zip(xs, post_attn, gates, strict=True)]
         xs = sharding.activation_sharding_constraint(xs)
+
+        # === RECORD: post-attention residual for action expert ===
+        # if len(xs) > 1 and xs[1] is not None:
+        #     _record_action_activation("block_post_attn", xs[1])
 
         out = []
         gates = []
@@ -329,6 +359,11 @@ class Block(nn.Module):
         out = jax.tree.map(lambda x: drop(x, deterministic), out)
         xs = [_gated_residual(x, y, gate) for x, y, gate in zip(xs, out, gates, strict=True)]
         xs = sharding.activation_sharding_constraint(xs)
+
+
+        # === RECORD: post-FFN residual for action expert ===
+        if len(xs) > 1 and xs[1] is not None:
+            _record_action_activation("block_post_ffn", xs[1])
 
         return xs, kv_cache
 
@@ -457,3 +492,5 @@ def _gated_residual(x, y, gate):
     if gate is None:
         return x + y
     return x + y * gate
+
+

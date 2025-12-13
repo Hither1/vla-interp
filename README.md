@@ -1,3 +1,11 @@
+
+conda -n vla 3.11
+pip install uv 
+then do the uv steps 
+
+export 
+MUJOCO_GL=egl python examples/libero/main.py --args.port 8000
+
 # openpi
 
 openpi holds open-source models and packages for robotics, published by the [Physical Intelligence team](https://www.physicalintelligence.company/).

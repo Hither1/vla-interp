@@ -40,7 +40,7 @@ Terminal window 1:
 
 ```bash
 # Create virtual environment
-uv venv --python 3.8 examples/libero/.venv
+uv venv --python 3.11 examples/libero/.venv
 source examples/libero/.venv/bin/activate
 uv pip sync examples/libero/requirements.txt third_party/libero/requirements.txt --extra-index-url https://download.pytorch.org/whl/cu113 --index-strategy=unsafe-best-match
 uv pip install -e packages/openpi-client

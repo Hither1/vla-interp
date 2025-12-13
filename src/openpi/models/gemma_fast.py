@@ -269,6 +269,9 @@ class Block(nn.Module):
         outputs = self.mlp(attn_output)
         outputs = self.drop(outputs, deterministic)
         outputs = residual + outputs
+
+        self.sow("intermediates", "block_activations", outputs)
+
         return outputs, kv_cache
 
 
@@ -312,6 +315,7 @@ class Module(nn.Module):
         kv_cache=None,
         deterministic=True,  # noqa: FBT002
         return_prelogits=False,  # noqa: FBT002
+        return_activations=False,  # <-- NEW
     ):
         """Embed only, or complete forward pass.
 
@@ -401,8 +405,24 @@ class Module(nn.Module):
                 length=self.depth,
             )(parent=layers, **block_kw)
         ]
-        for block in blocks:
-            x, kv_cache = block(x, kv_cache, positions, mask, decode, deterministic)
+        # for block in blocks:
+        #     x, kv_cache = block(x, kv_cache, positions, mask, decode, deterministic)
+        if return_activations:
+            # collect the "intermediates" collection from the scanned blocks
+            (x, kv_cache), intermediates = blocks[0](
+                x,
+                kv_cache,
+                positions,
+                mask,
+                decode,
+                deterministic,
+                mutable=["intermediates"],
+            )
+            # all block outputs: (depth, B, T, D)
+            block_acts = intermediates["intermediates"]["block_activations"]
+            out["block_activations"] = block_acts
+        else:
+            x, kv_cache = blocks[0](x, kv_cache, positions, mask, decode, deterministic)
 
         assert x.dtype == jnp.dtype(self.embed_dtype)  # Sanity check.
         out["encoded"] = x

@@ -57,9 +57,27 @@ class WebsocketPolicyServer:
                 start_time = time.monotonic()
                 obs = msgpack_numpy.unpackb(await websocket.recv())
 
+                from openpi.models import gemma
+                gemma.ACTION_EXPERT_ACTS.clear()
+
                 infer_time = time.monotonic()
                 action = self._policy.infer(obs)
                 infer_time = time.monotonic() - infer_time
+
+
+                ###
+                acts = gemma.ACTION_EXPERT_ACTS
+
+                # Example: post-FFN activations of action expert, per layer:
+                post_ffn_per_layer = acts["block_post_ffn"]  # list of length = depth
+                print(len(post_ffn_per_layer))        # should equal action_expert_config.depth
+                print(post_ffn_per_layer[0].shape)    # (B, T_action, D_action)
+
+                # You can stack them into an array (layers, B, T, D):
+                import numpy as np
+                post_ffn_array = np.stack(post_ffn_per_layer, axis=0)
+                print(post_ffn_array.shape)           # (L, B, T_action, D_action)
+                ###
 
                 action["server_timing"] = {
                     "infer_ms": infer_time * 1000,
