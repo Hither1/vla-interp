@@ -4,6 +4,7 @@ pip install uv
 then do the uv steps 
 
 export 
+export LIBERO_CONFIG_PATH=/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/third_party/libero
 python examples/libero/main.py --args.port 8000
 
 # openpi

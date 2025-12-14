@@ -14,6 +14,15 @@ import websockets.frames
 logger = logging.getLogger(__name__)
 
 
+import os
+import numpy as np
+
+ACT_SAVE_DIR = "/n/netscratch/sham_lab/Lab/chloe00/pi0_activations"  # change path if you want
+os.makedirs(ACT_SAVE_DIR, exist_ok=True)
+
+# Episode bookkeeping (per connection)
+EPISODE_COUNTER = 0  # counts connections
+
 class WebsocketPolicyServer:
     """Serves a policy using the websocket protocol. See websocket_client_policy.py for a client implementation.
 
@@ -48,21 +57,55 @@ class WebsocketPolicyServer:
             await server.serve_forever()
 
     async def _handler(self, websocket: _server.ServerConnection):
+        global EPISODE_COUNTER
+
+        EPISODE_COUNTER += 1
+        episode_id = EPISODE_COUNTER
+        logger.info(f"Connection from {websocket.remote_address} opened (episode {episode_id})")
+
         logger.info(f"Connection from {websocket.remote_address} opened")
         packer = msgpack_numpy.Packer()
 
         await websocket.send(packer.pack(self._metadata))
 
         prev_total_time = None
+
+
+        current_episode_id = None
+        episode_activations = []  # list of (num_layers, B, T, D), one per env step
+
+        def flush_episode(episode_id, acts_list):
+            """Save all timesteps of one episode into a single file."""
+            if not acts_list or episode_id is None:
+                return
+            ep_array = np.stack(acts_list, axis=0)  # (time_steps, L, B, T, D)
+            save_path = os.path.join(
+                ACT_SAVE_DIR,
+                f"{episode_id}_post_ffn_last_step.npy",
+            )
+            np.save(save_path, ep_array)
+            logger.info(
+                "Saved activations for episode %s to %s (shape=%s)",
+                episode_id,
+                save_path,
+                ep_array.shape,
+            )
+
         while True:
             try:
                 start_time = time.monotonic()
                 obs = msgpack_numpy.unpackb(await websocket.recv())
+                episode_id = obs.get("episode_id", "unknown_episode")
+
+                if episode_id != current_episode_id:
+                    flush_episode(current_episode_id, episode_activations)
+                    current_episode_id = episode_id
+                    episode_activations = []
 
                 from openpi.models import gemma
                 gemma.ACTION_EXPERT_ACTS.clear()
                 gemma._layer_counter.clear()
-                gemma._request_counter += 1
+                
 
                 infer_time = time.monotonic()
                 action = self._policy.infer(obs)
@@ -71,15 +114,39 @@ class WebsocketPolicyServer:
 
                 ###
                 acts = gemma.ACTION_EXPERT_ACTS
+                post_ffn_list = acts.get("block_post_ffn", [])
 
-                # Example: post-FFN activations of action expert, per layer:
-                post_ffn_per_layer = acts["block_post_ffn"]  # list of length = depth
-                print(len(post_ffn_per_layer))        # should equal action_expert_config.depth
-                print(post_ffn_per_layer[0].shape)    # (B, T_action, D_action)
+                if post_ffn_list:
+                    
+                    post_ffn_array = np.stack(post_ffn_list, axis=0)
 
-                # You can stack them into an array (layers, B, T, D):
-                post_ffn_array = np.stack(post_ffn_per_layer, axis=0)
-                print(post_ffn_array.shape)           # (L, B, T_action, D_action)
+                    NUM_LAYERS = 18  # e.g., gemma_300m / gemma_f needed
+
+                    assert post_ffn_array.shape[0] % NUM_LAYERS == 0, (
+                        "Mismatch between number of recorded activations "
+                        "and assumed number of layers"
+                    )
+                    num_diff_steps = post_ffn_array.shape[0] // NUM_LAYERS
+                    B, D = post_ffn_array.shape[1:]
+                    post_ffn_array = post_ffn_array.reshape(
+                        num_diff_steps, NUM_LAYERS, B, D
+                    )
+
+                    # Keep only the **last diffusion step**: shape (num_layers, B, T, D)
+                    last_step_acts = post_ffn_array[-1]  # (L, B, T, D)
+
+                    # Append to episode buffer: time_step axis grows here
+                    episode_activations.append(last_step_acts)
+
+                    logger.info(
+                        "Recorded activations for episode %s, timestep %d "
+                        "(last diffusion step, %d layers, B=%d, D=%d)",
+                        episode_id,
+                        len(episode_activations) - 1,
+                        NUM_LAYERS,
+                        B,
+                        D,
+                    )
                 ###
 
                 action["server_timing"] = {
@@ -103,6 +170,23 @@ class WebsocketPolicyServer:
                 )
                 raise
 
+        flush_episode(current_episode_id, episode_activations)
+        # if episode_activations:
+        #     ep_array = np.stack(episode_activations, axis=0)
+        #     # ep_array shape: (time_steps, num_layers, B, T, D)
+
+        #     save_path = os.path.join(
+        #         ACT_SAVE_DIR,
+        #         f"episode_{episode_id:04d}_post_ffn_last_step.npy",
+        #     )
+        #     np.save(save_path, ep_array)
+        #     logger.info(
+        #         "Saved activations for episode %d to %s "
+        #         "(shape=%s: time_steps x layers x B x tokens x dim)",
+        #         episode_id,
+        #         save_path,
+        #         ep_array.shape,
+        #     )
 
 def _health_check(connection: _server.ServerConnection, request: _server.Request) -> _server.Response | None:
     if request.path == "/healthz":

@@ -300,7 +300,6 @@ def _record_action_activation(tag, x):
     `x` is the (B, T, D) activation tensor for the action expert.
     """
     def _cb(x_np, *, result=None):
-        # x_np is a NumPy array on the host.
         # You can store/print/log as you like here.
         # Example: append to a dict keyed by tag.
         global _request_counter, _layer_counter
@@ -309,22 +308,12 @@ def _record_action_activation(tag, x):
         if tag not in _layer_counter:
             _layer_counter[tag] = 0
 
-        # Where to save
-        save_path = os.path.join(
-            ACT_SAVE_DIR,
-            f"req{_request_counter:06d}_{tag}_{_layer_counter[tag]:03d}.npy"
-        )
 
-        # Save activation to disk
-        np.save(save_path, x_np)
-
-        # Increment counters
         _layer_counter[tag] += 1
+    
+        ACTION_EXPERT_ACTS.setdefault(tag, []).append(x_np[:, 0])
 
-        # Also store in RAM for debugging (optional)
-        ACTION_EXPERT_ACTS.setdefault(tag, []).append(x_np)
-
-        print(f"[GEMMA SAVE] {tag} -> {save_path} shape={x_np.shape}", flush=True)
+        
 
     jax_debug.callback(_cb, x)
 

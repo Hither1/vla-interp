@@ -138,6 +138,7 @@ def eval_libero(args: Args) -> None:
                                 )
                             ),
                             "prompt": str(task_description),
+                            "episode_id": f"task{task_id}_ep{episode_idx}", 
                         }
 
                         # Query model to get action
