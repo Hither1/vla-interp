@@ -118,7 +118,11 @@ class WebsocketPolicyServer:
 
                 if post_ffn_list:
                     
-                    post_ffn_array = np.stack(post_ffn_list, axis=0)
+                    post_ffn_array = np.stack(
+                        [np.asarray(x, dtype=np.float32) for x in post_ffn_list],
+                        axis=0,
+                    )
+                    print(post_ffn_array)
 
                     NUM_LAYERS = 18  # e.g., gemma_300m / gemma_f needed
 
@@ -171,22 +175,6 @@ class WebsocketPolicyServer:
                 raise
 
         flush_episode(current_episode_id, episode_activations)
-        # if episode_activations:
-        #     ep_array = np.stack(episode_activations, axis=0)
-        #     # ep_array shape: (time_steps, num_layers, B, T, D)
-
-        #     save_path = os.path.join(
-        #         ACT_SAVE_DIR,
-        #         f"episode_{episode_id:04d}_post_ffn_last_step.npy",
-        #     )
-        #     np.save(save_path, ep_array)
-        #     logger.info(
-        #         "Saved activations for episode %d to %s "
-        #         "(shape=%s: time_steps x layers x B x tokens x dim)",
-        #         episode_id,
-        #         save_path,
-        #         ep_array.shape,
-        #     )
 
 def _health_check(connection: _server.ServerConnection, request: _server.Request) -> _server.Response | None:
     if request.path == "/healthz":

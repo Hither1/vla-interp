@@ -310,7 +310,7 @@ def _record_action_activation(tag, x):
 
 
         _layer_counter[tag] += 1
-    
+   
         ACTION_EXPERT_ACTS.setdefault(tag, []).append(x_np[:, 0])
 
         
