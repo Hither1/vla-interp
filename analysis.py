@@ -35,28 +35,19 @@ print("Number of layers:", num_layers)
 print("Feature dimension d:", d)
 
 # ---- training config ----
-batch_size = 1024
-lr = 5e-4
-nb_epochs = 500
+
+
 device = "cuda"
 
 
 
-# containers for logs
-all_loss_logs = {}  # layer_idx -> [loss_t]
-all_r2_logs = {}    # layer_idx -> [r2_t]
-
-# optional: store trained SAEs if you want to reuse them later
 trained_saes = {}   # layer_idx -> sae
 
-for layer_idx in range(num_layers):
-    print(f"\n===== Training SAE for layer {layer_idx} =====")
+
 
     # select activations for this layer: shape (N_total, d)
     layer_acts = torch.squeeze(Activations[:, layer_idx, :])
 
-
-    # dataloader
     dataloader = DataLoader(
         TensorDataset(layer_acts),
         batch_size=batch_size,
@@ -79,8 +70,6 @@ for layer_idx in range(num_layers):
     )
 
     # adapt these key names if your train_sae returns something different
-    layer_loss = logs["loss"]           # iterable over training steps/epochs
-    layer_r2 = logs["r2"]               # iterable over training steps/epochs
 
     all_loss_logs[layer_idx] = layer_loss
     all_r2_logs[layer_idx] = layer_r2
