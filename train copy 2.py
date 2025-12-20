@@ -40,9 +40,7 @@ lr = 5e-4
 nb_epochs = 500
 device = "cuda"
 
-def criterion(x, x_hat, pre_codes, codes, dictionary):
-    mse = (x - x_hat).square().mean()
-    return mse
+
 
 # containers for logs
 all_loss_logs = {}  # layer_idx -> [loss_t]

@@ -13,6 +13,7 @@ from openpi_client import image_tools
 from openpi_client import websocket_client_policy as _websocket_client_policy
 import tqdm
 import tyro
+import json
 
 LIBERO_DUMMY_ACTION = [0.0] * 6 + [-1.0]
 LIBERO_ENV_RESOLUTION = 256  # resolution used to render training data
@@ -35,7 +36,7 @@ class Args:
         "libero_spatial"  # Task suite. Options: libero_spatial, libero_object, libero_goal, libero_10, libero_90
     )
     num_steps_wait: int = 10  # Number of steps to wait for objects to stabilize i n sim
-    num_trials_per_task: int = 50  # Number of rollouts per task
+    num_trials_per_task: int = 20  # Number of rollouts per task
 
     #################################################################################################################
     # Utils
@@ -88,10 +89,11 @@ def eval_libero(args: Args) -> None:
         task_episodes, task_successes = 0, 0
         for episode_idx in tqdm.tqdm(range(args.num_trials_per_task)):
             logging.info(f"\nTask: {task_description}")
-
+             
             # Reset environment
             env.reset()
             action_plan = collections.deque()
+            action_log = []
 
             # Set initial states
             obs = env.set_init_state(initial_states[episode_idx])
@@ -152,6 +154,14 @@ def eval_libero(args: Args) -> None:
 
                     # Execute action in environment
                     obs, reward, done, info = env.step(action.tolist())
+                    action_log.append({
+                        "t": t,
+                        "kind": "policy",
+                        "action": np.asarray(action, dtype=np.float32).tolist(),
+                        "reward": reward,   # fill after step if you want
+                        "done": done,
+                    })
+
                     if done:
                         task_successes += 1
                         total_successes += 1
@@ -169,10 +179,28 @@ def eval_libero(args: Args) -> None:
             suffix = "success" if done else "failure"
             task_segment = task_description.replace(" ", "_")
             imageio.mimwrite(
-                pathlib.Path(args.video_out_path) / f"rollout_{task_segment}_{suffix}.mp4",
+                pathlib.Path(args.video_out_path) / f"rollout_{task_segment}_trial{episode_idx}_{suffix}.mp4",
                 [np.asarray(x) for x in replay_images],
                 fps=10,
             )
+
+            actions_path = (
+                pathlib.Path(args.video_out_path)
+                / f"actions_{task_segment}_trial{episode_idx}_{suffix}.json"
+            )
+            with open(actions_path, "w") as f:
+                json.dump(
+                    {
+                        "task_id": int(task_id),
+                        "trial_id": int(episode_idx),
+                        "seed": int(args.seed),
+                        "task_description": str(task_description),
+                        "success": bool(done),
+                        "actions": action_log,
+                    },
+                    f,
+                    indent=2,
+                )
 
             # Log current results
             logging.info(f"Success: {done}")
