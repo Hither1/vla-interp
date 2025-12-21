@@ -33,7 +33,7 @@ class Args:
     # LIBERO environment-specific parameters
     #################################################################################################################
     task_suite_name: str = (
-        "libero_10"  # Task suite. Options: libero_spatial, libero_object, libero_goal, libero_10, libero_90
+        "libero_90"  # Task suite. Options: libero_spatial, libero_object, libero_goal, libero_10, libero_90
     )
     num_steps_wait: int = 10  # Number of steps to wait for objects to stabilize i n sim
     num_trials_per_task: int = 20  # Number of rollouts per task
@@ -41,7 +41,7 @@ class Args:
     #################################################################################################################
     # Utils
     #################################################################################################################
-    video_out_path: str = "data/libero/videos"  # Path to save videos
+    video_out_path: str = f"data/libero/{task_suite_name.split('_')[1]}/videos"  # Path to save videos
 
     seed: int = 7  # Random Seed (for reproducibility)
 

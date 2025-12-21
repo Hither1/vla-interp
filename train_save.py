@@ -11,7 +11,7 @@ from overcomplete.sae import TopKSAE, train_sae
 # Config
 # -------------------------
 npy_dir = "/n/netscratch/sham_lab/Lab/chloe00/pi0_activations"
-layer_idx = 13                 # Come from earlier analysis
+layer_idx = 11                 # Come from earlier analysis
 batch_size = 1024
 lr = 5e-4
 nb_epochs = 500
@@ -27,9 +27,18 @@ ckpt_path = os.path.join(ckpt_dir, f"sae_layer{layer_idx}_k{top_k}_c{nb_concepts
 # -------------------------
 # Load + concatenate .npy
 # -------------------------
+
 pattern = os.path.join(npy_dir, "*.npy")
-npy_paths = sorted(glob.glob(pattern))
-assert len(npy_paths) > 0, f"No .npy files found in {npy_dir}"
+all_paths = glob.glob(pattern)
+
+npy_paths = sorted(
+    p for p in all_paths
+    if not os.path.basename(p).startswith("libero_90")
+)
+
+assert len(npy_paths) > 0, (
+    f"No .npy files found in {npy_dir} after excluding 'libero_90*'"
+)
 
 all_embeds = []
 for npy_path in npy_paths:
@@ -95,7 +104,7 @@ ckpt = {
     "nb_epochs": nb_epochs,
     "model_state_dict": sae.state_dict(),
     "optimizer_state_dict": optimizer.state_dict(),
-    "logs": logs,  # keep if it’s JSON/pickle-able; otherwise delete this line
+    "logs": logs,  # otherwise delete this line
 }
 
 torch.save(ckpt, ckpt_path)
