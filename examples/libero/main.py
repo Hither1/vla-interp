@@ -33,7 +33,7 @@ class Args:
     # LIBERO environment-specific parameters
     #################################################################################################################
     task_suite_name: str = (
-        "libero_spatial"  # Task suite. Options: libero_spatial, libero_object, libero_goal, libero_10, libero_90
+        "libero_10"  # Task suite. Options: libero_spatial, libero_object, libero_goal, libero_10, libero_90
     )
     num_steps_wait: int = 10  # Number of steps to wait for objects to stabilize i n sim
     num_trials_per_task: int = 20  # Number of rollouts per task
@@ -44,6 +44,16 @@ class Args:
     video_out_path: str = "data/libero/videos"  # Path to save videos
 
     seed: int = 7  # Random Seed (for reproducibility)
+
+
+def _json_default(o):
+    # numpy scalars -> python scalars
+    if isinstance(o, np.generic):
+        return o.item()
+    # numpy arrays -> lists
+    if isinstance(o, np.ndarray):
+        return o.tolist()
+    raise TypeError(f"Object of type {type(o).__name__} is not JSON serializable")
 
 
 def eval_libero(args: Args) -> None:
@@ -200,6 +210,7 @@ def eval_libero(args: Args) -> None:
                     },
                     f,
                     indent=2,
+                    default=_json_default
                 )
 
             # Log current results

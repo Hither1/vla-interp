@@ -69,10 +69,12 @@ class WebsocketPolicyServer:
         await websocket.send(packer.pack(self._metadata))
 
         prev_total_time = None
-
-
         current_episode_id = None
         episode_activations = []  # list of (num_layers, B, T, D), one per env step
+
+        task_suite_name: str = (
+            "libero_10"  # Task suite. Options: libero_spatial, libero_object, libero_goal, libero_10, libero_90
+        )
 
         def flush_episode(episode_id, acts_list):
             """Save all timesteps of one episode into a single file."""
@@ -81,7 +83,7 @@ class WebsocketPolicyServer:
             ep_array = np.stack(acts_list, axis=0)  # (time_steps, L, B, T, D)
             save_path = os.path.join(
                 ACT_SAVE_DIR,
-                f"{episode_id}_post_ffn_last_step.npy",
+                f"{task_suite_name}_{episode_id}_post_ffn_last_step.npy",
             )
             np.save(save_path, ep_array)
             logger.info(
