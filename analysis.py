@@ -1,75 +1,325 @@
-import os, glob, json, math, subprocess
-from collections import defaultdict, Counter
-
+import os, glob, json, re
+from dataclasses import dataclass
+from collections import Counter, defaultdict
 import numpy as np
 import torch
 
-# Optional: use decord (fast) or opencv for frames
-try:
-    import decord
-    from decord import VideoReader, cpu
-    HAVE_DECORD = True
-except Exception:
-    HAVE_DECORD = False
+# ---- video frame extraction (choose one) ----
+# OpenCV
+import cv2
 
-from overcomplete.sae import TopKSAE
+# Option B: decord (often faster / cleaner indexing)
+# from decord import VideoReader, cpu
 
-# -----------------------------
-# Config
-# -----------------------------
-device = "cuda"
-ckpt_path = "/path/to/sae_checkpoint.pt"  # TODO
-npy_dir   = "/n/netscratch/sham_lab/Lab/chloe00/pi0_activations"  # your activations
-data_root = "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero"
+from overcomplete.sae import TopKSAE  # assumes same as your training
 
-# Choose which layer’s activations to analyze (if you have per-layer activations)
-LAYER_IDX = 0
+# =========================
+# 0) Libero task map
+# =========================
 
-# How many top examples per concept to keep (for frames/clips + summaries)
-TOP_M = 200
+libero_task_map = {
+    "libero_spatial": [
+        "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate",
+        "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate",
+        "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate",
+        "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate",
+        "pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate",
+        "pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate",
+        "pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate",
+        "pick_up_the_black_bowl_on_the_stove_and_place_it_on_the_plate",
+        "pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate",
+        "pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate",
+    ],
+    "libero_object": [
+        "pick_up_the_alphabet_soup_and_place_it_in_the_basket",
+        "pick_up_the_cream_cheese_and_place_it_in_the_basket",
+        "pick_up_the_salad_dressing_and_place_it_in_the_basket",
+        "pick_up_the_bbq_sauce_and_place_it_in_the_basket",
+        "pick_up_the_ketchup_and_place_it_in_the_basket",
+        "pick_up_the_tomato_sauce_and_place_it_in_the_basket",
+        "pick_up_the_butter_and_place_it_in_the_basket",
+        "pick_up_the_milk_and_place_it_in_the_basket",
+        "pick_up_the_chocolate_pudding_and_place_it_in_the_basket",
+        "pick_up_the_orange_juice_and_place_it_in_the_basket",
+    ],
+    "libero_goal": [
+        "open_the_middle_drawer_of_the_cabinet",
+        "put_the_bowl_on_the_stove",
+        "put_the_wine_bottle_on_top_of_the_cabinet",
+        "open_the_top_drawer_and_put_the_bowl_inside",
+        "put_the_bowl_on_top_of_the_cabinet",
+        "push_the_plate_to_the_front_of_the_stove",
+        "put_the_cream_cheese_in_the_bowl",
+        "turn_on_the_stove",
+        "put_the_bowl_on_the_plate",
+        "put_the_wine_bottle_on_the_rack",
+    ],
+    "libero_10": [
+        "LIVING_ROOM_SCENE2_put_both_the_alphabet_soup_and_the_tomato_sauce_in_the_basket",
+        "LIVING_ROOM_SCENE2_put_both_the_cream_cheese_box_and_the_butter_in_the_basket",
+        "KITCHEN_SCENE3_turn_on_the_stove_and_put_the_moka_pot_on_it",
+        "KITCHEN_SCENE4_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it",
+        "LIVING_ROOM_SCENE5_put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate",
+        "STUDY_SCENE1_pick_up_the_book_and_place_it_in_the_back_compartment_of_the_caddy",
+        "LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate_and_put_the_chocolate_pudding_to_the_right_of_the_plate",
+        "LIVING_ROOM_SCENE1_put_both_the_alphabet_soup_and_the_cream_cheese_box_in_the_basket",
+        "KITCHEN_SCENE8_put_both_moka_pots_on_the_stove",
+        "KITCHEN_SCENE6_put_the_yellow_and_white_mug_in_the_microwave_and_close_it",
+    ],
+    # libero_90 omitted here for brevity; keep yours
+}
 
-# Define "active" threshold if your SAE can output small nonzeros.
-# For TopK SAEs, codes are typically sparse with exact zeros; threshold=0 is fine.
-ACT_THRESH = 0.0
+# =========================
+# 1) Customize these parsers
+# =========================
 
-# Clip settings
-SAVE_DIR = "concept_viz"
-os.makedirs(SAVE_DIR, exist_ok=True)
-CLIP_HALF_SECONDS = 1.5  # save ~3s clip around peak timestep
-FPS_FALLBACK = 30.0
-
-# -----------------------------
-# Helpers
-# -----------------------------
-def stem(p):
-    return os.path.splitext(os.path.basename(p))[0]
-
-def safe_read_json(path):
-    with open(path, "r") as f:
-        return json.load(f)
-
-def list_split_names(root):
-    # returns ["10","goal","object","spatial"] etc (subdirs only)
-    return [d for d in sorted(os.listdir(root)) if os.path.isdir(os.path.join(root, d))]
-
-def build_episode_index(data_root):
+def parse_episode_id_from_actions_json(path: str) -> str:
     """
-    Build mapping: episode_stem -> dict(split, json_path, mp4_path)
+    Return a stable episode id that also matches video filename and activation npy filename.
+    Common pattern: {stem}.json and {stem}.mp4 and {stem}.npy
     """
-    idx = {}
-    for split in list_split_names(data_root):
-        actions_dir = os.path.join(data_root, split, "actions")
-        videos_dir  = os.path.join(data_root, split, "videos")
-        jsons = glob.glob(os.path.join(actions_dir, "*.json"))
-        for jp in jsons:
-            s = stem(jp)
-            mp4 = os.path.join(videos_dir, s + ".mp4")
-            if os.path.exists(mp4):
-                idx[s] = {"split": split, "json": jp, "mp4": mp4}
-    return idx
+    return os.path.splitext(os.path.basename(path))[0]
 
-def load_sae(ckpt_path, device="cuda"):
-    ckpt = torch.load(ckpt_path, map_location="cpu")
+def parse_episode_id_from_video(path: str) -> str:
+    return os.path.splitext(os.path.basename(path))[0]
+
+def parse_episode_id_from_activation_npy(path: str) -> str:
+    """
+    IMPORTANT: customize if your activation filenames include extra suffixes.
+    Example:
+      pi0_activations/libero_goal_ep000123.npy -> "libero_goal_ep000123"
+      or libero_goal/ep000123.npy -> "ep000123"
+    """
+    return os.path.splitext(os.path.basename(path))[0]
+
+def prompt_for_group_and_episode(group_name: str, episode_id: str) -> str:
+    """
+    If your episode id encodes which task index it is, parse it here.
+    Otherwise, fall back to 'unknown' or store the group only.
+
+    Common Libero setup: episodes are grouped by task (10 tasks per group).
+    If you have metadata elsewhere, swap this to use that.
+    """
+    # Minimal default: just return group name (you can improve later)
+    # Better: if episode_id ends with something like "_task03", map to index 3.
+    m = re.search(r"task(\d+)", episode_id)
+    if m:
+        idx = int(m.group(1))
+        key = f"libero_{group_name}" if not group_name.startswith("libero_") else group_name
+        if key in libero_task_map and 0 <= idx < len(libero_task_map[key]):
+            return libero_task_map[key][idx]
+    # fallback: unknown prompt
+    return f"{group_name}:unknown_prompt"
+
+# =========================
+# 2) Data indexing
+# =========================
+
+@dataclass
+class Episode:
+    group: str
+    episode_id: str
+    actions_path: str
+    video_path: str
+    prompt: str
+    act_path: str  # activation npy path
+
+def index_libero_dataset(
+    data_root: str,
+    activations_root: str,
+    groups=("10", "goal", "object", "spatial"),
+):
+    # Build maps from episode_id -> path for actions/videos
+    actions_map = {}
+    video_map = {}
+    for g in groups:
+        actions_dir = os.path.join(data_root, g, "actions")
+        videos_dir = os.path.join(data_root, g, "videos")
+
+        for p in sorted(glob.glob(os.path.join(actions_dir, "*.json"))):
+            eid = parse_episode_id_from_actions_json(p)
+            actions_map[(g, eid)] = p
+
+        for p in sorted(glob.glob(os.path.join(videos_dir, "*.mp4"))):
+            eid = parse_episode_id_from_video(p)
+            video_map[(g, eid)] = p
+
+    # Activation files (likely separate folder). Build by episode_id only,
+    # or if your filename includes group, parse that and include it.
+    act_paths = sorted(glob.glob(os.path.join(activations_root, "*.npy")))
+    act_map = {}
+    for p in act_paths:
+        eid = parse_episode_id_from_activation_npy(p)
+        act_map[eid] = p
+
+    episodes = []
+    
+    for (g, eid), a_path in actions_map.items():
+        v_path = video_map.get((g, eid.replace('actions', 'rollout')), None)
+        
+        num = int(re.search(r'\d+', eid).group())
+        eid = eid.replace('actions_', '').split("_trial")[0]
+
+        task = next((i for i, s in enumerate(libero_task_map[f'libero_{g}']) if eid in s), -1) 
+        act_path = act_map.get(f'task{task}_ep{num}_post_ffn_last_step', None)
+        # if v_path is None or act_path is None:
+        #     continue
+        prompt = prompt_for_group_and_episode(g, eid)
+        episodes.append(Episode(g, eid, a_path, v_path, prompt, act_path))
+
+    print(f"Indexed {len(episodes)} matched episodes.")
+    return episodes
+
+# =========================
+# 3) Actions loader (customize to your json schema)
+# =========================
+def _is_num(x):
+    return isinstance(x, (int, float, np.integer, np.floating)) and np.isfinite(x)
+
+def _as_float_vec(x):
+    """Try convert x into a 1D float32 vector; return None if impossible."""
+    if isinstance(x, np.ndarray):
+        if x.ndim == 1 and np.issubdtype(x.dtype, np.number):
+            return x.astype(np.float32)
+        return None
+    if isinstance(x, (list, tuple)) and len(x) > 0 and all(_is_num(v) for v in x):
+        return np.asarray(x, dtype=np.float32)
+    return None
+
+def _find_action_in_dict(d):
+    """
+    Heuristics: try common keys, else find first list-of-numbers value (possibly nested one level).
+    Returns np.float32 vector or None.
+    """
+    # common keys in robotics logs
+    candidate_keys = [
+        "action", "actions",
+        "robot_action", "robot_actions",
+        "ctrl", "control", "command",
+        "ee_action", "ee_delta", "delta",
+    ]
+
+    for k in candidate_keys:
+        if k in d:
+            v = d[k]
+            vec = _as_float_vec(v)
+            if vec is not None:
+                return vec
+            # sometimes nested: {"action": {"arm": [...], "gripper": ...}}
+            if isinstance(v, dict):
+                # try flatten common nested patterns
+                for kk, vv in v.items():
+                    vec2 = _as_float_vec(vv)
+                    if vec2 is not None:
+                        return vec2
+
+    # fallback: search any value that looks like a numeric vector (including one-level nested dicts)
+    for v in d.values():
+        vec = _as_float_vec(v)
+        if vec is not None:
+            return vec
+        if isinstance(v, dict):
+            for vv in v.values():
+                vec2 = _as_float_vec(vv)
+                if vec2 is not None:
+                    return vec2
+
+    return None
+
+def load_actions(actions_json_path: str) -> np.ndarray:
+    """
+    Returns actions as float array (T, action_dim).
+    Supports:
+      - {"actions": [[...], ...]}
+      - {"actions": [{...}, {...}, ...]}
+      - [[...], ...]
+      - [{...}, {...}, ...]   (list of dict per timestep)
+    """
+    with open(actions_json_path, "r") as f:
+        obj = json.load(f)
+
+    # Case 1: dict container
+    if isinstance(obj, dict):
+        if "actions" in obj:
+            obj = obj["actions"]
+        else:
+            # sometimes a single dict per episode with timesteps elsewhere; add your key here if needed
+            raise ValueError(f"Dict JSON without 'actions' key in {actions_json_path}")
+
+    # Case 2: list container
+    if isinstance(obj, list):
+        if len(obj) == 0:
+            return np.zeros((0, 0), dtype=np.float32)
+
+        # list of vectors
+        if isinstance(obj[0], (list, tuple, np.ndarray)):
+            acts = np.asarray(obj, dtype=np.float32)
+            if acts.ndim != 2:
+                raise ValueError(f"Expected (T, action_dim) from list-of-vectors; got {acts.shape} in {actions_json_path}")
+            return acts
+
+        # list of dicts (your case)
+        if isinstance(obj[0], dict):
+            rows = []
+            for i, step in enumerate(obj):
+                vec = _find_action_in_dict(step)
+                if vec is None:
+                    raise ValueError(
+                        f"Could not find numeric action vector at step {i} in {actions_json_path}. "
+                        f"Keys were: {list(step.keys())[:30]}"
+                    )
+                rows.append(vec)
+
+            # ensure consistent action_dim
+            dim0 = rows[0].shape[0]
+            for i, v in enumerate(rows):
+                if v.shape[0] != dim0:
+                    raise ValueError(
+                        f"Inconsistent action_dim in {actions_json_path}: step0={dim0}, step{i}={v.shape[0]}"
+                    )
+            return np.stack(rows, axis=0).astype(np.float32)
+
+    raise ValueError(f"Unrecognized action json schema in {actions_json_path}: type={type(obj)}")
+
+# =========================
+# 4) Video frame extraction
+# =========================
+
+def get_frame_opencv(video_path: str, frame_idx: int):
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise RuntimeError(f"Could not open video: {video_path}")
+    cap.set(cv2.CAP_PROP_POS_FRAMES, int(frame_idx))
+    ok, frame_bgr = cap.read()
+    cap.release()
+    if not ok:
+        return None
+    frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+    return frame_rgb
+
+def save_frame_png(rgb: np.ndarray, out_path: str):
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+    cv2.imwrite(out_path, bgr)
+
+
+
+
+
+def mine_concepts(
+    ckpt_path: str,
+    data_root: str,
+    activations_root: str,
+    out_dir: str,
+    layer_idx: int,
+    top_m: int = 50,          # top frames per concept (global)
+    per_concept_save_k: int = 16,  # save top K frame images per concept
+    device: str = "cuda",
+):
+    os.makedirs(out_dir, exist_ok=True)
+
+    # ---- load SAE checkpoint ----
+    ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
     sae = TopKSAE(
         ckpt["d"],
         nb_concepts=ckpt["nb_concepts"],
@@ -78,281 +328,151 @@ def load_sae(ckpt_path, device="cuda"):
     )
     sae.load_state_dict(ckpt["model_state_dict"])
     sae.eval().to(device)
-    return sae, ckpt
 
-def sae_encode(sae, x):
-    """
-    Returns concept codes / activations for x.
-    This depends on your TopKSAE API. Common patterns:
-      - sae.encode(x) -> codes
-      - sae(x) -> (recon, codes) or dict
-    Adjust this function to your implementation.
-    """
-    with torch.no_grad():
-        out = sae(x)
-    # ---- ADJUST HERE if your SAE returns a tuple/dict ----
-    # Try common conventions:
-    if isinstance(out, tuple) and len(out) == 2:
-        recon, codes = out
-        return codes
-    if isinstance(out, dict) and "codes" in out:
-        return out["codes"]
-    # If out is already codes:
-    return out
+    nb_concepts = ckpt["nb_concepts"]
+    print(f"Loaded SAE: nb_concepts={nb_concepts}, d={ckpt['d']}, top_k={ckpt['top_k']}")
 
-def discretize_action(a, decimals=2):
-    """
-    For continuous actions: bucket by rounding so "most common action" makes sense.
-    You can replace this with clustering later.
-    """
-    a = np.asarray(a)
-    return tuple(np.round(a, decimals=decimals).tolist())
+    episodes = index_libero_dataset(data_root=data_root, activations_root=activations_root)
 
-def extract_prompt(meta):
-    """
-    Try common keys for language instruction. Adjust if your JSON schema differs.
-    """
-    for k in ["language", "instruction", "goal", "prompt", "task_description", "natural_language_instruction"]:
-        if k in meta and isinstance(meta[k], str):
-            return meta[k]
-    # Sometimes nested
-    if "metadata" in meta and isinstance(meta["metadata"], dict):
-        for k in ["language", "instruction", "goal", "prompt"]:
-            if k in meta["metadata"] and isinstance(meta["metadata"][k], str):
-                return meta["metadata"][k]
-    return None
+    # For each concept: maintain a list of (score, meta...)
+    # For simplicity: store all candidates then take top at end.
+    concept_hits = [[] for _ in range(nb_concepts)]
 
-def extract_actions_sequence(meta):
-    """
-    Try to extract actions as a list/array of shape (T, act_dim).
-    Adjust depending on your JSON format.
-    """
-    for k in ["actions", "action", "robot_actions"]:
-        if k in meta:
-            return meta[k]
-    if "trajectory" in meta and isinstance(meta["trajectory"], dict) and "actions" in meta["trajectory"]:
-        return meta["trajectory"]["actions"]
-    return None
+    # Also prompt counts among top hits (computed after selecting top)
+    # and action stats among top hits.
+    for ep in episodes:
+        acts = load_actions(ep.actions_path)  # (T_a, action_dim)
+        A = np.load(ep.act_path).astype(np.float32)
 
-def get_video_fps_and_len(mp4_path):
-    """
-    If you have decord, use it. Otherwise fallback to FPS_FALLBACK and unknown length.
-    """
-    if HAVE_DECORD:
-        vr = VideoReader(mp4_path, ctx=cpu(0))
-        # decord doesn't always expose fps cleanly; approximate via metadata if available
-        # We'll use fallback fps but get number of frames.
-        nframes = len(vr)
-        return FPS_FALLBACK, nframes
-    return FPS_FALLBACK, None
+        # Expect A shape something like (T, num_layers, d) or (T, num_layers, 1, d)
+        if A.ndim == 4:
+            # (T, num_layers, 1, d) -> squeeze
+            A = A.squeeze(-2)
+        if A.ndim != 3:
+            raise ValueError(f"Unexpected activation shape {A.shape} in {ep.act_path}")
 
-def timestep_to_seconds(t, T, mp4_path):
-    fps, nframes = get_video_fps_and_len(mp4_path)
-    if nframes is not None and T is not None and T > 0:
-        # map timestep to approximate frame index
-        frame_idx = int(round((t / (T - 1)) * max(nframes - 1, 0)))
-        return frame_idx / fps
-    # fallback: treat timestep as frame index
-    return t / fps
+        T, num_layers, d = A.shape
+        if layer_idx < 0 or layer_idx >= num_layers:
+            raise ValueError(f"layer_idx {layer_idx} out of range [0, {num_layers-1}]")
 
-def save_clip_ffmpeg(mp4_in, t_center, out_path, half_seconds=1.5):
-    t0 = max(t_center - half_seconds, 0.0)
-    dur = 2 * half_seconds
-    cmd = [
-        "ffmpeg", "-y",
-        "-ss", f"{t0:.3f}",
-        "-i", mp4_in,
-        "-t", f"{dur:.3f}",
-        "-c:v", "libx264",
-        "-crf", "18",
-        "-preset", "veryfast",
-        "-an",
-        out_path
-    ]
-    subprocess.run(cmd, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # align lengths (very common mismatch: actions length vs frames length)
+        T_use = min(T, acts.shape[0])
+        if T_use <= 0:
+            continue
 
-def save_frame(mp4_path, t_seconds, out_png):
-    if HAVE_DECORD:
-        vr = VideoReader(mp4_path, ctx=cpu(0))
-        fps = FPS_FALLBACK
-        frame_idx = int(round(t_seconds * fps))
-        frame_idx = max(0, min(frame_idx, len(vr) - 1))
-        frame = vr[frame_idx].asnumpy()  # HWC RGB
-        import imageio
-        imageio.imwrite(out_png, frame)
-        return True
-    else:
-        # ffmpeg one-frame extraction
-        cmd = [
-            "ffmpeg", "-y",
-            "-ss", f"{t_seconds:.3f}",
-            "-i", mp4_path,
-            "-frames:v", "1",
-            out_png
-        ]
-        subprocess.run(cmd, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        return os.path.exists(out_png)
+        x = torch.from_numpy(A[:T_use, layer_idx, :]).to(device)  # (T_use, d)
+        # import pdb; pdb.set_trace()
+        with torch.no_grad():
+            pre_codes, codes = sae.encode(x)
+        codes = codes.detach().float()
 
-# -----------------------------
-# Main: load metadata and activations
-# -----------------------------
-episode_idx = build_episode_index(data_root)
-print(f"Indexed {len(episode_idx)} episodes with both json+mp4.")
+        # score: activation magnitude (TopK usually nonnegative, but be safe)
+        scores = codes.abs()
 
-npy_paths = sorted(glob.glob(os.path.join(npy_dir, "*.npy")))
-print(f"Found {len(npy_paths)} activation files.")
+        # For each t, for the few nonzero concepts, record hits.
+        # If codes is dense, this is heavy; but TopK should be sparse-ish.
+        # We’ll just take top-k concepts at each timestep as candidates.
+        per_t_top = torch.topk(scores, k=min(ckpt["top_k"], nb_concepts), dim=1)
+        top_vals = per_t_top.values.cpu().numpy()
+        top_ids = per_t_top.indices.cpu().numpy()
 
-sae, ckpt = load_sae(ckpt_path, device=device)
-nb_concepts = ckpt["nb_concepts"]
-print(f"Loaded SAE: d={ckpt['d']} concepts={nb_concepts} top_k={ckpt['top_k']}")
+        for t in range(T_use):
+            for j in range(top_ids.shape[1]):
+                c = int(top_ids[t, j])
+                s = float(top_vals[t, j])
+                if s <= 0:
+                    continue
+                concept_hits[c].append({
+                    "score": s,
+                    "group": ep.group,
+                    "episode_id": ep.episode_id,
+                    "t": t,
+                    "prompt": ep.prompt,
+                    "action": acts[t].astype(np.float32),
+                    "video_path": ep.video_path,
+                })
 
-# For each concept: keep top examples by activation value
-# Store: (score, episode_stem, t, split, json_path, mp4_path, prompt, action_token)
-top_examples = {c: [] for c in range(nb_concepts)}
+    # ---- post-process each concept ----
+    summaries = {}
 
-# Also aggregate counts
-concept_action_counts = [Counter() for _ in range(nb_concepts)]
-concept_prompt_counts = [Counter() for _ in range(nb_concepts)]
-
-def push_topk(lst, item, k):
-    # keep largest k by score
-    lst.append(item)
-    lst.sort(key=lambda x: x[0], reverse=True)
-    if len(lst) > k:
-        lst.pop()
-
-for npy_path in npy_paths:
-    ep = stem(npy_path)
-    if ep not in episode_idx:
-        # If this happens a lot, your naming isn’t aligned.
-        # You can print and later implement a mapping strategy.
-        continue
-
-    meta_paths = episode_idx[ep]
-    meta = safe_read_json(meta_paths["json"])
-    prompt = extract_prompt(meta)
-    actions_seq = extract_actions_sequence(meta)
-
-    A = np.load(npy_path).astype(np.float32)
-
-    # ---- SHAPE HANDLING ----
-    # Common possibilities:
-    #   (T, d)                          -> single layer already
-    #   (T, num_layers, d)              -> per timestep per layer
-    #   (T, num_layers, 1, d) or similar
-    #
-    # Adapt below to your true shape.
-    if A.ndim == 2:
-        # (T, d)
-        X = A
-        T = X.shape[0]
-    elif A.ndim == 3:
-        # (T, num_layers, d)
-        T = A.shape[0]
-        X = A[:, LAYER_IDX, :]
-    elif A.ndim == 4:
-        # e.g. (T, num_layers, ?, d) -> squeeze middle dims
-        T = A.shape[0]
-        X = A[:, LAYER_IDX, ...]
-        X = X.reshape(T, -1)
-    else:
-        raise ValueError(f"Unexpected activation shape {A.shape} in {npy_path}")
-
-    # actions_seq alignment: expect len(actions_seq)==T or close
-    # If actions are stored as dicts, or one action per timestep, adjust discretize.
-    def get_action_token(t):
-        if actions_seq is None:
-            return None
-        if isinstance(actions_seq, list) and len(actions_seq) > 0:
-            tt = min(t, len(actions_seq) - 1)
-            a = actions_seq[tt]
-            # a can be list[float] or dict; handle both
-            if isinstance(a, dict) and "action" in a:
-                a = a["action"]
-            if isinstance(a, (list, tuple, np.ndarray)):
-                return discretize_action(a, decimals=2)
-            if isinstance(a, str):
-                return a
-        return None
-
-    # SAE encode in chunks to avoid OOM
-    bs = 4096
-    for start in range(0, T, bs):
-        end = min(T, start + bs)
-        xb = torch.from_numpy(X[start:end]).to(device)
-        codes = sae_encode(sae, xb)  # (chunk, nb_concepts) expected
-        codes = codes.detach().float().cpu().numpy()
-
-        # For each timestep, find active concepts (sparse => fast)
-        # If TopK, many zeros; use nonzero indices.
-        for i in range(codes.shape[0]):
-            t = start + i
-            row = codes[i]
-            active = np.where(row > ACT_THRESH)[0]
-            if active.size == 0:
-                continue
-            act_tok = get_action_token(t)
-
-            for c in active:
-                score = float(row[c])
-                # Aggregate "most common"
-                if act_tok is not None:
-                    concept_action_counts[c][act_tok] += 1
-                if prompt is not None:
-                    concept_prompt_counts[c][prompt] += 1
-
-                push_topk(
-                    top_examples[c],
-                    (
-                        score, ep, t,
-                        meta_paths["split"],
-                        meta_paths["json"],
-                        meta_paths["mp4"],
-                        prompt,
-                        act_tok
-                    ),
-                    TOP_M
-                )
-
-print("Done scanning activations.")
-
-# -----------------------------
-# Emit summaries + save frames/clips for top examples
-# -----------------------------
-def summarize_top(counter, k=10):
-    return counter.most_common(k)
-
-REPORT_PATH = os.path.join(SAVE_DIR, "concept_report.txt")
-with open(REPORT_PATH, "w") as f:
     for c in range(nb_concepts):
-        f.write(f"\n=== Concept {c} ===\n")
+        hits = concept_hits[c]
+        if len(hits) == 0:
+            continue
 
-        f.write("Top actions:\n")
-        for tok, cnt in summarize_top(concept_action_counts[c], k=10):
-            f.write(f"  {tok}: {cnt}\n")
+        # keep global top_m
+        hits.sort(key=lambda x: x["score"], reverse=True)
+        hits = hits[:top_m]
 
-        f.write("Top prompts:\n")
-        for p, cnt in summarize_top(concept_prompt_counts[c], k=10):
-            # avoid enormous lines
-            p_short = (p[:160] + "...") if p and len(p) > 160 else p
-            f.write(f"  ({cnt}) {p_short}\n")
+        # 1) prompts
+        prompt_counts = Counter([h["prompt"] for h in hits])
 
-        # Save a few visualizations
-        exs = top_examples[c][:12]  # save first 12 frames/clips
-        f.write("Top examples (saved frames/clips):\n")
-        for j, (score, ep, t, split, jp, mp4, prompt, act_tok) in enumerate(exs):
-            # Map timestep->seconds
-            T_guess = None  # if you can store T per episode, pass it here
-            t_sec = timestep_to_seconds(t, T_guess, mp4)
+        # 2) actions: compute mean/median over top hits
+        action_mat = np.stack([h["action"] for h in hits], axis=0)  # (top_m, action_dim)
+        action_mean = action_mat.mean(axis=0)
+        action_median = np.median(action_mat, axis=0)
 
-            frame_path = os.path.join(SAVE_DIR, f"c{c:04d}_ex{j:02d}_{ep}_t{t}.png")
-            clip_path  = os.path.join(SAVE_DIR, f"c{c:04d}_ex{j:02d}_{ep}_t{t}.mp4")
+        # 3) save top frames
+        concept_dir = os.path.join(out_dir, f"concept_{c:04d}")
+        os.makedirs(concept_dir, exist_ok=True)
 
-            save_frame(mp4, t_sec, frame_path)
-            save_clip_ffmpeg(mp4, t_sec, clip_path, half_seconds=CLIP_HALF_SECONDS)
+        for rank, h in enumerate(hits[:per_concept_save_k]):
+            rgb = get_frame_opencv(h["video_path"], h["t"])
+            if rgb is None:
+                continue
+            png_path = os.path.join(concept_dir, f"rank_{rank:02d}_score_{h['score']:.4f}_{h['episode_id']}_t{h['t']:05d}.png")
+            save_frame_png(rgb, png_path)
 
-            f.write(f"  score={score:.4f} split={split} ep={ep} t={t} "
-                    f"frame={os.path.basename(frame_path)} clip={os.path.basename(clip_path)}\n")
+        # write a small json summary per concept
+        summary = {
+            "concept": c,
+            "num_hits_considered": len(hits),
+            "top_prompts": prompt_counts.most_common(10),
+            "action_mean": action_mean.tolist(),
+            "action_median": action_median.tolist(),
+            "top_examples": [
+                {
+                    "score": h["score"],
+                    "group": h["group"],
+                    "episode_id": h["episode_id"],
+                    "t": h["t"],
+                    "prompt": h["prompt"],
+                    "action": h["action"].tolist(),
+                    "video_path": h["video_path"],
+                }
+                for h in hits[:10]
+            ],
+        }
+        with open(os.path.join(concept_dir, "summary.json"), "w") as f:
+            json.dump(summary, f, indent=2)
 
-print(f"Wrote report: {REPORT_PATH}")
-print(f"Saved frames/clips under: {SAVE_DIR}/")
+        summaries[c] = summary
+
+    # global index file
+    with open(os.path.join(out_dir, "all_concepts_summary.json"), "w") as f:
+        json.dump(summaries, f, indent=2)
+
+    print(f"Done. Wrote concept folders to: {out_dir}")
+
+# =========================
+# 7) Run
+# =========================
+
+if __name__ == "__main__":
+    ckpt_path = "./checkpoints/sae_layer11_k10_c16000.pt"  # TODO
+    data_root = "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero"
+    activations_root = "/n/netscratch/sham_lab/Lab/chloe00/pi0_activations"
+
+    out_dir = "./concept_mining_out"
+    layer_idx = 11
+
+    mine_concepts(
+        ckpt_path=ckpt_path,
+        data_root=data_root,
+        activations_root=activations_root,
+        out_dir=out_dir,
+        layer_idx=layer_idx,
+        top_m=50,
+        per_concept_save_k=16,
+        device="cuda",
+    )
