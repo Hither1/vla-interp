@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from collections import Counter, defaultdict
 import numpy as np
 import torch
+import os, json
+
 
 # ---- video frame extraction (choose one) ----
 # OpenCV
@@ -361,10 +363,11 @@ def mine_concepts(
             continue
 
         x = torch.from_numpy(A[:T_use, layer_idx, :]).to(device)  # (T_use, d)
-        # import pdb; pdb.set_trace()
+        
         with torch.no_grad():
             pre_codes, codes = sae.encode(x)
         codes = codes.detach().float()
+        import pdb; pdb.set_trace()
 
         # score: activation magnitude (TopK usually nonnegative, but be safe)
         scores = codes.abs()
@@ -454,6 +457,202 @@ def mine_concepts(
 
     print(f"Done. Wrote concept folders to: {out_dir}")
 
+
+
+
+def mine_concepts_global(
+    ckpt_path: str,
+    data_root: str,
+    activations_root: str,
+    out_dir: str,
+    layer_idx: int,
+    top_m: int = 50,
+    per_concept_save_k: int = 16,
+    device: str = "cuda",
+    encode_batch: int = 8192,   # global batch size over all frames
+):
+    os.makedirs(out_dir, exist_ok=True)
+
+    # ---- load SAE checkpoint ----
+    ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+    sae = TopKSAE(
+        ckpt["d"],
+        nb_concepts=ckpt["nb_concepts"],
+        top_k=ckpt["top_k"],
+        device="cpu",
+    )
+    sae.load_state_dict(ckpt["model_state_dict"])
+    sae.eval().to(device)
+
+    nb_concepts = ckpt["nb_concepts"]
+    d_expected = ckpt["d"]
+    topk = min(ckpt["top_k"], nb_concepts)
+    print(f"Loaded SAE: nb_concepts={nb_concepts}, d={d_expected}, top_k={ckpt['top_k']}")
+
+    episodes = index_libero_dataset(data_root=data_root, activations_root=activations_root)
+
+    # ============================================================
+    # PASS 1: figure out total number of usable frames and allocate
+    # ============================================================
+    lengths = []
+    cached = []  # store per-episode (ep, A_layer, acts, T_use) to avoid re-loading if you want
+    total_T = 0
+
+    for ep in episodes:
+        acts = load_actions(ep.actions_path)  # (T_a, action_dim)
+        A = np.load(ep.act_path).astype(np.float32)
+
+        if A.ndim == 4:
+            A = A.squeeze(-2)
+        if A.ndim != 3:
+            raise ValueError(f"Unexpected activation shape {A.shape} in {ep.act_path}")
+
+        T, num_layers, d = A.shape
+        if d != d_expected:
+            raise ValueError(f"d mismatch: got {d} in {ep.act_path}, expected {d_expected}")
+        if layer_idx < 0 or layer_idx >= num_layers:
+            raise ValueError(f"layer_idx {layer_idx} out of range [0, {num_layers-1}]")
+
+        T_use = min(T, acts.shape[0])
+        if T_use <= 0:
+            continue
+
+        A_layer = A[:T_use, layer_idx, :]  # (T_use, d)
+        cached.append((ep, A_layer, acts[:T_use], T_use))
+
+        lengths.append(T_use)
+        total_T += T_use
+
+    if total_T == 0:
+        print("No usable frames found.")
+        return
+
+    # Allocate global arrays
+    X_all = np.empty((total_T, d_expected), dtype=np.float32)
+
+    # metadata aligned to global frame index i
+    ep_group = [None] * total_T
+    ep_id    = [None] * total_T
+    t_in_ep  = np.empty((total_T,), dtype=np.int32)
+    prompt   = [None] * total_T
+    video    = [None] * total_T
+    actions_all = None  # allocate once we know action_dim
+
+    # Fill
+    offset = 0
+    for (ep, A_layer, acts_use, T_use) in cached:
+        if actions_all is None:
+            action_dim = acts_use.shape[1]
+            actions_all = np.empty((total_T, action_dim), dtype=np.float32)
+
+        X_all[offset:offset+T_use] = A_layer
+        actions_all[offset:offset+T_use] = acts_use.astype(np.float32)
+
+        ep_group[offset:offset+T_use] = [ep.group] * T_use
+        ep_id[offset:offset+T_use]    = [ep.episode_id] * T_use
+        t_in_ep[offset:offset+T_use]  = np.arange(T_use, dtype=np.int32)
+        prompt[offset:offset+T_use]   = [ep.prompt] * T_use
+        video[offset:offset+T_use]    = [ep.video_path] * T_use
+
+        offset += T_use
+
+    assert offset == total_T
+
+    # ============================================================
+    # PASS 2: encode globally in batches and collect hits
+    # ============================================================
+    concept_hits = [[] for _ in range(nb_concepts)]
+
+    with torch.no_grad():
+        for start in range(0, total_T, encode_batch):
+            end = min(total_T, start + encode_batch)
+            x = torch.from_numpy(X_all[start:end]).to(device)  # (B, d)
+
+            pre_codes, codes = sae.encode(x)  # codes: (B, nb_concepts) (TopK sparse-ish)
+            codes = codes.detach().float()
+            scores = codes.abs()
+
+            per_t_top = torch.topk(scores, k=topk, dim=1)
+            top_vals = per_t_top.values.cpu().numpy()
+            top_ids  = per_t_top.indices.cpu().numpy()
+
+            for i_local in range(end - start):
+                i_global = start + i_local
+                for j in range(top_ids.shape[1]):
+                    c = int(top_ids[i_local, j])
+                    s = float(top_vals[i_local, j])
+                    if s <= 0:
+                        continue
+
+                    concept_hits[c].append({
+                        "score": s,
+                        "group": ep_group[i_global],
+                        "episode_id": ep_id[i_global],
+                        "t": int(t_in_ep[i_global]),
+                        "prompt": prompt[i_global],
+                        "action": actions_all[i_global].copy(),
+                        "video_path": video[i_global],
+                    })
+
+    # ---- post-process each concept ----
+    summaries = {}
+
+    for c in range(nb_concepts):
+        hits = concept_hits[c]
+        if not hits:
+            continue
+
+        hits.sort(key=lambda x: x["score"], reverse=True)
+        hits = hits[:top_m]
+
+        prompt_counts = Counter([h["prompt"] for h in hits])
+
+        action_mat = np.stack([h["action"] for h in hits], axis=0)
+        action_mean = action_mat.mean(axis=0)
+        action_median = np.median(action_mat, axis=0)
+
+        concept_dir = os.path.join(out_dir, f"concept_{c:04d}")
+        os.makedirs(concept_dir, exist_ok=True)
+
+        for rank, h in enumerate(hits[:per_concept_save_k]):
+            rgb = get_frame_opencv(h["video_path"], h["t"])
+            if rgb is None:
+                continue
+            png_path = os.path.join(
+                concept_dir,
+                f"rank_{rank:02d}_score_{h['score']:.4f}_{h['episode_id']}_t{h['t']:05d}.png"
+            )
+            save_frame_png(rgb, png_path)
+
+        summary = {
+            "concept": c,
+            "num_hits_considered": len(hits),
+            "top_prompts": prompt_counts.most_common(10),
+            "action_mean": action_mean.tolist(),
+            "action_median": action_median.tolist(),
+            "top_examples": [
+                {
+                    "score": h["score"],
+                    "group": h["group"],
+                    "episode_id": h["episode_id"],
+                    "t": h["t"],
+                    "prompt": h["prompt"],
+                    "action": h["action"].tolist(),
+                    "video_path": h["video_path"],
+                }
+                for h in hits[:10]
+            ],
+        }
+        with open(os.path.join(concept_dir, "summary.json"), "w") as f:
+            json.dump(summary, f, indent=2)
+
+        summaries[c] = summary
+
+    with open(os.path.join(out_dir, "all_concepts_summary.json"), "w") as f:
+        json.dump(summaries, f, indent=2)
+
+    print(f"Done. Wrote concept folders to: {out_dir}")
+
 # =========================
 # 7) Run
 # =========================
@@ -466,7 +665,7 @@ if __name__ == "__main__":
     out_dir = "./concept_mining_out"
     layer_idx = 11
 
-    mine_concepts(
+    mine_concepts_global(
         ckpt_path=ckpt_path,
         data_root=data_root,
         activations_root=activations_root,
