@@ -1,19 +1,17 @@
+#!/usr/bin/env python3
 import os, glob, json, re
 from dataclasses import dataclass
 from collections import Counter, defaultdict
+from typing import Dict, List, Any, Tuple, Optional
+
 import numpy as np
 import torch
-import os, json
-
 
 # ---- video frame extraction (choose one) ----
-# OpenCV
 import cv2
 
-# Option B: decord (often faster / cleaner indexing)
-# from decord import VideoReader, cpu
-
 from overcomplete.sae import TopKSAE  # assumes same as your training
+
 
 # =========================
 # 0) Libero task map
@@ -71,6 +69,7 @@ libero_task_map = {
     # libero_90 omitted here for brevity; keep yours
 }
 
+
 # =========================
 # 1) Customize these parsers
 # =========================
@@ -102,16 +101,15 @@ def prompt_for_group_and_episode(group_name: str, episode_id: str) -> str:
     Common Libero setup: episodes are grouped by task (10 tasks per group).
     If you have metadata elsewhere, swap this to use that.
     """
-    # Minimal default: just return group name (you can improve later)
-    # Better: if episode_id ends with something like "_task03", map to index 3.
+    # import pdb; pdb.set_trace()
     m = re.search(r"task(\d+)", episode_id)
     if m:
         idx = int(m.group(1))
         key = f"libero_{group_name}" if not group_name.startswith("libero_") else group_name
         if key in libero_task_map and 0 <= idx < len(libero_task_map[key]):
             return libero_task_map[key][idx]
-    # fallback: unknown prompt
-    return f"{group_name}:unknown_prompt"
+    return f"{group_name}:{episode_id}"
+
 
 # =========================
 # 2) Data indexing
@@ -122,18 +120,20 @@ class Episode:
     group: str
     episode_id: str
     actions_path: str
-    video_path: str
+    video_path: Optional[str]
     prompt: str
-    act_path: str  # activation npy path
+    act_path: Optional[str]  # activation npy path
+
 
 def index_libero_dataset(
     data_root: str,
     activations_root: str,
     groups=("10", "goal", "object", "spatial"),
-):
+) -> List[Episode]:
     # Build maps from episode_id -> path for actions/videos
-    actions_map = {}
-    video_map = {}
+    actions_map: Dict[Tuple[str, str], str] = {}
+    video_map: Dict[Tuple[str, str], str] = {}
+
     for g in groups:
         actions_dir = os.path.join(data_root, g, "actions")
         videos_dir = os.path.join(data_root, g, "videos")
@@ -149,32 +149,59 @@ def index_libero_dataset(
     # Activation files (likely separate folder). Build by episode_id only,
     # or if your filename includes group, parse that and include it.
     act_paths = sorted(glob.glob(os.path.join(activations_root, "*.npy")))
-    act_map = {}
+    act_map: Dict[str, str] = {}
     for p in act_paths:
         eid = parse_episode_id_from_activation_npy(p)
         act_map[eid] = p
 
-    episodes = []
-    
-    for (g, eid), a_path in actions_map.items():
-        v_path = video_map.get((g, eid.replace('actions', 'rollout')), None)
-        
-        num = int(re.search(r'\d+', eid).group())
-        eid = eid.replace('actions_', '').split("_trial")[0]
+    episodes: List[Episode] = []
 
-        task = next((i for i, s in enumerate(libero_task_map[f'libero_{g}']) if eid in s), -1) 
-        act_path = act_map.get(f'task{task}_ep{num}_post_ffn_last_step', None)
-        # if v_path is None or act_path is None:
-        #     continue
+    for (g, raw_eid), a_path in actions_map.items():
+        # Your original code had a custom mapping from actions->videos and actions->activations.
+        # Keep your logic but make it a bit more defensive.
+
+        # Find video: in some datasets actions file name differs from video stem.
+        # If your stems match exactly, this will work:
+        v_path = video_map.get((g, raw_eid), None)
+
+        # Your downstream logic expects to parse a number from raw_eid
+        mnum = re.search(r"\d+", raw_eid)
+        if mnum is None:
+            # still include it; just won't map activations via your naming scheme
+            num = None
+        else:
+            num = int(mnum.group())
+
+        # Your normalization:
+        #   raw: "actions_..._trial..." -> eid = "...", and then find task index by substring search.
+        eid = raw_eid
+        eid = eid.replace("actions_", "")
+        eid = eid.split("_trial")[0]
+
+        # Determine task index based on eid contained in the prompt strings
+        task = -1
+        key = f"libero_{g}"
+        if key in libero_task_map:
+            task = next((i for i, s in enumerate(libero_task_map[key]) if eid in s), -1)
+
+        # Activation path convention you used:
+        #   f"task{task}_ep{num}_post_ffn_last_step"
+        act_path = None
+        if (task is not None) and (task >= 0) and (num is not None):
+            act_key = f"task{task}_ep{num}_post_ffn_last_step"
+            act_path = act_map.get(act_key, None)
+
         prompt = prompt_for_group_and_episode(g, eid)
         episodes.append(Episode(g, eid, a_path, v_path, prompt, act_path))
 
-    print(f"Indexed {len(episodes)} matched episodes.")
+    print(f"Indexed {len(episodes)} episodes (may include missing video/activation).")
     return episodes
+
 
 # =========================
 # 3) Actions loader (customize to your json schema)
 # =========================
+
 def _is_num(x):
     return isinstance(x, (int, float, np.integer, np.floating)) and np.isfinite(x)
 
@@ -193,7 +220,6 @@ def _find_action_in_dict(d):
     Heuristics: try common keys, else find first list-of-numbers value (possibly nested one level).
     Returns np.float32 vector or None.
     """
-    # common keys in robotics logs
     candidate_keys = [
         "action", "actions",
         "robot_action", "robot_actions",
@@ -207,15 +233,12 @@ def _find_action_in_dict(d):
             vec = _as_float_vec(v)
             if vec is not None:
                 return vec
-            # sometimes nested: {"action": {"arm": [...], "gripper": ...}}
             if isinstance(v, dict):
-                # try flatten common nested patterns
-                for kk, vv in v.items():
+                for vv in v.values():
                     vec2 = _as_float_vec(vv)
                     if vec2 is not None:
                         return vec2
 
-    # fallback: search any value that looks like a numeric vector (including one-level nested dicts)
     for v in d.values():
         vec = _as_float_vec(v)
         if vec is not None:
@@ -240,27 +263,22 @@ def load_actions(actions_json_path: str) -> np.ndarray:
     with open(actions_json_path, "r") as f:
         obj = json.load(f)
 
-    # Case 1: dict container
     if isinstance(obj, dict):
         if "actions" in obj:
             obj = obj["actions"]
         else:
-            # sometimes a single dict per episode with timesteps elsewhere; add your key here if needed
             raise ValueError(f"Dict JSON without 'actions' key in {actions_json_path}")
 
-    # Case 2: list container
     if isinstance(obj, list):
         if len(obj) == 0:
             return np.zeros((0, 0), dtype=np.float32)
 
-        # list of vectors
         if isinstance(obj[0], (list, tuple, np.ndarray)):
             acts = np.asarray(obj, dtype=np.float32)
             if acts.ndim != 2:
                 raise ValueError(f"Expected (T, action_dim) from list-of-vectors; got {acts.shape} in {actions_json_path}")
             return acts
 
-        # list of dicts (your case)
         if isinstance(obj[0], dict):
             rows = []
             for i, step in enumerate(obj):
@@ -272,7 +290,6 @@ def load_actions(actions_json_path: str) -> np.ndarray:
                     )
                 rows.append(vec)
 
-            # ensure consistent action_dim
             dim0 = rows[0].shape[0]
             for i, v in enumerate(rows):
                 if v.shape[0] != dim0:
@@ -282,6 +299,7 @@ def load_actions(actions_json_path: str) -> np.ndarray:
             return np.stack(rows, axis=0).astype(np.float32)
 
     raise ValueError(f"Unrecognized action json schema in {actions_json_path}: type={type(obj)}")
+
 
 # =========================
 # 4) Video frame extraction
@@ -305,160 +323,57 @@ def save_frame_png(rgb: np.ndarray, out_path: str):
     cv2.imwrite(out_path, bgr)
 
 
+# =========================
+# 5) Prompt ranking helpers
+# =========================
 
+def rank_prompts_for_concept(
+    hits: List[Dict[str, Any]],
+    prompt_top_k_frames: int = 10,
+    prompt_score: str = "mean_topk",  # {"max", "mean_topk", "sum_topk"}
+) -> List[Tuple[str, float, List[Dict[str, Any]]]]:
+    """
+    Returns a list of (prompt, prompt_score_value, prompt_hits_sorted),
+    sorted by prompt_score_value desc.
 
+    prompt_score options:
+      - "max": max frame score for that prompt
+      - "mean_topk": mean of top-k frame scores for that prompt
+      - "sum_topk": sum of top-k frame scores for that prompt
 
-def mine_concepts(
-    ckpt_path: str,
-    data_root: str,
-    activations_root: str,
-    out_dir: str,
-    layer_idx: int,
-    top_m: int = 50,          # top frames per concept (global)
-    per_concept_save_k: int = 16,  # save top K frame images per concept
-    device: str = "cuda",
-):
-    os.makedirs(out_dir, exist_ok=True)
+    prompt_hits_sorted is sorted by frame score desc.
+    """
+    by_prompt = defaultdict(list)
+    for h in hits:
+        by_prompt[h["prompt"]].append(h)
 
-    # ---- load SAE checkpoint ----
-    ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
-    sae = TopKSAE(
-        ckpt["d"],
-        nb_concepts=ckpt["nb_concepts"],
-        top_k=ckpt["top_k"],
-        device="cpu",
-    )
-    sae.load_state_dict(ckpt["model_state_dict"])
-    sae.eval().to(device)
+    ranked: List[Tuple[str, float, List[Dict[str, Any]]]] = []
+    for p, phits in by_prompt.items():
+        phits.sort(key=lambda x: x["score"], reverse=True)
+        top = phits[:prompt_top_k_frames]
 
-    nb_concepts = ckpt["nb_concepts"]
-    print(f"Loaded SAE: nb_concepts={nb_concepts}, d={ckpt['d']}, top_k={ckpt['top_k']}")
-
-    episodes = index_libero_dataset(data_root=data_root, activations_root=activations_root)
-
-    # For each concept: maintain a list of (score, meta...)
-    # For simplicity: store all candidates then take top at end.
-    concept_hits = [[] for _ in range(nb_concepts)]
-
-    # Also prompt counts among top hits (computed after selecting top)
-    # and action stats among top hits.
-    for ep in episodes:
-        acts = load_actions(ep.actions_path)  # (T_a, action_dim)
-        A = np.load(ep.act_path).astype(np.float32)
-
-        # Expect A shape something like (T, num_layers, d) or (T, num_layers, 1, d)
-        if A.ndim == 4:
-            # (T, num_layers, 1, d) -> squeeze
-            A = A.squeeze(-2)
-        if A.ndim != 3:
-            raise ValueError(f"Unexpected activation shape {A.shape} in {ep.act_path}")
-
-        T, num_layers, d = A.shape
-        if layer_idx < 0 or layer_idx >= num_layers:
-            raise ValueError(f"layer_idx {layer_idx} out of range [0, {num_layers-1}]")
-
-        # align lengths (very common mismatch: actions length vs frames length)
-        T_use = min(T, acts.shape[0])
-        if T_use <= 0:
+        scores = np.array([x["score"] for x in top], dtype=np.float32)
+        if scores.size == 0:
             continue
 
-        x = torch.from_numpy(A[:T_use, layer_idx, :]).to(device)  # (T_use, d)
-        
-        with torch.no_grad():
-            pre_codes, codes = sae.encode(x)
-        codes = codes.detach().float()
-        import pdb; pdb.set_trace()
+        if prompt_score == "max":
+            s = float(scores.max())
+        elif prompt_score == "sum_topk":
+            s = float(scores.sum())
+        elif prompt_score == "mean_topk":
+            s = float(scores.mean())
+        else:
+            raise ValueError(f"Unknown prompt_score={prompt_score}")
 
-        # score: activation magnitude (TopK usually nonnegative, but be safe)
-        scores = codes.abs()
+        ranked.append((p, s, phits))
 
-        # For each t, for the few nonzero concepts, record hits.
-        # If codes is dense, this is heavy; but TopK should be sparse-ish.
-        # We’ll just take top-k concepts at each timestep as candidates.
-        per_t_top = torch.topk(scores, k=min(ckpt["top_k"], nb_concepts), dim=1)
-        top_vals = per_t_top.values.cpu().numpy()
-        top_ids = per_t_top.indices.cpu().numpy()
-
-        for t in range(T_use):
-            for j in range(top_ids.shape[1]):
-                c = int(top_ids[t, j])
-                s = float(top_vals[t, j])
-                if s <= 0:
-                    continue
-                concept_hits[c].append({
-                    "score": s,
-                    "group": ep.group,
-                    "episode_id": ep.episode_id,
-                    "t": t,
-                    "prompt": ep.prompt,
-                    "action": acts[t].astype(np.float32),
-                    "video_path": ep.video_path,
-                })
-
-    # ---- post-process each concept ----
-    summaries = {}
-
-    for c in range(nb_concepts):
-        hits = concept_hits[c]
-        if len(hits) == 0:
-            continue
-
-        # keep global top_m
-        hits.sort(key=lambda x: x["score"], reverse=True)
-        hits = hits[:top_m]
-
-        # 1) prompts
-        prompt_counts = Counter([h["prompt"] for h in hits])
-
-        # 2) actions: compute mean/median over top hits
-        action_mat = np.stack([h["action"] for h in hits], axis=0)  # (top_m, action_dim)
-        action_mean = action_mat.mean(axis=0)
-        action_median = np.median(action_mat, axis=0)
-
-        # 3) save top frames
-        concept_dir = os.path.join(out_dir, f"concept_{c:04d}")
-        os.makedirs(concept_dir, exist_ok=True)
-
-        for rank, h in enumerate(hits[:per_concept_save_k]):
-            rgb = get_frame_opencv(h["video_path"], h["t"])
-            if rgb is None:
-                continue
-            png_path = os.path.join(concept_dir, f"rank_{rank:02d}_score_{h['score']:.4f}_{h['episode_id']}_t{h['t']:05d}.png")
-            save_frame_png(rgb, png_path)
-
-        # write a small json summary per concept
-        summary = {
-            "concept": c,
-            "num_hits_considered": len(hits),
-            "top_prompts": prompt_counts.most_common(10),
-            "action_mean": action_mean.tolist(),
-            "action_median": action_median.tolist(),
-            "top_examples": [
-                {
-                    "score": h["score"],
-                    "group": h["group"],
-                    "episode_id": h["episode_id"],
-                    "t": h["t"],
-                    "prompt": h["prompt"],
-                    "action": h["action"].tolist(),
-                    "video_path": h["video_path"],
-                }
-                for h in hits[:10]
-            ],
-        }
-        with open(os.path.join(concept_dir, "summary.json"), "w") as f:
-            json.dump(summary, f, indent=2)
-
-        summaries[c] = summary
-
-    # global index file
-    with open(os.path.join(out_dir, "all_concepts_summary.json"), "w") as f:
-        json.dump(summaries, f, indent=2)
-
-    print(f"Done. Wrote concept folders to: {out_dir}")
+    ranked.sort(key=lambda x: x[1], reverse=True)
+    return ranked
 
 
-
+# =========================
+# 6) Concept mining (global hits, then top prompts per concept)
+# =========================
 
 def mine_concepts_global(
     ckpt_path: str,
@@ -466,10 +381,20 @@ def mine_concepts_global(
     activations_root: str,
     out_dir: str,
     layer_idx: int,
-    top_m: int = 50,
-    per_concept_save_k: int = 16,
     device: str = "cuda",
-    encode_batch: int = 8192,   # global batch size over all frames
+    encode_batch: int = 8192,
+
+    # Frame-level cap for building prompt rankings (set large or None to be thorough)
+    top_m_frames_per_concept: Optional[int] = 5000,
+
+    # Prompt selection controls
+    top_prompts_per_concept: int = 10,
+    prompt_top_k_frames: int = 10,
+    frames_to_save_per_prompt: int = 8,
+    prompt_score: str = "mean_topk",  # {"max","mean_topk","sum_topk"}
+
+    # If True, drop episodes that are missing video or activations
+    strict: bool = True,
 ):
     os.makedirs(out_dir, exist_ok=True)
 
@@ -484,48 +409,60 @@ def mine_concepts_global(
     sae.load_state_dict(ckpt["model_state_dict"])
     sae.eval().to(device)
 
-    nb_concepts = ckpt["nb_concepts"]
-    d_expected = ckpt["d"]
-    topk = min(ckpt["top_k"], nb_concepts)
+    nb_concepts = int(ckpt["nb_concepts"])
+    d_expected = int(ckpt["d"])
+    topk = min(int(ckpt["top_k"]), nb_concepts)
     print(f"Loaded SAE: nb_concepts={nb_concepts}, d={d_expected}, top_k={ckpt['top_k']}")
 
     episodes = index_libero_dataset(data_root=data_root, activations_root=activations_root)
 
     # ============================================================
-    # PASS 1: figure out total number of usable frames and allocate
+    # PASS 1: load & align (actions, activations[layer]) across episodes
     # ============================================================
-    lengths = []
-    cached = []  # store per-episode (ep, A_layer, acts, T_use) to avoid re-loading if you want
+    cached = []
     total_T = 0
+    dropped = 0
 
     for ep in episodes:
+        # import pdb; pdb.set_trace()
+        if strict and (ep.act_path is None):
+            dropped += 1
+            continue
+
         acts = load_actions(ep.actions_path)  # (T_a, action_dim)
         A = np.load(ep.act_path).astype(np.float32)
+   
 
         if A.ndim == 4:
+            # your old comment: squeeze(-2) — keep same behavior
             A = A.squeeze(-2)
+
         if A.ndim != 3:
-            raise ValueError(f"Unexpected activation shape {A.shape} in {ep.act_path}")
+            print(f"[WARN] Unexpected activation shape {A.shape} in {ep.act_path}")
+            dropped += 1
+            continue
 
         T, num_layers, d = A.shape
         if d != d_expected:
-            raise ValueError(f"d mismatch: got {d} in {ep.act_path}, expected {d_expected}")
+            print(f"[WARN] d mismatch: got {d} in {ep.act_path}, expected {d_expected}")
+            dropped += 1
+            continue
         if layer_idx < 0 or layer_idx >= num_layers:
             raise ValueError(f"layer_idx {layer_idx} out of range [0, {num_layers-1}]")
 
         T_use = min(T, acts.shape[0])
         if T_use <= 0:
+            dropped += 1
             continue
 
         A_layer = A[:T_use, layer_idx, :]  # (T_use, d)
         cached.append((ep, A_layer, acts[:T_use], T_use))
-
-        lengths.append(T_use)
         total_T += T_use
 
+    print(f"Usable episodes: {len(cached)} (dropped {dropped}). Total frames: {total_T}")
+
     if total_T == 0:
-        print("No usable frames found.")
-        return
+        raise RuntimeError("No usable frames found. Check indexing, activation paths, and strict mode.")
 
     # Allocate global arrays
     X_all = np.empty((total_T, d_expected), dtype=np.float32)
@@ -557,18 +494,19 @@ def mine_concepts_global(
         offset += T_use
 
     assert offset == total_T
+    assert actions_all is not None
 
     # ============================================================
-    # PASS 2: encode globally in batches and collect hits
+    # PASS 2: encode globally in batches and collect frame-level hits
     # ============================================================
-    concept_hits = [[] for _ in range(nb_concepts)]
+    concept_hits: List[List[Dict[str, Any]]] = [[] for _ in range(nb_concepts)]
 
     with torch.no_grad():
         for start in range(0, total_T, encode_batch):
             end = min(total_T, start + encode_batch)
             x = torch.from_numpy(X_all[start:end]).to(device)  # (B, d)
 
-            pre_codes, codes = sae.encode(x)  # codes: (B, nb_concepts) (TopK sparse-ish)
+            pre_codes, codes = sae.encode(x)  # codes: (B, nb_concepts)
             codes = codes.detach().float()
             scores = codes.abs()
 
@@ -594,55 +532,130 @@ def mine_concepts_global(
                         "video_path": video[i_global],
                     })
 
-    # ---- post-process each concept ----
-    summaries = {}
+    # ============================================================
+    # PASS 3: for each concept, rank prompts by activation, then save examples
+    # ============================================================
+    summaries: Dict[int, Any] = {}
 
     for c in range(nb_concepts):
         hits = concept_hits[c]
-        if not hits:
+        if len(hits) == 0:
             continue
 
+        # Sort by frame score desc
         hits.sort(key=lambda x: x["score"], reverse=True)
-        hits = hits[:top_m]
 
-        prompt_counts = Counter([h["prompt"] for h in hits])
+        # Optionally cap frames considered for prompt ranking (for speed/memory)
+        if top_m_frames_per_concept is not None and top_m_frames_per_concept > 0:
+            hits_considered = hits[:top_m_frames_per_concept]
+        else:
+            hits_considered = hits
 
-        action_mat = np.stack([h["action"] for h in hits], axis=0)
-        action_mean = action_mat.mean(axis=0)
-        action_median = np.median(action_mat, axis=0)
+        ranked_prompts = rank_prompts_for_concept(
+            hits_considered,
+            prompt_top_k_frames=prompt_top_k_frames,
+            prompt_score=prompt_score,
+        )
+        ranked_prompts = ranked_prompts[:top_prompts_per_concept]
 
         concept_dir = os.path.join(out_dir, f"concept_{c:04d}")
         os.makedirs(concept_dir, exist_ok=True)
 
-        for rank, h in enumerate(hits[:per_concept_save_k]):
-            rgb = get_frame_opencv(h["video_path"], h["t"])
-            if rgb is None:
-                continue
-            png_path = os.path.join(
-                concept_dir,
-                f"rank_{rank:02d}_score_{h['score']:.4f}_{h['episode_id']}_t{h['t']:05d}.png"
-            )
-            save_frame_png(rgb, png_path)
+        prompts_txt_path = os.path.join(concept_dir, "prompts.txt")
+        with open(prompts_txt_path, "w") as f:
+            for p_rank, (p, p_score, phits_sorted) in enumerate(ranked_prompts):
+                f.write(f"[{p_rank:02d}] score={p_score:.6f} hits={len(phits_sorted)}\n")
+                f.write(p.strip() + "\n\n")
 
-        summary = {
-            "concept": c,
-            "num_hits_considered": len(hits),
-            "top_prompts": prompt_counts.most_common(10),
-            "action_mean": action_mean.tolist(),
-            "action_median": action_median.tolist(),
-            "top_examples": [
-                {
+        # Basic distribution info
+        prompt_counts_all = Counter([h["prompt"] for h in hits_considered])
+
+        top_prompts_summary = []
+        all_actions_for_summary = []
+
+        for p_rank, (p, p_score, phits_sorted) in enumerate(ranked_prompts):
+            prompt_dir = os.path.join(concept_dir, f"prompt_{p_rank:02d}")
+            os.makedirs(prompt_dir, exist_ok=True)
+
+            # Save the top frames for this prompt
+            saved = 0
+            top_examples = []
+
+            # iterate more than needed in case some frames fail to read
+            for h in phits_sorted[:max(frames_to_save_per_prompt * 3, frames_to_save_per_prompt)]:
+                if h["video_path"] is None:
+                    continue
+                try:
+                    rgb = get_frame_opencv(h["video_path"], h["t"])
+                except Exception:
+                    rgb = None
+                if rgb is None:
+                    continue
+
+                png_path = os.path.join(
+                    prompt_dir,
+                    f"rank_{saved:02d}_score_{h['score']:.4f}_{h['episode_id']}_t{h['t']:05d}.png"
+                )
+                save_frame_png(rgb, png_path)
+
+                top_examples.append({
                     "score": h["score"],
                     "group": h["group"],
                     "episode_id": h["episode_id"],
                     "t": h["t"],
-                    "prompt": h["prompt"],
-                    "action": h["action"].tolist(),
                     "video_path": h["video_path"],
+                    "action": h["action"].tolist(),
+                })
+                all_actions_for_summary.append(h["action"])
+                saved += 1
+                if saved >= frames_to_save_per_prompt:
+                    break
+
+            top_prompts_summary.append({
+                "prompt_rank": p_rank,
+                "prompt_score": float(p_score),
+                "prompt": p,
+                "num_hits_for_prompt": len(phits_sorted),
+                "num_hits_for_prompt_considered": int(prompt_counts_all[p]),
+                "saved_examples": top_examples,
+            })
+
+        # Action stats over saved examples (top prompts only)
+        if len(all_actions_for_summary) > 0:
+            action_mat = np.stack(all_actions_for_summary, axis=0)
+            action_mean = action_mat.mean(axis=0)
+            action_median = np.median(action_mat, axis=0)
+        else:
+            action_mean = None
+            action_median = None
+
+        summary = {
+            "concept": c,
+            "num_frame_hits_total": len(hits),
+            "num_frame_hits_considered": len(hits_considered),
+
+            "prompt_score_method": prompt_score,
+            "top_prompts_per_concept": top_prompts_per_concept,
+            "prompt_top_k_frames": prompt_top_k_frames,
+            "frames_to_save_per_prompt": frames_to_save_per_prompt,
+
+            # quick view
+            "top_prompts": [
+                {
+                    "prompt": x["prompt"],
+                    "prompt_score": x["prompt_score"],
+                    "num_hits_for_prompt": x["num_hits_for_prompt"],
                 }
-                for h in hits[:10]
+                for x in top_prompts_summary
             ],
+
+            # detailed view
+            "top_prompt_details": top_prompts_summary,
+
+            "action_mean_over_saved": None if action_mean is None else action_mean.tolist(),
+            "action_median_over_saved": None if action_median is None else action_median.tolist(),
         }
+
         with open(os.path.join(concept_dir, "summary.json"), "w") as f:
             json.dump(summary, f, indent=2)
 
@@ -652,6 +665,7 @@ def mine_concepts_global(
         json.dump(summaries, f, indent=2)
 
     print(f"Done. Wrote concept folders to: {out_dir}")
+
 
 # =========================
 # 7) Run
@@ -671,7 +685,15 @@ if __name__ == "__main__":
         activations_root=activations_root,
         out_dir=out_dir,
         layer_idx=layer_idx,
-        top_m=50,
-        per_concept_save_k=16,
         device="cuda",
+        encode_batch=8192,
+
+        # Tune these:
+        top_m_frames_per_concept=5000,   # increase (or None) for better prompt rankings
+        top_prompts_per_concept=10,
+        prompt_top_k_frames=10,
+        frames_to_save_per_prompt=8,
+        prompt_score="mean_topk",        # or "max" if you want “single strongest moment”
+
+        strict=True,
     )
