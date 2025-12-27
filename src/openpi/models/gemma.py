@@ -369,7 +369,7 @@ class Block(nn.Module):
     dropout_bdims: tuple[int, ...] = ()
 
     @nn.compact
-    def __call__(self, xs, kv_cache, positions, attn_mask, adarms_cond, deterministic=True):  # noqa: FBT002
+    def __call__(self, xs, kv_cache, positions, attn_mask, adarms_cond, layer_id, deterministic=True):  # noqa: FBT002
         xs = sharding.activation_sharding_constraint(xs)
         drop = nn.Dropout(self.dropout, self.dropout_bdims) if self.dropout else lambda x, _: x
 
@@ -384,10 +384,6 @@ class Block(nn.Module):
             gates.append(gate if x is not None else None)
         
 
-        # === RECORD: pre-attention norm activation for action expert (expert index 1) ===
-        # if len(pre_attn) > 1 and pre_attn[1] is not None:
-        #     _record_action_activation("block_pre_attn", pre_attn[1])
-
 
         pre_attn = sharding.activation_sharding_constraint(pre_attn)
         post_attn, kv_cache = attn(pre_attn, positions, attn_mask, kv_cache)
@@ -396,9 +392,7 @@ class Block(nn.Module):
         xs = [_gated_residual(x, y, gate) for x, y, gate in zip(xs, post_attn, gates, strict=True)]
         xs = sharding.activation_sharding_constraint(xs)
 
-        # === RECORD: post-attention residual for action expert ===
-        # if len(xs) > 1 and xs[1] is not None:
-        #     _record_action_activation("block_post_attn", xs[1])
+        
 
         out = []
         gates = []
@@ -423,6 +417,50 @@ class Block(nn.Module):
         # === RECORD: post-FFN residual for action expert ===
         if len(xs) > 1 and xs[1] is not None:
             _record_action_activation("block_post_ffn", xs[1])
+
+
+        # === INTERVENE: edit action-expert stream at a chosen layer ===
+        if INTERVENTION["enabled"] and (int(layer_id) == int(INTERVENTION["layer"])):
+            ei = int(INTERVENTION["expert"])
+            if ei < len(xs) and xs[ei] is not None:
+                x = xs[ei]  # (B, T, D)
+                B, T, D = x.shape
+                s = INTERVENTION["token_start"]
+                e = INTERVENTION["token_end"]
+
+                # resolve slice bounds (allow None and negative indexing)
+                if s is None:
+                    s = 0
+                if e is None:
+                    e = T
+                if s < 0:
+                    s = T + s
+                if e < 0:
+                    e = T + e
+                s = jnp.clip(jnp.asarray(s), 0, T)
+                e = jnp.clip(jnp.asarray(e), 0, T)
+
+                def apply_slice(x_in):
+                    x_mod = x_in
+                    if INTERVENTION["mode"] == "zero":
+                        x_mod = x_mod.at[:, s:e, :].set(jnp.zeros((B, e - s, D), dtype=x_mod.dtype))
+                    elif INTERVENTION["mode"] == "clamp":
+                        v = jnp.asarray(INTERVENTION["clamp_value"], dtype=x_mod.dtype)
+                        x_mod = x_mod.at[:, s:e, :].set(v)
+                    elif INTERVENTION["mode"] == "add":
+                        delta = INTERVENTION["delta"]
+                        if delta is None:
+                            raise ValueError("INTERVENTION mode='add' requires delta")
+                        delta = delta.astype(x_mod.dtype)  # (D,)
+                        x_mod = x_mod.at[:, s:e, :].add(delta[None, None, :])
+                    else:
+                        raise ValueError(f"Unknown INTERVENTION mode: {INTERVENTION['mode']}")
+                    return x_mod
+
+                xs = list(xs)
+                xs[ei] = apply_slice(x)
+                xs = tuple(xs)
+
 
         return xs, kv_cache
 
