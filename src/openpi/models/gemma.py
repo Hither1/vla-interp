@@ -491,7 +491,7 @@ class Module(nn.Module):
         block_cls = nn.remat(
             Block,
             prevent_cse=False,
-            static_argnums=(5,),  # 0=self, 6=deterministic
+            static_argnums=(6,),  # 0=self, 6=deterministic
             policy=jax.checkpoint_policies.nothing_saveable,
         )
         self.layers = nn.scan(
@@ -504,6 +504,8 @@ class Module(nn.Module):
                 nn.broadcast,
                 nn.broadcast,
                 nn.broadcast,
+                0, # layer_id
+                nn.broadcast,   # deterministic
             ),  # 0=kv_cache, 1=positions, 2=mask, 3=adarms_cond, 4=deterministic
             length=self.configs[0].depth,
         )(
@@ -534,7 +536,10 @@ class Module(nn.Module):
         if adarms_cond is None:
             adarms_cond = [None] * len(self.configs)
 
-        embedded, kv_cache = self.layers(embedded, kv_cache, positions, mask, adarms_cond, deterministic)
+
+        layer_ids = jnp.arange(self.configs[0].depth, dtype=jnp.int32)
+
+        embedded, kv_cache = self.layers(embedded, kv_cache, positions, mask, adarms_cond, layer_ids, deterministic)
 
         assert all(e.dtype == jnp.dtype(self.embed_dtype) for e in embedded if e is not None)
 
