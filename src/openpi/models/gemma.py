@@ -59,6 +59,47 @@ class Config:
 Variant = Literal["dummy", "gemma_300m", "gemma_300m_lora", "gemma_2b", "gemma_2b_lora"]
 
 
+
+# =========================
+# Intervention hook (global)
+# =========================
+
+INTERVENTION = {
+    "enabled": False,         # bool
+    "layer": -1,              # int: which transformer block
+    "expert": 1,              # int: action expert stream index (1 in your setup)
+    "mode": "add",            # "add" | "zero" | "clamp"
+    "token_start": None,      # int or None (supports negative indexing)
+    "token_end": None,        # int or None
+    "delta": None,            # jnp.ndarray shape (D,) when mode="add"
+    "clamp_value": 0.0,       # float for clamp
+}
+
+def set_intervention(
+    *,
+    enabled: bool,
+    layer: int,
+    expert: int = 1,
+    mode: str = "add",
+    token_start: int | None = None,
+    token_end: int | None = None,
+    delta: jnp.ndarray | None = None,
+    clamp_value: float = 0.0,
+):
+    INTERVENTION.update(
+        dict(
+            enabled=enabled,
+            layer=layer,
+            expert=expert,
+            mode=mode,
+            token_start=token_start,
+            token_end=token_end,
+            delta=delta,
+            clamp_value=clamp_value,
+        )
+    )
+
+
 def get_config(variant: Variant) -> Config:
     """Returns config for specified gemma variant."""
     if variant == "dummy":

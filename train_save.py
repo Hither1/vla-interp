@@ -17,7 +17,7 @@ lr = 5e-4
 nb_epochs = 500
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-nb_concepts = 16_000
+nb_concepts = 1024 # 16_000
 top_k = 10
 
 ckpt_dir = "./checkpoints"
