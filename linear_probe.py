@@ -7,7 +7,7 @@ from collections import defaultdict
 import numpy as np
 import torch
 
-from overcomplete.sae import TopKSAE  # same as your training
+from overcomplete.sae import TopKSAE  
 
 # -------------------------
 # Task map (unchanged)
@@ -84,7 +84,7 @@ def prompt_for_group_and_episode(group_name: str, episode_id: str) -> str:
         key = f"libero_{group_name}" if not group_name.startswith("libero_") else group_name
         if key in libero_task_map and 0 <= idx < len(libero_task_map[key]):
             return libero_task_map[key][idx]
-    return f"{group_name}:unknown_prompt"
+    return f"{group_name}:{episode_id}"
 
 # -------------------------
 # Dataset indexing (unchanged)
@@ -132,7 +132,7 @@ def index_libero_dataset(
         eid = eid_raw.replace("actions_", "").split("_trial")[0]
         task = next((i for i, s in enumerate(libero_task_map[f"libero_{g}"]) if eid in s), -1)
 
-        # your activation naming convention
+        
         act_path = act_map.get(f"task{task}_ep{num}_post_ffn_last_step", None)
 
         prompt = prompt_for_group_and_episode(g, eid)
@@ -327,7 +327,7 @@ def extract_features_and_targets(
     episodes: List[Episode],
     layer_idx: int,
     d_expected: int,
-    feature_mode: str,  # "raw" or "sae"
+    feature_mode: str,  
     sae: Optional[TopKSAE],
     device: str,
     encode_batch: int = 8192,
@@ -437,10 +437,9 @@ def main():
     episodes = index_libero_dataset(
         data_root=args.data_root,
         activations_root=args.activations_root,
-        groups=("10", "goal", "object", "spatial"),
+        groups=("goal",) # "10", "goal", "object", "spatial"),
     )
 
-    # filter to those with act + actions
     usable = [ep for ep in episodes
               if ep.act_path is not None and os.path.exists(ep.act_path)
               and ep.actions_path is not None and os.path.exists(ep.actions_path)]
