@@ -672,7 +672,7 @@ def mine_concepts_global(
 # =========================
 
 if __name__ == "__main__":
-    ckpt_path = "./checkpoints/sae_layer11_k10_c16000.pt"  # TODO
+    ckpt_path = "./checkpoints/TopKSAE/sae_layer11_k10_c50.pt"  # TODO
     data_root = "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero"
     activations_root = "/n/netscratch/sham_lab/Lab/chloe00/pi0_activations"
 

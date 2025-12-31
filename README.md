@@ -7,6 +7,26 @@ export PYTHONPATH=$PYTHONPATH:$PWD/third_party/libero
 export LIBERO_CONFIG_PATH=/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/third_party/libero
 python examples/libero/main.py --args.port 8000
 
+
+
+linear_probe.py
+
+
+geometry.py
+
+
+
+top_activating_actions.py
+
+
+top_activating_frames.py
+
+
+top_activating_prompts.py
+
+
+
+
 # openpi
  [Physical Intelligence team](https://www.physicalintelligence.company/).
 

@@ -22,13 +22,16 @@ lr = 1e-4
 nb_epochs = 200
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-nb_concepts = 30
+nb_concepts = 40
 top_k = 10
 
 # Train a separate SAE per subset:
 # Put whatever LIBERO subsets 
 LIBERO_SUBSETS = [
     "libero_object",
+    "libero_goal",
+    "libero_10",
+    "libero_spatial",
 ]
 
 ckpt_dir = "./checkpoints/BatchTopKSAE"
@@ -273,6 +276,19 @@ def train_sae_for_subset(subset: str):
         lb = load_balance_loss(codes)
 
         return mse + lb_coeff * lb
+
+    
+    def criterion(x, x_hat, pre_codes, codes, dictionary):
+  loss = (x - x_hat).square().mean()
+
+  # is dead of shape (k) (nb concepts) and is 1 iif
+  # not a single code has fire in the batch
+  is_dead = ((codes > 0).sum(dim=0) == 0).float().detach()
+  # we push the pre_codes (before relu) towards the positive orthant
+  reanim_loss = (pre_codes * is_dead[None, :]).mean()
+
+  loss -= reanim_loss * 1e-3
+  return loss
 
     # sae = TopKSAE(d, nb_concepts=nb_concepts, top_k=top_k, device=device)
     sae = BatchTopKSAE(d, nb_concepts=nb_concepts, top_k=top_k, device=device)
