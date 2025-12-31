@@ -9,7 +9,7 @@ matplotlib.use("Agg")  # safe on headless SLURM
 if not hasattr(np, "Inf"):
     np.Inf = np.inf
 import matplotlib.pyplot as plt
-from overcomplete.sae import TopKSAE, train_sae
+from overcomplete.sae import TopKSAE, BatchTopKSAE, train_sae
 
 # -------------------------
 # Config
@@ -19,10 +19,10 @@ npy_dir = "/n/netscratch/sham_lab/Lab/chloe00/pi0_activations"
 layer_indices = [ 11]
 batch_size = 1024
 lr = 1e-4
-nb_epochs = 230
+nb_epochs = 200
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-nb_concepts = 100
+nb_concepts = 30
 top_k = 10
 
 # Train a separate SAE per subset:
@@ -31,8 +31,21 @@ LIBERO_SUBSETS = [
     "libero_object",
 ]
 
-ckpt_dir = "./checkpoints"
+ckpt_dir = "./checkpoints/BatchTopKSAE"
 os.makedirs(ckpt_dir, exist_ok=True)
+
+
+import random
+
+def set_seed(seed: int):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+    # Ensure deterministic behavior where possible
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 # -------------------------
 # Helpers
@@ -59,11 +72,16 @@ def load_concat(paths):
 
 
 
-def plot_training_curves(logs, out_path, title_prefix=""):
+def plot_training_curves(logs, out_path, title_prefix="", min_epoch_for_best=100):
     """
-    logs: dict-like with keys like 'avg_loss', 'r2', 'dead_features'
-    Saves a 3-row plot: loss, r2, dead_features vs epoch,
-    with final values annotated.
+    Plots:
+      - Loss (avg_loss or step_loss)
+      - R2
+      - Dead features
+
+    Annotates:
+      - final value
+      - best value after min_epoch_for_best
     """
     # Pick loss series
     if "avg_loss" in logs and len(logs["avg_loss"]) > 0:
@@ -82,62 +100,117 @@ def plot_training_curves(logs, out_path, title_prefix=""):
         print("No log data to plot.")
         return
 
-    loss = loss[:L]
-    r2 = r2[:L]
-    dead = dead[:L]
+    loss = np.asarray(loss[:L])
+    r2 = np.asarray(r2[:L])
+    dead = np.asarray(dead[:L])
 
     epochs = np.arange(1, L + 1)
 
-    fig, axes = plt.subplots(3, 1, figsize=(10, 10), sharex=True)
+    # Epoch mask for "after epoch 100"
+    start_idx = min(min_epoch_for_best - 1, L - 1)
+    mask = np.arange(L) >= start_idx
 
-    # -------- Loss --------
-    axes[0].plot(epochs, loss)
-    axes[0].scatter(epochs[-1], loss[-1], zorder=3)
+    fig, axes = plt.subplots(3, 1, figsize=(10, 11), sharex=True)
+
+    # ---------------- Loss ----------------
+    axes[0].plot(epochs, loss, label="loss")
+
+    # Final
+    axes[0].scatter(epochs[-1], loss[-1], zorder=3, label="final")
+
+    # Best after epoch 100 (min)
+    best_loss_idx = start_idx + np.argmin(loss[mask])
+    axes[0].scatter(
+        epochs[best_loss_idx], loss[best_loss_idx],
+        marker="*", s=120, zorder=4, label="best ≥100"
+    )
+
     axes[0].set_ylabel(loss_name)
     axes[0].set_title(f"{title_prefix} Loss")
 
     axes[0].annotate(
         f"final = {loss[-1]:.4g}",
-        xy=(epochs[-1], loss[-1]),
+        (epochs[-1], loss[-1]),
         xytext=(5, 5),
         textcoords="offset points",
-        fontsize=10,
-        ha="left",
-        va="bottom",
+        fontsize=9,
+    )
+    axes[0].annotate(
+        f"best@≥{min_epoch_for_best} = {loss[best_loss_idx]:.4g}",
+        (epochs[best_loss_idx], loss[best_loss_idx]),
+        xytext=(5, -12),
+        textcoords="offset points",
+        fontsize=9,
     )
 
-    # -------- R2 --------
-    axes[1].plot(epochs, r2)
-    axes[1].scatter(epochs[-1], r2[-1], zorder=3)
+    axes[0].legend(loc="best", fontsize=9)
+
+    # ---------------- R2 ----------------
+    axes[1].plot(epochs, r2, label="R2")
+
+    # Final
+    axes[1].scatter(epochs[-1], r2[-1], zorder=3, label="final")
+
+    # Best after epoch 100 (max)
+    best_r2_idx = start_idx + np.argmax(r2[mask])
+    axes[1].scatter(
+        epochs[best_r2_idx], r2[best_r2_idx],
+        marker="*", s=120, zorder=4, label="best ≥100"
+    )
+
     axes[1].set_ylabel("R2")
     axes[1].set_title(f"{title_prefix} R2")
 
     axes[1].annotate(
         f"final = {r2[-1]:.4f}",
-        xy=(epochs[-1], r2[-1]),
+        (epochs[-1], r2[-1]),
         xytext=(5, 5),
         textcoords="offset points",
-        fontsize=10,
-        ha="left",
-        va="bottom",
+        fontsize=9,
+    )
+    axes[1].annotate(
+        f"best@≥{min_epoch_for_best} = {r2[best_r2_idx]:.4f}",
+        (epochs[best_r2_idx], r2[best_r2_idx]),
+        xytext=(5, -12),
+        textcoords="offset points",
+        fontsize=9,
     )
 
-    # -------- Dead features --------
-    axes[2].plot(epochs, dead)
-    axes[2].scatter(epochs[-1], dead[-1], zorder=3)
+    axes[1].legend(loc="best", fontsize=9)
+
+    # ---------------- Dead features ----------------
+    axes[2].plot(epochs, dead, label="dead")
+
+    # Final
+    axes[2].scatter(epochs[-1], dead[-1], zorder=3, label="final")
+
+    # Best after epoch 100 (min)
+    best_dead_idx = start_idx + np.argmin(dead[mask])
+    axes[2].scatter(
+        epochs[best_dead_idx], dead[best_dead_idx],
+        marker="*", s=120, zorder=4, label="best ≥100"
+    )
+
     axes[2].set_ylabel("Dead features")
     axes[2].set_xlabel("Epoch")
     axes[2].set_title(f"{title_prefix} Dead Features")
 
     axes[2].annotate(
         f"final = {dead[-1]}",
-        xy=(epochs[-1], dead[-1]),
+        (epochs[-1], dead[-1]),
         xytext=(5, 5),
         textcoords="offset points",
-        fontsize=10,
-        ha="left",
-        va="bottom",
+        fontsize=9,
     )
+    axes[2].annotate(
+        f"best@≥{min_epoch_for_best} = {dead[best_dead_idx]}",
+        (epochs[best_dead_idx], dead[best_dead_idx]),
+        xytext=(5, -12),
+        textcoords="offset points",
+        fontsize=9,
+    )
+
+    axes[2].legend(loc="best", fontsize=9)
 
     fig.tight_layout()
     fig.savefig(out_path, dpi=200)
@@ -175,11 +248,14 @@ def train_sae_for_subset(subset: str):
         f"with per-layer dims={per_layer_dims}, total d={d}, N={layer_acts.shape[0]}"
     )
 
+    g = torch.Generator()
+    g.manual_seed(SEED)
     dataloader = DataLoader(
         TensorDataset(layer_acts),
         batch_size=batch_size,
         shuffle=True,
         pin_memory=True,
+        generator=g,
     )
 
     def load_balance_loss(codes, eps=1e-8):
@@ -198,9 +274,11 @@ def train_sae_for_subset(subset: str):
 
         return mse + lb_coeff * lb
 
-    sae = TopKSAE(d, nb_concepts=nb_concepts, top_k=top_k, device=device)
+    # sae = TopKSAE(d, nb_concepts=nb_concepts, top_k=top_k, device=device)
+    sae = BatchTopKSAE(d, nb_concepts=nb_concepts, top_k=top_k, device=device)
     optimizer = torch.optim.Adam(sae.parameters(), lr=lr)
 
+    set_seed(SEED)
     logs = train_sae(
         sae,
         dataloader,
