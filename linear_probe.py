@@ -437,7 +437,7 @@ def main():
     episodes = index_libero_dataset(
         data_root=args.data_root,
         activations_root=args.activations_root,
-        groups=("goal",) # "10", "goal", "object", "spatial"),
+        groups=("object",) # "10", "goal", "object", "spatial"),
     )
 
     usable = [ep for ep in episodes
@@ -470,6 +470,7 @@ def main():
 
     print(f"Frames: train={Xtr.shape[0]}, val={(0 if Xva is None else Xva.shape[0])}, test={Xte.shape[0]}")
     print(f"Feature dim: {Xtr.shape[1]}, target dim: {Ytr.shape[1]}")
+    import pdb; pdb.set_trace()
 
     # ---- standardization (fit on train only) ----
     x_mu = x_std = None

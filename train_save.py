@@ -9,7 +9,7 @@ matplotlib.use("Agg")  # safe on headless SLURM
 if not hasattr(np, "Inf"):
     np.Inf = np.inf
 import matplotlib.pyplot as plt
-from overcomplete.sae import TopKSAE, BatchTopKSAE, train_sae
+from overcomplete.sae import TopKSAE, JumpSAE, BatchTopKSAE, train_sae
 
 # -------------------------
 # Config
@@ -18,7 +18,7 @@ SEED = 42
 npy_dir = "/n/netscratch/sham_lab/Lab/chloe00/pi0_activations"
 layer_indices = [ 11]
 batch_size = 1024
-lr = 1e-4
+lr = 3e-4
 nb_epochs = 200
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -277,21 +277,34 @@ def train_sae_for_subset(subset: str):
 
         return mse + lb_coeff * lb
 
-    
+
+    # JumpRelu
     def criterion(x, x_hat, pre_codes, codes, dictionary):
-  loss = (x - x_hat).square().mean()
+        # here we directly use the thresholds of the model to control the sparsity
+        loss = (x - x_hat).square().mean()
 
-  # is dead of shape (k) (nb concepts) and is 1 iif
-  # not a single code has fire in the batch
-  is_dead = ((codes > 0).sum(dim=0) == 0).float().detach()
-  # we push the pre_codes (before relu) towards the positive orthant
-  reanim_loss = (pre_codes * is_dead[None, :]).mean()
+        sparsity = (codes > 0).float().mean().detach()
+        if sparsity > desired_sparsity:
+            # if we are not sparse enough, increase the thresholds levels
+            loss -= sae.thresholds.sum()
 
-  loss -= reanim_loss * 1e-3
-  return loss
+        return loss
+
+    #  BatchTopKSAE
+    def criterion(x, x_hat, pre_codes, codes, dictionary):
+        loss = (x - x_hat).square().mean()
+
+        # is dead of shape (k) (nb concepts) and is 1 iif
+        # not a single code has fire in the batch
+        is_dead = ((codes > 0).sum(dim=0) == 0).float().detach()
+        # we push the pre_codes (before relu) towards the positive orthant
+        reanim_loss = (pre_codes * is_dead[None, :]).mean()
+
+        loss -= reanim_loss * 1e-3
+        return loss
 
     # sae = TopKSAE(d, nb_concepts=nb_concepts, top_k=top_k, device=device)
-    sae = BatchTopKSAE(d, nb_concepts=nb_concepts, top_k=top_k, device=device)
+    sae = BatchTopKSAE(d, nb_concepts=nb_concepts, top_k=top_k * batch_size, device=device)
     optimizer = torch.optim.Adam(sae.parameters(), lr=lr)
 
     set_seed(SEED)
