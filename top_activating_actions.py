@@ -7,7 +7,7 @@ import torch
 # ---- video frame extraction ----
 import cv2
 
-from overcomplete.sae import TopKSAE  # assumes same as your training
+from overcomplete.sae import TopKSAE  
 
 
 # =========================
