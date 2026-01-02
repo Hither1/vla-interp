@@ -7,7 +7,78 @@ from collections import defaultdict
 import numpy as np
 import torch
 
-from overcomplete.sae import TopKSAE  
+from overcomplete.sae import TopKSAE 
+
+
+
+
+def unstandardize_probe_weights(
+    W: torch.Tensor,
+    b: torch.Tensor,
+    x_mu: Optional[torch.Tensor],
+    x_std: Optional[torch.Tensor],
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """
+    If X_std = (X - mu)/std and Yhat = X_std @ W + b,
+    then in raw-X space: Yhat = X @ W_raw + b_raw, where:
+      W_raw = W / std
+      b_raw = b - (mu/std) @ W
+    Shapes:
+      W: (D, K), b: (K,), mu/std: (1, D)
+    """
+    if x_mu is None or x_std is None:
+        return W, b
+
+    std = x_std.squeeze(0)          # (D,)
+    mu = x_mu.squeeze(0)            # (D,)
+    W_raw = W / std.unsqueeze(1)    # (D, K)
+    b_raw = b - (mu / std) @ W      # (K,)
+    return W_raw, b_raw
+
+
+def participation_ratio(w: torch.Tensor, eps: float = 1e-12) -> float:
+    """
+    Effective number of coordinates used by vector w.
+    d_eff = (sum w^2)^2 / sum w^4
+    """
+    w2 = w.pow(2)
+    num = w2.sum().pow(2)
+    den = w2.pow(2).sum().clamp_min(eps)
+    return float((num / den).item())
+
+
+def topk_energy_count(w: torch.Tensor, frac: float = 0.9, eps: float = 1e-12) -> int:
+    """
+    Smallest k such that top-k squared weights capture `frac` of total squared weight energy.
+    """
+    w2 = w.pow(2)
+    total = w2.sum().clamp_min(eps)
+    vals, _ = torch.sort(w2, descending=True)
+    csum = torch.cumsum(vals, dim=0)
+    k = int(torch.searchsorted(csum, frac * total).item()) + 1
+    return min(k, w.numel())
+
+
+def stable_rank_matrix(W: torch.Tensor, eps: float = 1e-12) -> float:
+    """
+    stable_rank(W) = ||W||_F^2 / sigma_max(W)^2
+    """
+    s = torch.linalg.svdvals(W)
+    fro2 = W.pow(2).sum()
+    smax2 = s.max().pow(2).clamp_min(eps)
+    return float((fro2 / smax2).item())
+
+
+def effective_rank_entropy(W: torch.Tensor, eps: float = 1e-12) -> float:
+    """
+    effective_rank(W) = exp(H(p)), p_i = s_i / sum s_i
+    """
+    s = torch.linalg.svdvals(W)
+    ssum = s.sum().clamp_min(eps)
+    p = (s / ssum).clamp_min(eps)
+    H = -(p * torch.log(p)).sum()
+    return float(torch.exp(H).item())
+    
 
 # -------------------------
 # Task map (unchanged)
@@ -66,7 +137,7 @@ libero_task_map = {
 ACTION_NAMES = ["dx", "dy", "dz", "droll", "dpitch", "dyaw", "gripper"]
 
 # -------------------------
-# Parsers (unchanged)
+# Parsers 
 # -------------------------
 def parse_episode_id_from_actions_json(path: str) -> str:
     return os.path.splitext(os.path.basename(path))[0]
