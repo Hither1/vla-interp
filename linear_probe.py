@@ -78,7 +78,7 @@ def effective_rank_entropy(W: torch.Tensor, eps: float = 1e-12) -> float:
     p = (s / ssum).clamp_min(eps)
     H = -(p * torch.log(p)).sum()
     return float(torch.exp(H).item())
-    
+
 
 # -------------------------
 # Task map (unchanged)
@@ -563,6 +563,28 @@ def main():
     # ---- train ridge probe ----
     W, b = ridge_closed_form(Xtr, Ytr, lam=args.ridge_lambda)
 
+    # ---- probe dimensionality diagnostics ----
+    # Use unstandardized-X weights for interpretability if --standardize_x was used.
+    W_for_dim, b_for_dim = unstandardize_probe_weights(W, b, x_mu, x_std)
+
+    # Per-action (dx, dy, ...) "how many features are used?"
+    per_action_dim = {}
+    for i, name in enumerate(ACTION_NAMES):
+        wi = W_for_dim[:, i]
+        per_action_dim[name] = {
+            "participation_ratio": participation_ratio(wi),
+            "topk_90pct_energy": topk_energy_count(wi, frac=0.90),
+            "topk_95pct_energy": topk_energy_count(wi, frac=0.95),
+            "l2_norm": float(torch.linalg.vector_norm(wi).item()),
+        }
+
+    # Whole-probe (D x 7) rank-ish measures
+    probe_dim_summary = {
+        "W_space": "raw_X" if (args.standardize_x) else "model_space",
+        "stable_rank": stable_rank_matrix(W_for_dim),
+        "effective_rank_entropy": effective_rank_entropy(W_for_dim),
+    }
+
     def predict(X: torch.Tensor) -> torch.Tensor:
         return X @ W + b
 
@@ -609,6 +631,11 @@ def main():
         results["splits"]["val"] = eval_split("val", Xva, Yva)
     results["splits"]["test"] = eval_split("test", Xte, Yte)
 
+    results["probe_dimensionality"] = {
+        "summary": probe_dim_summary,
+        "per_action": per_action_dim,
+    }
+    
     # ---- optionally unstandardize weight interpretation ----
     # If you standardize Y, reported metrics are in standardized Y units.
     # For absolute-action-space metrics, leave --standardize_y off.
