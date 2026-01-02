@@ -4,6 +4,11 @@ import re
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, TensorDataset
+
+import random
+
+
+from typing import Tuple, Optional
 import matplotlib
 matplotlib.use("Agg")  # safe on headless SLURM
 if not hasattr(np, "Inf"):
@@ -23,6 +28,9 @@ nb_epochs = 200
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 nb_concepts = 40
+NB_CONCEPTS_LIST = [512, 1024, 2048, 4096]     # <-- sweep n
+TOPK_LIST        = [1, 2, 4, 8, 16]            # <-- sweep k (per sample notion)
+
 top_k = 10
 
 # Train a separate SAE per subset:
@@ -38,7 +46,127 @@ ckpt_dir = "./checkpoints/BatchTopKSAE"
 os.makedirs(ckpt_dir, exist_ok=True)
 
 
-import random
+
+# -------------------------
+# Targets / labels loading
+# -------------------------
+def list_subset_label_files(y_dir: str, subset: str):
+    """
+    Return .npy paths whose basename starts with subset, same as activations.
+    Assumes labels are stored as npy files parallel to activations.
+    """
+    pattern = os.path.join(y_dir, "*.npy")
+    all_paths = sorted(glob.glob(pattern))
+    subset_paths = [p for p in all_paths if os.path.basename(p).startswith(subset)]
+    return subset_paths
+
+def load_concat_labels(paths):
+    """Load and concatenate label npys. Ensures float32 (or int64 if you prefer)."""
+    assert len(paths) > 0, "No label paths provided."
+    chunks = []
+    for p in paths:
+        print(f"Loading labels {p}")
+        arr = np.load(p)
+        # Allow (N,), (N,1), (N,k). We'll standardize later.
+        chunks.append(arr)
+    y = np.concatenate(chunks, axis=0)
+    return y
+
+# -------------------------
+# SAE code extraction
+# -------------------------
+@torch.no_grad()
+def sae_get_codes(sae, X: torch.Tensor, batch_size: int, device: str) -> torch.Tensor:
+    """
+    Returns SAE sparse codes Z with shape [N, nb_concepts].
+    Tries common APIs:
+      - sae.encode(X)
+      - sae(X) returning (x_hat, pre_codes, codes, dictionary?) or similar
+    """
+    sae.eval()
+    Z_list = []
+    N = X.shape[0]
+    for start in range(0, N, batch_size):
+        xb = X[start:start + batch_size].to(device, non_blocking=True)
+
+        if hasattr(sae, "encode"):
+            codes = sae.encode(xb)
+        else:
+            out = sae(xb)
+            # Handle different return signatures:
+            # expected in your criterion: x_hat, pre_codes, codes, dictionary
+            if isinstance(out, (tuple, list)) and len(out) >= 3:
+                codes = out[2]
+            else:
+                raise RuntimeError("Could not infer codes from sae forward(). "
+                                   "Please adapt sae_get_codes() to your SAE API.")
+
+        Z_list.append(codes.detach().cpu())
+
+    return torch.cat(Z_list, dim=0)
+
+# -------------------------
+# Least squares (linear regression) with bias
+# -------------------------
+def fit_least_squares(Z_train: np.ndarray, y_train: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Fit y ~= Z W + b using least squares.
+    Returns (W, b) where:
+      W shape: [d, k] if y is [N, k], else [d, 1]
+      b shape: [k] or [1]
+    """
+    if y_train.ndim == 1:
+        y_train = y_train[:, None]  # [N,1]
+
+    N, d = Z_train.shape
+    k = y_train.shape[1]
+
+    # Add bias column
+    A = np.concatenate([Z_train, np.ones((N, 1), dtype=Z_train.dtype)], axis=1)  # [N, d+1]
+
+    # Solve min ||A theta - y||_2
+    # theta: [d+1, k]
+    theta, *_ = np.linalg.lstsq(A, y_train, rcond=None)
+
+    W = theta[:d, :]            # [d,k]
+    b = theta[d, :]             # [k]
+    return W, b
+
+def predict_linear(Z: np.ndarray, W: np.ndarray, b: np.ndarray) -> np.ndarray:
+    if W.ndim == 1:
+        W = W[:, None]
+    yhat = Z @ W + b[None, :]
+    return yhat
+
+def mse(y: np.ndarray, yhat: np.ndarray) -> float:
+    return float(np.mean((yhat - y) ** 2))
+
+def r2_score(y: np.ndarray, yhat: np.ndarray) -> float:
+    # Supports y as [N] or [N,k]; returns mean over outputs
+    if y.ndim == 1:
+        y = y[:, None]
+    if yhat.ndim == 1:
+        yhat = yhat[:, None]
+    ss_res = np.sum((y - yhat) ** 2, axis=0)
+    y_mean = np.mean(y, axis=0, keepdims=True)
+    ss_tot = np.sum((y - y_mean) ** 2, axis=0) + 1e-12
+    return float(np.mean(1.0 - ss_res / ss_tot))
+
+
+def binarize_from_score(score: np.ndarray, threshold: float = 0.5) -> np.ndarray:
+    return (score.reshape(-1) >= threshold).astype(np.int64)
+
+# -------------------------
+# Train/val split
+# -------------------------
+def train_val_split_indices(N: int, val_frac: float, seed: int) -> Tuple[np.ndarray, np.ndarray]:
+    rng = np.random.default_rng(seed)
+    idx = np.arange(N)
+    rng.shuffle(idx)
+    n_val = int(round(val_frac * N))
+    val_idx = idx[:n_val]
+    train_idx = idx[n_val:]
+    return train_idx, val_idx
 
 def set_seed(seed: int):
     random.seed(seed)
@@ -303,55 +431,58 @@ def train_sae_for_subset(subset: str):
         loss -= reanim_loss * 1e-3
         return loss
 
-    # sae = TopKSAE(d, nb_concepts=nb_concepts, top_k=top_k, device=device)
-    sae = BatchTopKSAE(d, nb_concepts=nb_concepts, top_k=top_k * batch_size, device=device)
-    optimizer = torch.optim.Adam(sae.parameters(), lr=lr)
 
-    set_seed(SEED)
-    logs = train_sae(
-        sae,
-        dataloader,
-        criterion,
-        optimizer,
-        nb_epochs=nb_epochs,
-        device=device,
-    )
+    for nb_concepts in NB_CONCEPTS_LIST:
+        for top_k in TOPK_LIST:
+        # sae = TopKSAE(d, nb_concepts=nb_concepts, top_k=top_k, device=device)
+        sae = BatchTopKSAE(d, nb_concepts=nb_concepts, top_k=top_k * batch_size, device=device)
+        optimizer = torch.optim.Adam(sae.parameters(), lr=lr)
 
-    layers_tag = "-".join(map(str, layer_indices))
-    ckpt_path = os.path.join(
-        ckpt_dir,
-        f"sae_{subset}_layer{layers_tag}_k{top_k}_c{nb_concepts}.pt"
-    )
+        set_seed(SEED)
+        logs = train_sae(
+            sae,
+            dataloader,
+            criterion,
+            optimizer,
+            nb_epochs=nb_epochs,
+            device=device,
+        )
 
-
-    ckpt = {
-        "subset": subset,
-        "layer_idx": layers_tag,
-        "d": d,
-        "nb_concepts": nb_concepts,
-        "top_k": top_k,
-        "lr": lr,
-        "nb_epochs": nb_epochs,
-        "model_state_dict": sae.state_dict(),
-        "optimizer_state_dict": optimizer.state_dict(),
-        "logs": logs,
-        "npy_paths": npy_paths,
-    }
-    torch.save(ckpt, ckpt_path)
+        layers_tag = "-".join(map(str, layer_indices))
+        ckpt_path = os.path.join(
+            ckpt_dir,
+            f"sae_{subset}_layer{layers_tag}_k{top_k}_c{nb_concepts}.pt"
+        )
 
 
+        ckpt = {
+            "subset": subset,
+            "layer_idx": layers_tag,
+            "d": d,
+            "nb_concepts": nb_concepts,
+            "top_k": top_k,
+            "lr": lr,
+            "nb_epochs": nb_epochs,
+            "model_state_dict": sae.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "logs": logs,
+            "npy_paths": npy_paths,
+        }
+        torch.save(ckpt, ckpt_path)
 
-    plot_path = os.path.join(
-        ckpt_dir,
-        f"curves_{subset}_layer{layers_tag}_k{top_k}_c{nb_concepts}.png"
-    )
-    plot_training_curves(
-        logs,
-        plot_path,
-        title_prefix=f"{subset} | layer {layers_tag} | k={top_k} | c={nb_concepts}"
-    )
 
-    print(f"[{subset}] Saved checkpoint to: {ckpt_path}")
+
+        plot_path = os.path.join(
+            ckpt_dir,
+            f"curves_{subset}_layer{layers_tag}_k{top_k}_c{nb_concepts}.png"
+        )
+        plot_training_curves(
+            logs,
+            plot_path,
+            title_prefix=f"{subset} | layer {layers_tag} | k={top_k} | c={nb_concepts}"
+        )
+
+        print(f"[{subset}] Saved checkpoint to: {ckpt_path}")
 
 # -------------------------
 # Run: train SAEs per subset

@@ -299,66 +299,13 @@ def load_actions(actions_json_path: str) -> np.ndarray:
 # -------------------------
 # Utilities: splitting, metrics, standardization, ridge
 # -------------------------
-def split_episodes(episodes: List[Episode], seed: int, train_frac=0.8, val_frac=0.1):
-    """Split by episode (not by frame) to avoid leakage."""
-    rng = np.random.default_rng(seed)
-    idxs = np.arange(len(episodes))
-    rng.shuffle(idxs)
 
-    n = len(episodes)
-    n_train = int(round(train_frac * n))
-    n_val = int(round(val_frac * n))
-    n_train = min(n_train, n)
-    n_val = min(n_val, n - n_train)
-    n_test = n - n_train - n_val
 
-    tr = [episodes[i] for i in idxs[:n_train]]
-    va = [episodes[i] for i in idxs[n_train:n_train+n_val]]
-    te = [episodes[i] for i in idxs[n_train+n_val:]]
-    return tr, va, te
 
-def standardize_fit(X: torch.Tensor, eps=1e-6):
-    mu = X.mean(dim=0, keepdim=True)
-    std = X.std(dim=0, keepdim=True).clamp_min(eps)
-    return mu, std
 
-def standardize_apply(X: torch.Tensor, mu: torch.Tensor, std: torch.Tensor):
-    return (X - mu) / std
 
-def r2_score(y_true: torch.Tensor, y_pred: torch.Tensor, eps=1e-12) -> torch.Tensor:
-    # per-dim R2
-    ss_res = ((y_true - y_pred) ** 2).sum(dim=0)
-    y_mean = y_true.mean(dim=0, keepdim=True)
-    ss_tot = ((y_true - y_mean) ** 2).sum(dim=0).clamp_min(eps)
-    return 1.0 - ss_res / ss_tot
 
-def ridge_closed_form(X: torch.Tensor, Y: torch.Tensor, lam: float) -> Tuple[torch.Tensor, torch.Tensor]:
-    """
-    Solve: min_W ||XW - Y||^2 + lam ||W||^2 with bias.
-    Returns (W, b).
-    X: (N, D), Y: (N, K)
-    """
-    device = X.device
-    N, D = X.shape
-    K = Y.shape[1]
 
-    # augment with bias column
-    ones = torch.ones((N, 1), device=device, dtype=X.dtype)
-    Xb = torch.cat([X, ones], dim=1)  # (N, D+1)
-
-    # ridge only on weights, not bias
-    I = torch.eye(D + 1, device=device, dtype=X.dtype)
-    I[-1, -1] = 0.0  # don't penalize bias
-
-    # (Xb^T Xb + lam I)^{-1} Xb^T Y
-    XtX = Xb.T @ Xb
-    A = XtX + lam * I
-    XtY = Xb.T @ Y
-
-    Wb = torch.linalg.solve(A, XtY)  # (D+1, K)
-    W = Wb[:D, :]
-    b = Wb[D:, :].squeeze(0)  # (K,)
-    return W, b
 
 # -------------------------
 # Feature extraction
@@ -635,7 +582,7 @@ def main():
         "summary": probe_dim_summary,
         "per_action": per_action_dim,
     }
-    
+
     # ---- optionally unstandardize weight interpretation ----
     # If you standardize Y, reported metrics are in standardized Y units.
     # For absolute-action-space metrics, leave --standardize_y off.

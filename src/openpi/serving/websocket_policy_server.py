@@ -73,7 +73,7 @@ class WebsocketPolicyServer:
         episode_activations = []  # list of (num_layers, B, T, D), one per env step
 
         task_suite_name: str = (
-            "libero_90"  # Task suite. Options: libero_spatial, libero_object, libero_goal, libero_10, libero_90
+            "libero_spatial"  # Task suite. Options: libero_spatial, libero_object, libero_goal, libero_10, libero_90
         )
 
         def flush_episode(episode_id, acts_list):
