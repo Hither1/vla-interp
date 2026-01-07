@@ -22,20 +22,14 @@ from utils import *
 # 1) Parsers / prompt helpers
 # =========================
 
-def parse_episode_id_from_actions_json(path: str) -> str:
-    return os.path.splitext(os.path.basename(path))[0]
-
-def parse_episode_id_from_video(path: str) -> str:
-    return os.path.splitext(os.path.basename(path))[0]
-
-def parse_episode_id_from_activation_npy(path: str) -> str:
-    """
-    IMPORTANT: customize if your activation filenames include extra suffixes.
-    Example:
-      pi0_activations/libero_goal_ep000123.npy -> "libero_goal_ep000123"
-      or libero_goal/ep000123.npy -> "ep000123"
-    """
-    return os.path.splitext(os.path.basename(path))[0]
+# def parse_episode_id_from_activation_npy(path: str) -> str:
+#     """
+#     IMPORTANT: customize if your activation filenames include extra suffixes.
+#     Example:
+#       pi0_activations/libero_goal_ep000123.npy -> "libero_goal_ep000123"
+#       or libero_goal/ep000123.npy -> "ep000123"
+#     """
+#     return os.path.splitext(os.path.basename(path))[0]
 
 def prompt_for_group_and_episode(group_name: str, episode_id: str) -> str:
     m = re.search(r"task(\d+)", episode_id)
@@ -45,7 +39,6 @@ def prompt_for_group_and_episode(group_name: str, episode_id: str) -> str:
         if key in libero_task_map and 0 <= idx < len(libero_task_map[key]):
             return libero_task_map[key][idx]
     return f"{group_name}:unknown_prompt"
-
 
 
 

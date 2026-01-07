@@ -15,15 +15,6 @@ from utils import *
 # 1) Customize these parsers
 # =========================
 
-def parse_episode_id_from_actions_json(path: str) -> str:
-    return os.path.splitext(os.path.basename(path))[0]
-
-def parse_episode_id_from_video(path: str) -> str:
-    return os.path.splitext(os.path.basename(path))[0]
-
-def parse_episode_id_from_activation_npy(path: str) -> str:
-    return os.path.splitext(os.path.basename(path))[0]
-
 def prompt_for_group_and_episode(group_name: str, episode_id: str) -> str:
     m = re.search(r"task(\d+)", episode_id)
     if m:
@@ -37,15 +28,6 @@ def prompt_for_group_and_episode(group_name: str, episode_id: str) -> str:
 # =========================
 # 2) Data indexing
 # =========================
-
-@dataclass
-class Episode:
-    group: str
-    episode_id: str
-    actions_path: str
-    video_path: str
-    prompt: str
-    act_path: str  # activation npy path
 
 def index_libero_dataset(
     data_root: str,
