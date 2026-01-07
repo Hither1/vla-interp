@@ -203,7 +203,7 @@ def load_concat(paths):
 
 
 
-def plot_training_curves(logs, out_path, title_prefix="", min_epoch_for_best=100):
+def plot_training_curves(logs, out_path, title_prefix="", min_epoch_for_best=30):
     """
     Plots:
       - Loss (avg_loss or step_loss)
@@ -434,55 +434,53 @@ def train_sae_for_subset(subset: str):
 
     for nb_concepts in NB_CONCEPTS_LIST:
         for top_k in TOPK_LIST:
-        # sae = TopKSAE(d, nb_concepts=nb_concepts, top_k=top_k, device=device)
-        sae = BatchTopKSAE(d, nb_concepts=nb_concepts, top_k=top_k * batch_size, device=device)
-        optimizer = torch.optim.Adam(sae.parameters(), lr=lr)
+            # sae = TopKSAE(d, nb_concepts=nb_concepts, top_k=top_k, device=device)
+            sae = BatchTopKSAE(d, nb_concepts=nb_concepts, top_k=top_k * batch_size, device=device)
+            optimizer = torch.optim.Adam(sae.parameters(), lr=lr)
 
-        set_seed(SEED)
-        logs = train_sae(
-            sae,
-            dataloader,
-            criterion,
-            optimizer,
-            nb_epochs=nb_epochs,
-            device=device,
-        )
+            set_seed(SEED)
+            logs = train_sae(
+                sae,
+                dataloader,
+                criterion,
+                optimizer,
+                nb_epochs=nb_epochs,
+                device=device,
+            )
 
-        layers_tag = "-".join(map(str, layer_indices))
-        ckpt_path = os.path.join(
-            ckpt_dir,
-            f"sae_{subset}_layer{layers_tag}_k{top_k}_c{nb_concepts}.pt"
-        )
-
-
-        ckpt = {
-            "subset": subset,
-            "layer_idx": layers_tag,
-            "d": d,
-            "nb_concepts": nb_concepts,
-            "top_k": top_k,
-            "lr": lr,
-            "nb_epochs": nb_epochs,
-            "model_state_dict": sae.state_dict(),
-            "optimizer_state_dict": optimizer.state_dict(),
-            "logs": logs,
-            "npy_paths": npy_paths,
-        }
-        torch.save(ckpt, ckpt_path)
+            layers_tag = "-".join(map(str, layer_indices))
+            ckpt_path = os.path.join(
+                ckpt_dir,
+                f"sae_{subset}_layer{layers_tag}_k{top_k}_c{nb_concepts}.pt"
+            )
 
 
+            ckpt = {
+                "subset": subset,
+                "layer_idx": layers_tag,
+                "d": d,
+                "nb_concepts": nb_concepts,
+                "top_k": top_k,
+                "lr": lr,
+                "nb_epochs": nb_epochs,
+                "model_state_dict": sae.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "logs": logs,
+                "npy_paths": npy_paths,
+            }
+            torch.save(ckpt, ckpt_path)
 
-        plot_path = os.path.join(
-            ckpt_dir,
-            f"curves_{subset}_layer{layers_tag}_k{top_k}_c{nb_concepts}.png"
-        )
-        plot_training_curves(
-            logs,
-            plot_path,
-            title_prefix=f"{subset} | layer {layers_tag} | k={top_k} | c={nb_concepts}"
-        )
+            plot_path = os.path.join(
+                ckpt_dir,
+                f"curves_{subset}_layer{layers_tag}_k{top_k}_c{nb_concepts}.png"
+            )
+            plot_training_curves(
+                logs,
+                plot_path,
+                title_prefix=f"{subset} | layer {layers_tag} | k={top_k} | c={nb_concepts}"
+            )
 
-        print(f"[{subset}] Saved checkpoint to: {ckpt_path}")
+            print(f"[{subset}] Saved checkpoint to: {ckpt_path}")
 
 # -------------------------
 # Run: train SAEs per subset

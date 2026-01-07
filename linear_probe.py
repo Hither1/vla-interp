@@ -8,7 +8,7 @@ import numpy as np
 import torch
 
 from overcomplete.sae import TopKSAE 
-
+from utils import *
 
 
 
@@ -157,60 +157,6 @@ def prompt_for_group_and_episode(group_name: str, episode_id: str) -> str:
             return libero_task_map[key][idx]
     return f"{group_name}:{episode_id}"
 
-# -------------------------
-# Dataset indexing (unchanged)
-# -------------------------
-@dataclass
-class Episode:
-    group: str
-    episode_id: str
-    actions_path: str
-    video_path: Optional[str]
-    prompt: str
-    act_path: Optional[str]  # activation npy path
-
-def index_libero_dataset(
-    data_root: str,
-    activations_root: str,
-    groups=("10", "goal", "object", "spatial"),
-):
-    actions_map = {}
-    video_map = {}
-    for g in groups:
-        actions_dir = os.path.join(data_root, g, "actions")
-        videos_dir = os.path.join(data_root, g, "videos")
-
-        for p in sorted(glob.glob(os.path.join(actions_dir, "*.json"))):
-            eid = parse_episode_id_from_actions_json(p)
-            actions_map[(g, eid)] = p
-
-        for p in sorted(glob.glob(os.path.join(videos_dir, "*.mp4"))):
-            eid = parse_episode_id_from_video(p)
-            video_map[(g, eid)] = p
-
-    act_paths = sorted(glob.glob(os.path.join(activations_root, "*.npy")))
-    act_map = {parse_episode_id_from_activation_npy(p): p for p in act_paths}
-
-    episodes = []
-    for (g, eid_raw), a_path in actions_map.items():
-        v_path = video_map.get((g, eid_raw.replace("actions", "rollout")), None)
-
-        mnum = re.search(r"\d+", eid_raw)
-        if mnum is None:
-            continue
-        num = int(mnum.group())
-
-        eid = eid_raw.replace("actions_", "").split("_trial")[0]
-        task = next((i for i, s in enumerate(libero_task_map[f"libero_{g}"]) if eid in s), -1)
-
-        
-        act_path = act_map.get(f"task{task}_ep{num}_post_ffn_last_step", None)
-
-        prompt = prompt_for_group_and_episode(g, eid)
-        episodes.append(Episode(g, eid, a_path, v_path, prompt, act_path))
-
-    print(f"Indexed {len(episodes)} episodes (some may have missing video/activation paths).")
-    return episodes
 
 # -------------------------
 # Actions loader (unchanged)
@@ -295,10 +241,6 @@ def load_actions(actions_json_path: str) -> np.ndarray:
             return np.stack(rows, axis=0).astype(np.float32)
 
     raise ValueError(f"Unrecognized action json schema in {actions_json_path}: type={type(obj)}")
-
-# -------------------------
-# Utilities: splitting, metrics, standardization, ridge
-# -------------------------
 
 
 
@@ -409,7 +351,7 @@ def main():
     ap.add_argument("--activations_root", type=str, default="/n/netscratch/sham_lab/Lab/chloe00/pi0_activations")
     ap.add_argument("--layer_idx", type=int, default=11)
 
-    ap.add_argument("--feature_mode", type=str, default="sae", choices=["sae", "raw"])
+    ap.add_argument("--feature_mode", type=str, default="raw", choices=["sae", "raw"])
     ap.add_argument("--device", type=str, default="cuda")
     ap.add_argument("--encode_batch", type=int, default=8192)
 
@@ -447,15 +389,15 @@ def main():
         print(f"Loaded SAE: d={d_expected}, nb_concepts={nb_concepts}, top_k={ckpt['top_k']}")
     else:
         # if raw, we still need d_expected; easiest: read from ckpt if provided
-        ckpt = torch.load(args.ckpt_path, map_location="cpu", weights_only=False)
-        d_expected = ckpt["d"]
-        print(f"Raw probe mode. Using d_expected={d_expected} from ckpt.")
+        # ckpt = torch.load(args.ckpt_path, map_location="cpu", weights_only=False)
+        d_expected = 1024 # ckpt["d"]
+        print(f"Raw probe mode. Using d_expected={d_expected}.")
 
     # ---- index episodes ----
     episodes = index_libero_dataset(
         data_root=args.data_root,
         activations_root=args.activations_root,
-        groups=("object",) # "10", "goal", "object", "spatial"),
+        groups=("spatial",) # "10", "goal", "object", "spatial"),
     )
 
     usable = [ep for ep in episodes
@@ -488,7 +430,7 @@ def main():
 
     print(f"Frames: train={Xtr.shape[0]}, val={(0 if Xva is None else Xva.shape[0])}, test={Xte.shape[0]}")
     print(f"Feature dim: {Xtr.shape[1]}, target dim: {Ytr.shape[1]}")
-    import pdb; pdb.set_trace()
+    # import pdb; pdb.set_trace()
 
     # ---- standardization (fit on train only) ----
     x_mu = x_std = None
@@ -596,6 +538,26 @@ def main():
         print(f"  {k:>7s}: {v: .4f}")
     print(f"Test R2 mean: {results['splits']['test']['r2_mean']:.4f}")
     print(f"Test MSE: {results['splits']['test']['mse']:.6f}")
+    
+    print("\n=== Probe Dimensionality Diagnostics ===")
+    summary = results["probe_dimensionality"]["summary"]
+    print(
+        f"Global probe dimensionality "
+        f"(W ∈ R^{W.shape[0]}×{W.shape[1]}):"
+    )
+    print(f"  Stable rank        : {summary['stable_rank']:.2f}")
+    print(f"  Effective rank (H) : {summary['effective_rank_entropy']:.2f}")
+    print(f"  Weight space       : {summary['W_space']}")
+
+    print("\nPer-action effective dimensionality:")
+    for name in ACTION_NAMES:
+        d = results["probe_dimensionality"]["per_action"][name]
+        print(
+            f"  {name:>7s} | "
+            f"d_eff(PR) ≈ {d['participation_ratio']:.2f}, "
+            f"k_90% = {d['topk_90pct_energy']:4d}, "
+            f"k_95% = {d['topk_95pct_energy']:4d}"
+        )
 
 if __name__ == "__main__":
     main()

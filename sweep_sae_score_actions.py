@@ -9,13 +9,6 @@ import torch
 from overcomplete.sae import TopKSAE  # matches your ckpt loader usage
 from utils import index_libero_dataset, ACTION_NAMES, split_episodes, load_actions, ridge_closed_form, r2_score, standardize_fit, standardize_apply
 
-# -------------------------
-# (Keep your libero_task_map, ACTION_NAMES, Episode, index_libero_dataset,
-#  load_actions, load_layer_acts, split_episodes, standardize_*, r2_score,
-#  ridge_closed_form, extract_features_and_targets) BUT with edits below.
-# -------------------------
-
-
 
 # ---------- MCC ----------
 def matthews_corrcoef_binary(y_true: torch.Tensor, y_pred: torch.Tensor, eps: float = 1e-12) -> float:
