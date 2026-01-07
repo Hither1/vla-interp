@@ -59,8 +59,6 @@ def index_libero_dataset(
             eid = parse_episode_id_from_video(p)
             video_map[(g, eid)] = p
 
-    # Activation files (likely separate folder). Build by episode_id only,
-    # or if your filename includes group, parse that and include it.
     act_paths = sorted(glob.glob(os.path.join(activations_root, "*.npy")))
     act_map: Dict[str, str] = {}
     for p in act_paths:
@@ -80,7 +78,7 @@ def index_libero_dataset(
         # Your downstream logic expects to parse a number from raw_eid
         mnum = re.search(r"\d+", raw_eid)
         if mnum is None:
-            # still include it; just won't map activations via your naming scheme
+            # just won't map activations via your naming scheme
             num = None
         else:
             num = int(mnum.group())
