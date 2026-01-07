@@ -15,25 +15,6 @@ from utils import *
 # 1) Customize these parsers
 # =========================
 
-def parse_episode_id_from_actions_json(path: str) -> str:
-    """
-    Return a stable episode id that also matches video filename and activation npy filename.
-    Common pattern: {stem}.json and {stem}.mp4 and {stem}.npy
-    """
-    return os.path.splitext(os.path.basename(path))[0]
-
-def parse_episode_id_from_video(path: str) -> str:
-    return os.path.splitext(os.path.basename(path))[0]
-
-def parse_episode_id_from_activation_npy(path: str) -> str:
-    """
-    IMPORTANT: customize if your activation filenames include extra suffixes.
-    Example:
-      pi0_activations/libero_goal_ep000123.npy -> "libero_goal_ep000123"
-      or libero_goal/ep000123.npy -> "ep000123"
-    """
-    return os.path.splitext(os.path.basename(path))[0]
-
 def prompt_for_group_and_episode(group_name: str, episode_id: str) -> str:
     """
     If your episode id encodes which task index it is, parse it here.
@@ -55,15 +36,6 @@ def prompt_for_group_and_episode(group_name: str, episode_id: str) -> str:
 # =========================
 # 2) Data indexing
 # =========================
-
-@dataclass
-class Episode:
-    group: str
-    episode_id: str
-    actions_path: str
-    video_path: Optional[str]
-    prompt: str
-    act_path: Optional[str]  # activation npy path
 
 
 def index_libero_dataset(
