@@ -11,63 +11,12 @@ import torch
 # ---- video frame extraction ----
 import cv2
 
-from overcomplete.sae import TopKSAE  
+from overcomplete.sae import TopKSAE, BatchedTopKSAE
+from utils import *
 
-# =========================
-# 0) Libero task map
-# =========================
 
-libero_task_map = {
-    "libero_spatial": [
-        "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate",
-        "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate",
-        "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate",
-        "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate",
-        "pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate",
-        "pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate",
-        "pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate",
-        "pick_up_the_black_bowl_on_the_stove_and_place_it_on_the_plate",
-        "pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate",
-        "pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate",
-    ],
-    "libero_object": [
-        "pick_up_the_alphabet_soup_and_place_it_in_the_basket",
-        "pick_up_the_cream_cheese_and_place_it_in_the_basket",
-        "pick_up_the_salad_dressing_and_place_it_in_the_basket",
-        "pick_up_the_bbq_sauce_and_place_it_in_the_basket",
-        "pick_up_the_ketchup_and_place_it_in_the_basket",
-        "pick_up_the_tomato_sauce_and_place_it_in_the_basket",
-        "pick_up_the_butter_and_place_it_in_the_basket",
-        "pick_up_the_milk_and_place_it_in_the_basket",
-        "pick_up_the_chocolate_pudding_and_place_it_in_the_basket",
-        "pick_up_the_orange_juice_and_place_it_in_the_basket",
-    ],
-    "libero_goal": [
-        "open_the_middle_drawer_of_the_cabinet",
-        "put_the_bowl_on_the_stove",
-        "put_the_wine_bottle_on_top_of_the_cabinet",
-        "open_the_top_drawer_and_put_the_bowl_inside",
-        "put_the_bowl_on_top_of_the_cabinet",
-        "push_the_plate_to_the_front_of_the_stove",
-        "put_the_cream_cheese_in_the_bowl",
-        "turn_on_the_stove",
-        "put_the_bowl_on_the_plate",
-        "put_the_wine_bottle_on_the_rack",
-    ],
-    "libero_10": [
-        "LIVING_ROOM_SCENE2_put_both_the_alphabet_soup_and_the_tomato_sauce_in_the_basket",
-        "LIVING_ROOM_SCENE2_put_both_the_cream_cheese_box_and_the_butter_in_the_basket",
-        "KITCHEN_SCENE3_turn_on_the_stove_and_put_the_moka_pot_on_it",
-        "KITCHEN_SCENE4_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it",
-        "LIVING_ROOM_SCENE5_put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate",
-        "STUDY_SCENE1_pick_up_the_book_and_place_it_in_the_back_compartment_of_the_caddy",
-        "LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate_and_put_the_chocolate_pudding_to_the_right_of_the_plate",
-        "LIVING_ROOM_SCENE1_put_both_the_alphabet_soup_and_the_cream_cheese_box_in_the_basket",
-        "KITCHEN_SCENE8_put_both_moka_pots_on_the_stove",
-        "KITCHEN_SCENE6_put_the_yellow_and_white_mug_in_the_microwave_and_close_it",
-    ],
-    # libero_90 omitted here for brevity; keep yours
-}
+
+
 
 # =========================
 # 1) Parsers / prompt helpers
@@ -97,71 +46,10 @@ def prompt_for_group_and_episode(group_name: str, episode_id: str) -> str:
             return libero_task_map[key][idx]
     return f"{group_name}:unknown_prompt"
 
-# =========================
-# 2) Data indexing
-# =========================
 
-@dataclass
-class Episode:
-    group: str
-    episode_id: str
-    actions_path: str
-    video_path: str
-    prompt: str
-    act_path: str  # activation npy path
 
-def index_libero_dataset(
-    data_root: str,
-    activations_root: str,
-    groups=("10", "goal", "object", "spatial"),
-):
-    # Build maps from (group, episode_id) -> path for actions/videos
-    actions_map = {}
-    video_map = {}
 
-    for g in groups:
-        actions_dir = os.path.join(data_root, g, "actions")
-        videos_dir = os.path.join(data_root, g, "videos")
 
-        for p in sorted(glob.glob(os.path.join(actions_dir, "*.json"))):
-            eid = parse_episode_id_from_actions_json(p)
-            actions_map[(g, eid)] = p
-
-        for p in sorted(glob.glob(os.path.join(videos_dir, "*.mp4"))):
-            eid = parse_episode_id_from_video(p)
-            video_map[(g, eid)] = p
-
-    # Activation files (separate folder). Map by activation "eid" stem.
-    act_paths = sorted(glob.glob(os.path.join(activations_root, "*.npy")))
-    act_map = {}
-    for p in act_paths:
-        eid = parse_episode_id_from_activation_npy(p)
-        act_map[eid] = p
-
-    episodes = []
-
-    for (g, eid_raw), a_path in actions_map.items():
-        # If your video naming differs, fix this mapping
-        v_path = video_map.get((g, eid_raw.replace("actions", "rollout")), None)
-
-        # Your custom parsing logic
-        mnum = re.search(r"\d+", eid_raw)
-        num = int(mnum.group()) if mnum else -1
-
-        eid = eid_raw.replace("actions_", "").split("_trial")[0]
-
-        # Map prompt/task index by substring match
-        task = next(
-            (i for i, s in enumerate(libero_task_map[f"libero_{g}"]) if eid in s),
-            -1,
-        )
-        act_path = act_map.get(f"task{task}_ep{num}_post_ffn_last_step", None)
-
-        prompt = prompt_for_group_and_episode(g, eid)
-        episodes.append(Episode(g, eid, a_path, v_path, prompt, act_path))
-
-    print(f"Indexed {len(episodes)} episodes (may include missing video/act paths).")
-    return episodes
 
 # =========================
 # 3) Actions loader

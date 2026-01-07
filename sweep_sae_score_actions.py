@@ -6,7 +6,7 @@ from typing import List, Tuple, Dict, Optional
 import numpy as np
 import torch
 
-from overcomplete.sae import TopKSAE  # matches your ckpt loader usage
+from overcomplete.sae import TopKSAE  
 from utils import index_libero_dataset, ACTION_NAMES, split_episodes, load_actions, ridge_closed_form, r2_score, standardize_fit, standardize_apply
 
 
@@ -179,7 +179,7 @@ def main():
                     help="Glob for SAE ckpts, e.g. ./checkpoints/BatchTopKSAE/sae_libero_object_layer11_k*_c*.pt")
     ap.add_argument("--data_root", type=str, default="/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero")
     ap.add_argument("--activations_root", type=str, default="/n/netscratch/sham_lab/Lab/chloe00/pi0_activations")
-    ap.add_argument("--group", type=str, default="object", choices=["10","goal","object","spatial"])
+    ap.add_argument("--group", type=str, default="object", choices=["10", "goal", "object", "spatial"])
     ap.add_argument("--layer_idx", type=int, default=11)
     ap.add_argument("--device", type=str, default="cuda")
 

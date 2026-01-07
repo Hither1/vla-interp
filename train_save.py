@@ -29,9 +29,8 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 nb_concepts = 40
 NB_CONCEPTS_LIST = [512, 1024, 2048, 4096]     # <-- sweep n
-TOPK_LIST        = [1, 2, 4, 8, 16]            # <-- sweep k (per sample notion)
+TOPK_LIST        = [32]            # <-- sweep k (per sample notion)
 
-top_k = 10
 
 # Train a separate SAE per subset:
 # Put whatever LIBERO subsets 
