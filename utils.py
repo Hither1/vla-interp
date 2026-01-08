@@ -92,6 +92,27 @@ def prompt_for_group_and_episode(group_name: str, episode_id: str) -> str:
     return f"{group_name}:unknown_prompt"
 
 
+
+
+
+def prompt_for_group_and_episode(group_name: str, episode_id: str) -> str:
+    """
+    If your episode id encodes which task index it is, parse it here.
+    Otherwise, fall back to 'unknown' or store the group only.
+
+    Common Libero setup: episodes are grouped by task (10 tasks per group).
+    If you have metadata elsewhere, swap this to use that.
+    """
+    # import pdb; pdb.set_trace()
+    m = re.search(r"task(\d+)", episode_id)
+    if m:
+        idx = int(m.group(1))
+        key = f"libero_{group_name}" if not group_name.startswith("libero_") else group_name
+        if key in libero_task_map and 0 <= idx < len(libero_task_map[key]):
+            return libero_task_map[key][idx]
+    return f"{group_name}:{episode_id}"
+
+
 # =========================
 # 2) Data indexing
 # =========================
@@ -180,6 +201,7 @@ def index_libero_dataset(
 def _is_num(x):
     return isinstance(x, (int, float, np.integer, np.floating)) and np.isfinite(x)
 
+
 def _as_float_vec(x):
     if isinstance(x, np.ndarray):
         if x.ndim == 1 and np.issubdtype(x.dtype, np.number):
@@ -188,6 +210,7 @@ def _as_float_vec(x):
     if isinstance(x, (list, tuple)) and len(x) > 0 and all(_is_num(v) for v in x):
         return np.asarray(x, dtype=np.float32)
     return None
+
 
 def _find_action_in_dict(d):
     candidate_keys = [
@@ -220,6 +243,7 @@ def _find_action_in_dict(d):
                     return vec2
 
     return None
+
 
 def load_actions(actions_json_path: str) -> np.ndarray:
     with open(actions_json_path, "r") as f:
@@ -261,6 +285,47 @@ def load_actions(actions_json_path: str) -> np.ndarray:
     raise ValueError(f"Unrecognized action json schema in {actions_json_path}: type={type(obj)}")
 
 
+def load_actions(actions_json_path: str) -> np.ndarray:
+    with open(actions_json_path, "r") as f:
+        obj = json.load(f)
+
+    if isinstance(obj, dict):
+        if "actions" in obj:
+            obj = obj["actions"]
+        else:
+            raise ValueError(f"Dict JSON without 'actions' key in {actions_json_path}")
+
+    if isinstance(obj, list):
+        if len(obj) == 0:
+            return np.zeros((0, 0), dtype=np.float32)
+
+        if isinstance(obj[0], (list, tuple, np.ndarray)):
+            acts = np.asarray(obj, dtype=np.float32)
+            if acts.ndim != 2:
+                raise ValueError(f"Expected (T, action_dim); got {acts.shape} in {actions_json_path}")
+            return acts
+
+        if isinstance(obj[0], dict):
+            rows = []
+            for i, step in enumerate(obj):
+                vec = _find_action_in_dict(step)
+                if vec is None:
+                    raise ValueError(
+                        f"Could not find numeric action vector at step {i} in {actions_json_path}. "
+                        f"Keys were: {list(step.keys())[:30]}"
+                    )
+                rows.append(vec)
+
+            dim0 = rows[0].shape[0]
+            for i, v in enumerate(rows):
+                if v.shape[0] != dim0:
+                    raise ValueError(
+                        f"Inconsistent action_dim in {actions_json_path}: step0={dim0}, step{i}={v.shape[0]}"
+                    )
+            return np.stack(rows, axis=0).astype(np.float32)
+
+    raise ValueError(f"Unrecognized action json schema in {actions_json_path}: type={type(obj)}")
+
 # =========================
 # 4) Video frame extraction
 # =========================
@@ -276,6 +341,24 @@ def get_frame_opencv(video_path: str, frame_idx: int):
         return None
     frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
     return frame_rgb
+
+
+def get_frame_opencv(video_path: str, frame_idx: int):
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise RuntimeError(f"Could not open video: {video_path}")
+    cap.set(cv2.CAP_PROP_POS_FRAMES, int(frame_idx))
+    ok, frame_bgr = cap.read()
+    cap.release()
+    if not ok:
+        return None
+    frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+    return frame_rgb
+
+def save_frame_png(rgb: np.ndarray, out_path: str):
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+    cv2.imwrite(out_path, bgr)
 
 def save_frame_png(rgb: np.ndarray, out_path: str):
     os.makedirs(os.path.dirname(out_path), exist_ok=True)

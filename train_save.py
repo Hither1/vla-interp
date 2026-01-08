@@ -29,7 +29,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 nb_concepts = 40
 NB_CONCEPTS_LIST = [512, 1024, 2048, 4096]     # <-- sweep n
-TOPK_LIST        = [32]            # <-- sweep k (per sample notion)
+TOPK_LIST        = [1, 2, 4, 8, 16]            # <-- sweep k (per sample notion)
 
 
 # Train a separate SAE per subset:
@@ -190,6 +190,7 @@ def list_subset_files(npy_dir: str, subset: str):
     ]
     return subset_paths
 
+
 def load_concat(paths):
     """Load and concatenate a list of .npy files into one big float32 array."""
     assert len(paths) > 0, "No paths provided."
@@ -200,6 +201,19 @@ def load_concat(paths):
         chunks.append(arr)
     return np.concatenate(chunks, axis=0)
 
+
+def collect_all_subset_paths(npy_dir: str, subsets):
+    """Collect all npy paths for all subsets; returns (all_paths, per_subset_paths)."""
+    per_subset = {}
+    all_paths = []
+    for s in subsets:
+        paths = list_subset_files(npy_dir, s)
+        if len(paths) == 0:
+            raise RuntimeError(f"No .npy files found for subset='{s}' in {npy_dir}")
+        per_subset[s] = paths
+        all_paths.extend(paths)
+    all_paths = sorted(all_paths)
+    return all_paths, per_subset
 
 
 def plot_training_curves(logs, out_path, title_prefix="", min_epoch_for_best=30):
@@ -481,8 +495,127 @@ def train_sae_for_subset(subset: str):
 
             print(f"[{subset}] Saved checkpoint to: {ckpt_path}")
 
+
+def train_sae_on_all_subsets():
+    # 1) Collect all files across subsets
+    all_paths, per_subset_paths = collect_all_subset_paths(npy_dir, LIBERO_SUBSETS)
+    print("\n=== Combined training ===")
+    for s, ps in per_subset_paths.items():
+        print(f"  {s}: {len(ps)} files")
+    print(f"TOTAL files: {len(all_paths)}\n")
+
+    # 2) Load activations (concatenate across all subsets)
+    Activations_np = load_concat(all_paths)   # [N, L, ...]
+    Activations = torch.from_numpy(Activations_np)  # CPU tensor
+
+    print("[ALL] Torch activations shape:", Activations.shape)
+
+    N_total = Activations.shape[0]
+
+    # 3) Select layers and flatten
+    layer_acts_list = []
+    per_layer_dims = []
+    for li in layer_indices:
+        acts_li = Activations[:, li, ...].reshape(N_total, -1)  # [N, d_li]
+        layer_acts_list.append(acts_li)
+        per_layer_dims.append(acts_li.shape[1])
+
+    layer_acts = torch.cat(layer_acts_list, dim=1)  # [N, sum(d_li)]
+    d = layer_acts.shape[1]
+
+    print(
+        f"[ALL] Training on layers {layer_indices} "
+        f"with per-layer dims={per_layer_dims}, total d={d}, N={layer_acts.shape[0]}"
+    )
+
+    # 4) DataLoader
+    g = torch.Generator()
+    g.manual_seed(SEED)
+    dataloader = DataLoader(
+        TensorDataset(layer_acts),
+        batch_size=batch_size,
+        shuffle=True,
+        pin_memory=True,
+        generator=g,
+        drop_last=False,
+    )
+
+    # 5) Criterion (BatchTopKSAE reanimation)
+    def criterion(x, x_hat, pre_codes, codes, dictionary):
+        loss = (x - x_hat).square().mean()
+
+        # dead feature = no fires in batch
+        is_dead = ((codes > 0).sum(dim=0) == 0).float().detach()
+        # push pre-codes for dead feats positive to "reanimate"
+        reanim_loss = (pre_codes * is_dead[None, :]).mean()
+
+        loss -= reanim_loss * 1e-3
+        return loss
+
+    # 6) Sweep and train
+    combined_tag = "libero_all"
+    layers_tag = "-".join(map(str, layer_indices))
+
+    for nb_concepts in NB_CONCEPTS_LIST:
+        for top_k in TOPK_LIST:
+            set_seed(SEED)
+
+            # NOTE: BatchTopKSAE expects top_k as "total number of nonzeros per batch"
+            sae = BatchTopKSAE(
+                d,
+                nb_concepts=nb_concepts,
+                top_k=top_k * batch_size,
+                device=device,
+            )
+            optimizer = torch.optim.Adam(sae.parameters(), lr=lr)
+
+            logs = train_sae(
+                sae,
+                dataloader,
+                criterion,
+                optimizer,
+                nb_epochs=nb_epochs,
+                device=device,
+            )
+
+            ckpt_path = os.path.join(
+                ckpt_dir,
+                f"sae_{combined_tag}_layer{layers_tag}_k{top_k}_c{nb_concepts}.pt"
+            )
+
+            ckpt = {
+                "subset": combined_tag,
+                "subsets_included": list(LIBERO_SUBSETS),
+                "layer_idx": layers_tag,
+                "d": d,
+                "nb_concepts": nb_concepts,
+                "top_k": top_k,
+                "lr": lr,
+                "nb_epochs": nb_epochs,
+                "model_state_dict": sae.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "logs": logs,
+                "npy_paths_all": all_paths,
+                "npy_paths_per_subset": per_subset_paths,
+            }
+            torch.save(ckpt, ckpt_path)
+
+            plot_path = os.path.join(
+                ckpt_dir,
+                f"curves_{combined_tag}_layer{layers_tag}_k{top_k}_c{nb_concepts}.png"
+            )
+            plot_training_curves(
+                logs,
+                plot_path,
+                title_prefix=f"{combined_tag} | layer {layers_tag} | k={top_k} | c={nb_concepts}",
+            )
+
+            print(f"[ALL] Saved checkpoint to: {ckpt_path}")
+
 # -------------------------
 # Run: train SAEs per subset
 # -------------------------
-for subset in LIBERO_SUBSETS:
-    train_sae_for_subset(subset)
+# for subset in LIBERO_SUBSETS:
+#     train_sae_for_subset(subset)
+
+train_sae_on_all_subsets()

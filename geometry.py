@@ -129,7 +129,6 @@ def plot_overlay_geometry_metrics(results, title_suffix=""):
     axs[0, 0].set_title("Mean distance over time (avg over layers)")
     axs[0, 0].set_xlabel("time step")
     axs[0, 0].set_ylabel("distance")
-    # axs[0, 0].legend()
 
     # (2) Curvature over time (avg over layers), all files
     for r in results:
@@ -138,7 +137,6 @@ def plot_overlay_geometry_metrics(results, title_suffix=""):
     axs[0, 1].set_title("Mean curvature over time (deg, avg over layers)")
     axs[0, 1].set_xlabel("time step index (between steps)")
     axs[0, 1].set_ylabel("curvature (deg)")
-    # axs[0, 1].legend()
 
     # (3) Distance over layers (avg over time), all files
     for r in results:
@@ -147,7 +145,6 @@ def plot_overlay_geometry_metrics(results, title_suffix=""):
     axs[1, 0].set_title("Mean distance over layers (avg over time)")
     axs[1, 0].set_xlabel("layer index")
     axs[1, 0].set_ylabel("distance")
-    # axs[1, 0].legend()
 
     # (4) Curvature over layers (avg over time), all files
     for r in results:
@@ -156,7 +153,6 @@ def plot_overlay_geometry_metrics(results, title_suffix=""):
     axs[1, 1].set_title("Mean curvature over layers (deg, avg over time)")
     axs[1, 1].set_xlabel("layer index (between layers)")
     axs[1, 1].set_ylabel("curvature (deg)")
-    # axs[1, 1].legend()
 
     plt.tight_layout()
     out_name = f"geometry_overlay_{title_suffix}.png" if title_suffix else "geometry_overlay.png"
@@ -169,7 +165,7 @@ def plot_overlay_geometry_metrics(results, title_suffix=""):
 def main():
     # Directory containing your .npy files
     npy_dir = "/n/netscratch/sham_lab/Lab/chloe00/pi0_activations"
-    pattern = os.path.join(npy_dir, "*.npy")
+    pattern = os.path.join(npy_dir, "libero_10_*.npy")
     npy_paths = sorted(glob.glob(pattern))
 
     results = []

@@ -8,154 +8,13 @@ from collections import Counter, defaultdict
 import numpy as np
 import torch
 
-# ---- video frame extraction ----
-import cv2
-
-from overcomplete.sae import TopKSAE, BatchedTopKSAE
+from overcomplete.sae import TopKSAE, BatchTopKSAE
 from utils import *
 
 
 
-
-
 # =========================
-# 1) Parsers / prompt helpers
-# =========================
-
-# def parse_episode_id_from_activation_npy(path: str) -> str:
-#     """
-#     IMPORTANT: customize if your activation filenames include extra suffixes.
-#     Example:
-#       pi0_activations/libero_goal_ep000123.npy -> "libero_goal_ep000123"
-#       or libero_goal/ep000123.npy -> "ep000123"
-#     """
-#     return os.path.splitext(os.path.basename(path))[0]
-
-def prompt_for_group_and_episode(group_name: str, episode_id: str) -> str:
-    m = re.search(r"task(\d+)", episode_id)
-    if m:
-        idx = int(m.group(1))
-        key = f"libero_{group_name}" if not group_name.startswith("libero_") else group_name
-        if key in libero_task_map and 0 <= idx < len(libero_task_map[key]):
-            return libero_task_map[key][idx]
-    return f"{group_name}:unknown_prompt"
-
-
-
-
-
-# =========================
-# 3) Actions loader
-# =========================
-
-def _is_num(x):
-    return isinstance(x, (int, float, np.integer, np.floating)) and np.isfinite(x)
-
-def _as_float_vec(x):
-    if isinstance(x, np.ndarray):
-        if x.ndim == 1 and np.issubdtype(x.dtype, np.number):
-            return x.astype(np.float32)
-        return None
-    if isinstance(x, (list, tuple)) and len(x) > 0 and all(_is_num(v) for v in x):
-        return np.asarray(x, dtype=np.float32)
-    return None
-
-def _find_action_in_dict(d):
-    candidate_keys = [
-        "action", "actions",
-        "robot_action", "robot_actions",
-        "ctrl", "control", "command",
-        "ee_action", "ee_delta", "delta",
-    ]
-
-    for k in candidate_keys:
-        if k in d:
-            v = d[k]
-            vec = _as_float_vec(v)
-            if vec is not None:
-                return vec
-            if isinstance(v, dict):
-                for _, vv in v.items():
-                    vec2 = _as_float_vec(vv)
-                    if vec2 is not None:
-                        return vec2
-
-    for v in d.values():
-        vec = _as_float_vec(v)
-        if vec is not None:
-            return vec
-        if isinstance(v, dict):
-            for vv in v.values():
-                vec2 = _as_float_vec(vv)
-                if vec2 is not None:
-                    return vec2
-
-    return None
-
-def load_actions(actions_json_path: str) -> np.ndarray:
-    with open(actions_json_path, "r") as f:
-        obj = json.load(f)
-
-    if isinstance(obj, dict):
-        if "actions" in obj:
-            obj = obj["actions"]
-        else:
-            raise ValueError(f"Dict JSON without 'actions' key in {actions_json_path}")
-
-    if isinstance(obj, list):
-        if len(obj) == 0:
-            return np.zeros((0, 0), dtype=np.float32)
-
-        if isinstance(obj[0], (list, tuple, np.ndarray)):
-            acts = np.asarray(obj, dtype=np.float32)
-            if acts.ndim != 2:
-                raise ValueError(f"Expected (T, action_dim); got {acts.shape} in {actions_json_path}")
-            return acts
-
-        if isinstance(obj[0], dict):
-            rows = []
-            for i, step in enumerate(obj):
-                vec = _find_action_in_dict(step)
-                if vec is None:
-                    raise ValueError(
-                        f"Could not find numeric action vector at step {i} in {actions_json_path}. "
-                        f"Keys were: {list(step.keys())[:30]}"
-                    )
-                rows.append(vec)
-
-            dim0 = rows[0].shape[0]
-            for i, v in enumerate(rows):
-                if v.shape[0] != dim0:
-                    raise ValueError(
-                        f"Inconsistent action_dim in {actions_json_path}: step0={dim0}, step{i}={v.shape[0]}"
-                    )
-            return np.stack(rows, axis=0).astype(np.float32)
-
-    raise ValueError(f"Unrecognized action json schema in {actions_json_path}: type={type(obj)}")
-
-# =========================
-# 4) Video frame extraction
-# =========================
-
-def get_frame_opencv(video_path: str, frame_idx: int):
-    cap = cv2.VideoCapture(video_path)
-    if not cap.isOpened():
-        raise RuntimeError(f"Could not open video: {video_path}")
-    cap.set(cv2.CAP_PROP_POS_FRAMES, int(frame_idx))
-    ok, frame_bgr = cap.read()
-    cap.release()
-    if not ok:
-        return None
-    frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-    return frame_rgb
-
-def save_frame_png(rgb: np.ndarray, out_path: str):
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
-    cv2.imwrite(out_path, bgr)
-
-# =========================
-# 5) NEW: selecting top activating frames per concept (diversity + NMS)
+# 5) selecting top activating frames per concept (diversity + NMS)
 # =========================
 
 def select_top_frames_with_nms(
@@ -220,7 +79,7 @@ def mine_concepts_global(
 
     # ---- load SAE checkpoint ----
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
-    sae = TopKSAE(
+    sae = BatchTopKSAE(
         ckpt["d"],
         nb_concepts=ckpt["nb_concepts"],
         top_k=ckpt["top_k"],
@@ -310,6 +169,7 @@ def mine_concepts_global(
     # ============================================================
     concept_hits = [[] for _ in range(nb_concepts)]
 
+    sae.train()
     with torch.no_grad():
         for start in range(0, total_T, encode_batch):
             end = min(total_T, start + encode_batch)
@@ -444,7 +304,8 @@ def mine_concepts_global(
 # =========================
 
 if __name__ == "__main__":
-    ckpt_path = "./checkpoints/TopKSAE/sae_layer11_k10_c16000.pt"
+    # ckpt_path = "./checkpoints/TopKSAE/sae_layer11_k10_c16000.pt"
+    ckpt_path = "./checkpoints/BatchTopKSAE/sae_libero_10_layer11_k16_c1024.pt"
     data_root = "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero"
     activations_root = "/n/netscratch/sham_lab/Lab/chloe00/pi0_activations"
 

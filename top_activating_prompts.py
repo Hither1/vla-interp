@@ -11,205 +11,158 @@ from overcomplete.sae import TopKSAE
 from utils import *
 
 
-# =========================
-# 1) Customize these parsers
-# =========================
+# def index_libero_dataset(
+#     data_root: str,
+#     activations_root: str,
+#     groups=("10", "goal", "object", "spatial"),
+# ) -> List[Episode]:
+#     # Build maps from episode_id -> path for actions/videos
+#     actions_map: Dict[Tuple[str, str], str] = {}
+#     video_map: Dict[Tuple[str, str], str] = {}
 
-def prompt_for_group_and_episode(group_name: str, episode_id: str) -> str:
-    """
-    If your episode id encodes which task index it is, parse it here.
-    Otherwise, fall back to 'unknown' or store the group only.
+#     for g in groups:
+#         actions_dir = os.path.join(data_root, g, "actions")
+#         videos_dir = os.path.join(data_root, g, "videos")
 
-    Common Libero setup: episodes are grouped by task (10 tasks per group).
-    If you have metadata elsewhere, swap this to use that.
-    """
-    # import pdb; pdb.set_trace()
-    m = re.search(r"task(\d+)", episode_id)
-    if m:
-        idx = int(m.group(1))
-        key = f"libero_{group_name}" if not group_name.startswith("libero_") else group_name
-        if key in libero_task_map and 0 <= idx < len(libero_task_map[key]):
-            return libero_task_map[key][idx]
-    return f"{group_name}:{episode_id}"
+#         for p in sorted(glob.glob(os.path.join(actions_dir, "*.json"))):
+#             eid = parse_episode_id_from_actions_json(p)
+#             actions_map[(g, eid)] = p
 
+#         for p in sorted(glob.glob(os.path.join(videos_dir, "*.mp4"))):
+#             eid = parse_episode_id_from_video(p)
+#             video_map[(g, eid)] = p
 
-# =========================
-# 2) Data indexing
-# =========================
+#     act_paths = sorted(glob.glob(os.path.join(activations_root, "*.npy")))
+#     act_map: Dict[str, str] = {}
+#     for p in act_paths:
+#         eid = parse_episode_id_from_activation_npy(p)
+#         act_map[eid] = p
 
+#     episodes: List[Episode] = []
 
-def index_libero_dataset(
-    data_root: str,
-    activations_root: str,
-    groups=("10", "goal", "object", "spatial"),
-) -> List[Episode]:
-    # Build maps from episode_id -> path for actions/videos
-    actions_map: Dict[Tuple[str, str], str] = {}
-    video_map: Dict[Tuple[str, str], str] = {}
+#     for (g, raw_eid), a_path in actions_map.items():
+#         # Find video: in some datasets actions file name differs from video stem.
+#         v_path = video_map.get((g, raw_eid), None)
 
-    for g in groups:
-        actions_dir = os.path.join(data_root, g, "actions")
-        videos_dir = os.path.join(data_root, g, "videos")
+#         # Your downstream logic expects to parse a number from raw_eid
+#         mnum = re.search(r"\d+", raw_eid)
+#         if mnum is None:
+#             num = None
+#         else:
+#             num = int(mnum.group())
 
-        for p in sorted(glob.glob(os.path.join(actions_dir, "*.json"))):
-            eid = parse_episode_id_from_actions_json(p)
-            actions_map[(g, eid)] = p
+#         #   raw: "actions_..._trial..." -> eid = "...", and then find task index by substring search.
+#         eid = raw_eid
+#         eid = eid.replace("actions_", "")
+#         eid = eid.split("_trial")[0]
 
-        for p in sorted(glob.glob(os.path.join(videos_dir, "*.mp4"))):
-            eid = parse_episode_id_from_video(p)
-            video_map[(g, eid)] = p
+#         # Determine task index based on eid contained in the prompt strings
+#         task = -1
+#         key = f"libero_{g}"
+#         if key in libero_task_map:
+#             task = next((i for i, s in enumerate(libero_task_map[key]) if eid in s), -1)
 
-    act_paths = sorted(glob.glob(os.path.join(activations_root, "*.npy")))
-    act_map: Dict[str, str] = {}
-    for p in act_paths:
-        eid = parse_episode_id_from_activation_npy(p)
-        act_map[eid] = p
+#         #   f"task{task}_ep{num}_post_ffn_last_step"
+#         act_path = None
+#         if (task is not None) and (task >= 0) and (num is not None):
+#             act_key = f"task{task}_ep{num}_post_ffn_last_step"
+#             act_path = act_map.get(act_key, None)
 
-    episodes: List[Episode] = []
+#         prompt = prompt_for_group_and_episode(g, eid)
+#         episodes.append(Episode(g, eid, a_path, v_path, prompt, act_path))
 
-    for (g, raw_eid), a_path in actions_map.items():
-        # Your original code had a custom mapping from actions->videos and actions->activations.
-        # Keep your logic but make it a bit more defensive.
-
-        # Find video: in some datasets actions file name differs from video stem.
-        # If your stems match exactly, this will work:
-        v_path = video_map.get((g, raw_eid), None)
-
-        # Your downstream logic expects to parse a number from raw_eid
-        mnum = re.search(r"\d+", raw_eid)
-        if mnum is None:
-            # just won't map activations via your naming scheme
-            num = None
-        else:
-            num = int(mnum.group())
-
-        # Your normalization:
-        #   raw: "actions_..._trial..." -> eid = "...", and then find task index by substring search.
-        eid = raw_eid
-        eid = eid.replace("actions_", "")
-        eid = eid.split("_trial")[0]
-
-        # Determine task index based on eid contained in the prompt strings
-        task = -1
-        key = f"libero_{g}"
-        if key in libero_task_map:
-            task = next((i for i, s in enumerate(libero_task_map[key]) if eid in s), -1)
-
-        # Activation path convention you used:
-        #   f"task{task}_ep{num}_post_ffn_last_step"
-        act_path = None
-        if (task is not None) and (task >= 0) and (num is not None):
-            act_key = f"task{task}_ep{num}_post_ffn_last_step"
-            act_path = act_map.get(act_key, None)
-
-        prompt = prompt_for_group_and_episode(g, eid)
-        episodes.append(Episode(g, eid, a_path, v_path, prompt, act_path))
-
-    print(f"Indexed {len(episodes)} episodes (may include missing video/activation).")
-    return episodes
+#     print(f"Indexed {len(episodes)} episodes (may include missing video/activation).")
+#     return episodes
 
 
-# =========================
-# 3) Actions loader (customize to your json schema)
-# =========================
 
-def _is_num(x):
-    return isinstance(x, (int, float, np.integer, np.floating)) and np.isfinite(x)
 
-def _as_float_vec(x):
-    """Try convert x into a 1D float32 vector; return None if impossible."""
-    if isinstance(x, np.ndarray):
-        if x.ndim == 1 and np.issubdtype(x.dtype, np.number):
-            return x.astype(np.float32)
-        return None
-    if isinstance(x, (list, tuple)) and len(x) > 0 and all(_is_num(v) for v in x):
-        return np.asarray(x, dtype=np.float32)
-    return None
 
-def _find_action_in_dict(d):
-    """
-    Heuristics: try common keys, else find first list-of-numbers value (possibly nested one level).
-    Returns np.float32 vector or None.
-    """
-    candidate_keys = [
-        "action", "actions",
-        "robot_action", "robot_actions",
-        "ctrl", "control", "command",
-        "ee_action", "ee_delta", "delta",
-    ]
+# def _find_action_in_dict(d):
+#     """
+#     Heuristics: try common keys, else find first list-of-numbers value (possibly nested one level).
+#     Returns np.float32 vector or None.
+#     """
+#     candidate_keys = [
+#         "action", "actions",
+#         "robot_action", "robot_actions",
+#         "ctrl", "control", "command",
+#         "ee_action", "ee_delta", "delta",
+#     ]
 
-    for k in candidate_keys:
-        if k in d:
-            v = d[k]
-            vec = _as_float_vec(v)
-            if vec is not None:
-                return vec
-            if isinstance(v, dict):
-                for vv in v.values():
-                    vec2 = _as_float_vec(vv)
-                    if vec2 is not None:
-                        return vec2
+#     for k in candidate_keys:
+#         if k in d:
+#             v = d[k]
+#             vec = _as_float_vec(v)
+#             if vec is not None:
+#                 return vec
+#             if isinstance(v, dict):
+#                 for vv in v.values():
+#                     vec2 = _as_float_vec(vv)
+#                     if vec2 is not None:
+#                         return vec2
 
-    for v in d.values():
-        vec = _as_float_vec(v)
-        if vec is not None:
-            return vec
-        if isinstance(v, dict):
-            for vv in v.values():
-                vec2 = _as_float_vec(vv)
-                if vec2 is not None:
-                    return vec2
+#     for v in d.values():
+#         vec = _as_float_vec(v)
+#         if vec is not None:
+#             return vec
+#         if isinstance(v, dict):
+#             for vv in v.values():
+#                 vec2 = _as_float_vec(vv)
+#                 if vec2 is not None:
+#                     return vec2
 
-    return None
+#     return None
 
-def load_actions(actions_json_path: str) -> np.ndarray:
-    """
-    Returns actions as float array (T, action_dim).
-    Supports:
-      - {"actions": [[...], ...]}
-      - {"actions": [{...}, {...}, ...]}
-      - [[...], ...]
-      - [{...}, {...}, ...]   (list of dict per timestep)
-    """
-    with open(actions_json_path, "r") as f:
-        obj = json.load(f)
 
-    if isinstance(obj, dict):
-        if "actions" in obj:
-            obj = obj["actions"]
-        else:
-            raise ValueError(f"Dict JSON without 'actions' key in {actions_json_path}")
+# def load_actions(actions_json_path: str) -> np.ndarray:
+#     """
+#     Returns actions as float array (T, action_dim).
+#     Supports:
+#       - {"actions": [[...], ...]}
+#       - {"actions": [{...}, {...}, ...]}
+#       - [[...], ...]
+#       - [{...}, {...}, ...]   (list of dict per timestep)
+#     """
+#     with open(actions_json_path, "r") as f:
+#         obj = json.load(f)
 
-    if isinstance(obj, list):
-        if len(obj) == 0:
-            return np.zeros((0, 0), dtype=np.float32)
+#     if isinstance(obj, dict):
+#         if "actions" in obj:
+#             obj = obj["actions"]
+#         else:
+#             raise ValueError(f"Dict JSON without 'actions' key in {actions_json_path}")
 
-        if isinstance(obj[0], (list, tuple, np.ndarray)):
-            acts = np.asarray(obj, dtype=np.float32)
-            if acts.ndim != 2:
-                raise ValueError(f"Expected (T, action_dim) from list-of-vectors; got {acts.shape} in {actions_json_path}")
-            return acts
+#     if isinstance(obj, list):
+#         if len(obj) == 0:
+#             return np.zeros((0, 0), dtype=np.float32)
 
-        if isinstance(obj[0], dict):
-            rows = []
-            for i, step in enumerate(obj):
-                vec = _find_action_in_dict(step)
-                if vec is None:
-                    raise ValueError(
-                        f"Could not find numeric action vector at step {i} in {actions_json_path}. "
-                        f"Keys were: {list(step.keys())[:30]}"
-                    )
-                rows.append(vec)
+#         if isinstance(obj[0], (list, tuple, np.ndarray)):
+#             acts = np.asarray(obj, dtype=np.float32)
+#             if acts.ndim != 2:
+#                 raise ValueError(f"Expected (T, action_dim) from list-of-vectors; got {acts.shape} in {actions_json_path}")
+#             return acts
 
-            dim0 = rows[0].shape[0]
-            for i, v in enumerate(rows):
-                if v.shape[0] != dim0:
-                    raise ValueError(
-                        f"Inconsistent action_dim in {actions_json_path}: step0={dim0}, step{i}={v.shape[0]}"
-                    )
-            return np.stack(rows, axis=0).astype(np.float32)
+#         if isinstance(obj[0], dict):
+#             rows = []
+#             for i, step in enumerate(obj):
+#                 vec = _find_action_in_dict(step)
+#                 if vec is None:
+#                     raise ValueError(
+#                         f"Could not find numeric action vector at step {i} in {actions_json_path}. "
+#                         f"Keys were: {list(step.keys())[:30]}"
+#                     )
+#                 rows.append(vec)
 
-    raise ValueError(f"Unrecognized action json schema in {actions_json_path}: type={type(obj)}")
+#             dim0 = rows[0].shape[0]
+#             for i, v in enumerate(rows):
+#                 if v.shape[0] != dim0:
+#                     raise ValueError(
+#                         f"Inconsistent action_dim in {actions_json_path}: step0={dim0}, step{i}={v.shape[0]}"
+#                     )
+#             return np.stack(rows, axis=0).astype(np.float32)
+
+#     raise ValueError(f"Unrecognized action json schema in {actions_json_path}: type={type(obj)}")
 
 
 
