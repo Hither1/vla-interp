@@ -4,108 +4,83 @@ from collections import Counter
 import numpy as np
 import torch
 
-from overcomplete.sae import TopKSAE  
+from overcomplete.sae import TopKSAE, BatchTopKSAE
 from utils import *
 
 
 
-# def _find_action_in_dict(d):
-#     candidate_keys = [
-#         "action", "actions",
-#         "robot_action", "robot_actions",
-#         "ctrl", "control", "command",
-#         "ee_action", "ee_delta", "delta",
-#     ]
+import matplotlib
+matplotlib.use("Agg")  # important on headless slurm nodes
+import matplotlib.pyplot as plt
 
-#     for k in candidate_keys:
-#         if k in d:
-#             v = d[k]
-#             vec = _as_float_vec(v)
-#             if vec is not None:
-#                 return vec
-#             if isinstance(v, dict):
-#                 for vv in v.values():
-#                     vec2 = _as_float_vec(vv)
-#                     if vec2 is not None:
-#                         return vec2
+def pca3_numpy(X: np.ndarray):
+    """
+    X: (N, D). Returns:
+      Z: (N, 3) PCA coords
+      explained_var_ratio: (3,)
+      mu: (D,)
+      components: (3, D)  (rows are principal axes)
+    """
+    X = np.asarray(X, dtype=np.float64)
+    mu = X.mean(axis=0, keepdims=True)
+    Xc = X - mu
 
-#     for v in d.values():
-#         vec = _as_float_vec(v)
-#         if vec is not None:
-#             return vec
-#         if isinstance(v, dict):
-#             for vv in v.values():
-#                 vec2 = _as_float_vec(vv)
-#                 if vec2 is not None:
-#                     return vec2
+    # SVD-based PCA
+    # Xc = U S Vt, principal axes are rows of Vt
+    U, S, Vt = np.linalg.svd(Xc, full_matrices=False)
 
-#     return None
+    comps = Vt[:3, :]                # (3, D)
+    Z = (Xc @ comps.T).astype(np.float32)  # (N, 3)
+
+    # explained variance ratio
+    # eigenvalues of covariance are (S^2)/(N-1)
+    N = X.shape[0]
+    eig = (S**2) / max(N - 1, 1)
+    total = eig.sum() if eig.size > 0 else 1.0
+    evr = (eig[:3] / total).astype(np.float32) if total > 0 else np.zeros((3,), dtype=np.float32)
+
+    return Z, evr, mu.squeeze(0).astype(np.float32), comps.astype(np.float32)
 
 
-# def load_actions(actions_json_path: str) -> np.ndarray:
-#     with open(actions_json_path, "r") as f:
-#         obj = json.load(f)
+def plot_actions_pca_3d(hits, concept_dir: str ='./', title: str = ""):
+    """
+    Saves concept_dir/actions_pca3d.png (and .npz with PCA outputs).
+    """
+    if len(hits) < 3:
+        return  # need at least 3 points for a meaningful 3D cloud
 
-#     if isinstance(obj, dict):
-#         if "actions" in obj:
-#             obj = obj["actions"]
-#         else:
-#             raise ValueError(f"Dict JSON without 'actions' key in {actions_json_path}")
+    A = np.stack([np.asarray(h["action"], dtype=np.float32) for h in hits], axis=0)  # (N,7)
+    scores = np.asarray([float(h["score"]) for h in hits], dtype=np.float32)
 
-#     if isinstance(obj, list):
-#         if len(obj) == 0:
-#             return np.zeros((0, 0), dtype=np.float32)
+    Z, evr, mu, comps = pca3_numpy(A)
 
-#         if isinstance(obj[0], (list, tuple, np.ndarray)):
-#             acts = np.asarray(obj, dtype=np.float32)
-#             if acts.ndim != 2:
-#                 raise ValueError(f"Expected (T, action_dim); got {acts.shape} in {actions_json_path}")
-#             return acts
+    fig = plt.figure(figsize=(7, 6))
+    ax = fig.add_subplot(111, projection="3d")
 
-#         if isinstance(obj[0], dict):
-#             rows = []
-#             for i, step in enumerate(obj):
-#                 vec = _find_action_in_dict(step)
-#                 if vec is None:
-#                     raise ValueError(
-#                         f"Could not find numeric action vector at step {i} in {actions_json_path}. "
-#                         f"Keys: {list(step.keys())[:30]}"
-#                     )
-#                 rows.append(vec)
+    # color by score (higher activation = brighter)
+    sc = ax.scatter(Z[:, 0], Z[:, 1], Z[:, 2], c=scores, s=18, alpha=0.8)
+    cb = fig.colorbar(sc, ax=ax, shrink=0.75, pad=0.08)
+    cb.set_label("concept activation score")
 
-#             dim0 = rows[0].shape[0]
-#             for i, v in enumerate(rows):
-#                 if v.shape[0] != dim0:
-#                     raise ValueError(f"Inconsistent action_dim in {actions_json_path}: step0={dim0}, step{i}={v.shape[0]}")
-#             return np.stack(rows, axis=0).astype(np.float32)
+    ax.set_xlabel(f"PC1 ({evr[0]*100:.1f}%)")
+    ax.set_ylabel(f"PC2 ({evr[1]*100:.1f}%)")
+    ax.set_zlabel(f"PC3 ({evr[2]*100:.1f}%)")
 
-#     raise ValueError(f"Unrecognized action json schema in {actions_json_path}: type={type(obj)}")
+    if title:
+        ax.set_title(title)
+
+    plt.tight_layout()
+    out_png = os.path.join(concept_dir, "actions_pca3d.png")
+    plt.savefig(out_png, dpi=220)
+    plt.close(fig)
 
 
 
-# def get_frame_opencv(video_path: str, frame_idx: int):
-#     cap = cv2.VideoCapture(video_path)
-#     if not cap.isOpened():
-#         raise RuntimeError(f"Could not open video: {video_path}")
-#     cap.set(cv2.CAP_PROP_POS_FRAMES, int(frame_idx))
-#     ok, frame_bgr = cap.read()
-#     cap.release()
-#     if not ok:
-#         return None
-#     frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-#     return frame_rgb
-
-# def save_frame_png(rgb: np.ndarray, out_path: str):
-#     os.makedirs(os.path.dirname(out_path), exist_ok=True)
-#     bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
-#     cv2.imwrite(out_path, bgr)
 
 
 # =========================
-# 5) Top-activating actions utilities
+# Top-activating actions utilities
 # =========================
-
-
 def top_action_clusters_from_hits(
     hits,
     action_quant: float = 0.02,
@@ -239,7 +214,7 @@ def mine_concepts_global(
 
     # ---- load SAE checkpoint ----
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
-    sae = TopKSAE(
+    sae = BatchTopKSAE(
         ckpt["d"],
         nb_concepts=ckpt["nb_concepts"],
         top_k=ckpt["top_k"],
@@ -327,6 +302,7 @@ def mine_concepts_global(
     # ============================================================
     concept_hits = [[] for _ in range(nb_concepts)]
 
+    sae.train()
     with torch.no_grad():
         for start in range(0, total_T, encode_batch):
             end = min(total_T, start + encode_batch)
@@ -348,16 +324,17 @@ def mine_concepts_global(
                     print('s', s)
                     if s <= 0:
                         continue
-
-                    concept_hits[c].append({
-                        "score": s,
-                        "group": ep_group[i_global],
-                        "episode_id": ep_id[i_global],
-                        "t": int(t_in_ep[i_global]),
-                        "prompt": prompt[i_global],
-                        "action": actions_all[i_global].copy(),
-                        "video_path": video[i_global],
-                    })
+                    
+                    if s > 100:
+                        concept_hits[c].append({
+                            "score": s,
+                            "group": ep_group[i_global],
+                            "episode_id": ep_id[i_global],
+                            "t": int(t_in_ep[i_global]),
+                            "prompt": prompt[i_global],
+                            "action": actions_all[i_global].copy(),
+                            "video_path": video[i_global],
+                        })
 
     # ============================================================
     # PASS 3: per-concept summaries (+ top activating actions)
@@ -370,6 +347,15 @@ def mine_concepts_global(
         hits = hits[:top_m]
 
         prompt_counts = Counter([h["prompt"] for h in hits])
+
+        if len(hits) < 1:
+            continue
+        
+
+        plot_actions_pca_3d(
+            hits,
+            title=f"Concept {c} — Actions PCA (N={len(hits)})",
+        )
 
         if len(hits) > 0:
             action_mat = np.stack([h["action"] for h in hits], axis=0)  # (N,7)
@@ -455,13 +441,16 @@ def mine_concepts_global(
     with open(os.path.join(out_dir, "all_concepts_summary.json"), "w") as f:
         json.dump(summaries, f, indent=2)
 
+    
+
     print(f"Done. Wrote concept folders to: {out_dir}")
 
 
 
 
 if __name__ == "__main__":
-    ckpt_path = "./checkpoints/TopKSAE/sae_layer11_k10_c16000.pt"  
+    # ckpt_path = "./checkpoints/TopKSAE/sae_layer11_k10_c16000.pt"  
+    ckpt_path = "./checkpoints/BatchTopKSAE/sae_libero_10_layer11_k16_c1024.pt"
     data_root = "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero"
     activations_root = "/n/netscratch/sham_lab/Lab/chloe00/pi0_activations"
 

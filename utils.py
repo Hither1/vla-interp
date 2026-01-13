@@ -326,6 +326,39 @@ def load_actions(actions_json_path: str) -> np.ndarray:
 
     raise ValueError(f"Unrecognized action json schema in {actions_json_path}: type={type(obj)}")
 
+
+# def _find_action_in_dict(d):
+#     candidate_keys = [
+#         "action", "actions",
+#         "robot_action", "robot_actions",
+#         "ctrl", "control", "command",
+#         "ee_action", "ee_delta", "delta",
+#     ]
+
+#     for k in candidate_keys:
+#         if k in d:
+#             v = d[k]
+#             vec = _as_float_vec(v)
+#             if vec is not None:
+#                 return vec
+#             if isinstance(v, dict):
+#                 for vv in v.values():
+#                     vec2 = _as_float_vec(vv)
+#                     if vec2 is not None:
+#                         return vec2
+
+#     for v in d.values():
+#         vec = _as_float_vec(v)
+#         if vec is not None:
+#             return vec
+#         if isinstance(v, dict):
+#             for vv in v.values():
+#                 vec2 = _as_float_vec(vv)
+#                 if vec2 is not None:
+#                     return vec2
+
+#     return None
+
 # =========================
 # 4) Video frame extraction
 # =========================

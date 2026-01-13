@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
-import os, glob, json, re, argparse, math
-from dataclasses import dataclass
+import os, json, argparse
 from typing import List, Tuple, Dict, Optional
-from collections import defaultdict
 
 import numpy as np
 import torch
 
-from overcomplete.sae import TopKSAE 
-from utils import *
+from overcomplete.sae import TopKSAE
+from utils import * 
 
 
+
+# =========================
+# Probe weight utilities
+# =========================
 
 def unstandardize_probe_weights(
     W: torch.Tensor,
@@ -63,6 +65,8 @@ def stable_rank_matrix(W: torch.Tensor, eps: float = 1e-12) -> float:
     """
     stable_rank(W) = ||W||_F^2 / sigma_max(W)^2
     """
+    if W.numel() == 0:
+        return 0.0
     s = torch.linalg.svdvals(W)
     fro2 = W.pow(2).sum()
     smax2 = s.max().pow(2).clamp_min(eps)
@@ -73,6 +77,8 @@ def effective_rank_entropy(W: torch.Tensor, eps: float = 1e-12) -> float:
     """
     effective_rank(W) = exp(H(p)), p_i = s_i / sum s_i
     """
+    if W.numel() == 0:
+        return 0.0
     s = torch.linalg.svdvals(W)
     ssum = s.sum().clamp_min(eps)
     p = (s / ssum).clamp_min(eps)
@@ -80,178 +86,185 @@ def effective_rank_entropy(W: torch.Tensor, eps: float = 1e-12) -> float:
     return float(torch.exp(H).item())
 
 
-# -------------------------
-# Task map (unchanged)
-# -------------------------
-libero_task_map = {
-    "libero_spatial": [
-        "pick_up_the_black_bowl_between_the_plate_and_the_ramekin_and_place_it_on_the_plate",
-        "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate",
-        "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate",
-        "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate",
-        "pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate",
-        "pick_up_the_black_bowl_on_the_ramekin_and_place_it_on_the_plate",
-        "pick_up_the_black_bowl_next_to_the_cookie_box_and_place_it_on_the_plate",
-        "pick_up_the_black_bowl_on_the_stove_and_place_it_on_the_plate",
-        "pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate",
-        "pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate",
-    ],
-    "libero_object": [
-        "pick_up_the_alphabet_soup_and_place_it_in_the_basket",
-        "pick_up_the_cream_cheese_and_place_it_in_the_basket",
-        "pick_up_the_salad_dressing_and_place_it_in_the_basket",
-        "pick_up_the_bbq_sauce_and_place_it_in_the_basket",
-        "pick_up_the_ketchup_and_place_it_in_the_basket",
-        "pick_up_the_tomato_sauce_and_place_it_in_the_basket",
-        "pick_up_the_butter_and_place_it_in_the_basket",
-        "pick_up_the_milk_and_place_it_in_the_basket",
-        "pick_up_the_chocolate_pudding_and_place_it_in_the_basket",
-        "pick_up_the_orange_juice_and_place_it_in_the_basket",
-    ],
-    "libero_goal": [
-        "open_the_middle_drawer_of_the_cabinet",
-        "put_the_bowl_on_the_stove",
-        "put_the_wine_bottle_on_top_of_the_cabinet",
-        "open_the_top_drawer_and_put_the_bowl_inside",
-        "put_the_bowl_on_top_of_the_cabinet",
-        "push_the_plate_to_the_front_of_the_stove",
-        "put_the_cream_cheese_in_the_bowl",
-        "turn_on_the_stove",
-        "put_the_bowl_on_the_plate",
-        "put_the_wine_bottle_on_the_rack",
-    ],
-    "libero_10": [
-        "LIVING_ROOM_SCENE2_put_both_the_alphabet_soup_and_the_tomato_sauce_in_the_basket",
-        "LIVING_ROOM_SCENE2_put_both_the_cream_cheese_box_and_the_butter_in_the_basket",
-        "KITCHEN_SCENE3_turn_on_the_stove_and_put_the_moka_pot_on_it",
-        "KITCHEN_SCENE4_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it",
-        "LIVING_ROOM_SCENE5_put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate",
-        "STUDY_SCENE1_pick_up_the_book_and_place_it_in_the_back_compartment_of_the_caddy",
-        "LIVING_ROOM_SCENE6_put_the_white_mug_on_the_plate_and_put_the_chocolate_pudding_to_the_right_of_the_plate",
-        "LIVING_ROOM_SCENE1_put_both_the_alphabet_soup_and_the_cream_cheese_box_in_the_basket",
-        "KITCHEN_SCENE8_put_both_moka_pots_on_the_stove",
-        "KITCHEN_SCENE6_put_the_yellow_and_white_mug_in_the_microwave_and_close_it",
-    ],
-}
+# =========================
+# INLP-style routines (regression)
+# =========================
 
-ACTION_NAMES = ["dx", "dy", "dz", "droll", "dpitch", "dyaw", "gripper"]
-
-# -------------------------
-# Parsers 
-# -------------------------
-def parse_episode_id_from_actions_json(path: str) -> str:
-    return os.path.splitext(os.path.basename(path))[0]
-
-def parse_episode_id_from_video(path: str) -> str:
-    return os.path.splitext(os.path.basename(path))[0]
-
-def parse_episode_id_from_activation_npy(path: str) -> str:
-    return os.path.splitext(os.path.basename(path))[0]
-
-def prompt_for_group_and_episode(group_name: str, episode_id: str) -> str:
-    m = re.search(r"task(\d+)", episode_id)
-    if m:
-        idx = int(m.group(1))
-        key = f"libero_{group_name}" if not group_name.startswith("libero_") else group_name
-        if key in libero_task_map and 0 <= idx < len(libero_task_map[key]):
-            return libero_task_map[key][idx]
-    return f"{group_name}:{episode_id}"
+def ridge_fit_predictor(Xtr: torch.Tensor, Ytr: torch.Tensor, lam: float) -> Tuple[torch.Tensor, torch.Tensor]:
+    # Use your existing closed-form ridge solver from utils.py
+    return ridge_closed_form(Xtr, Ytr, lam=lam)
 
 
-# -------------------------
-# Actions loader (unchanged)
-# -------------------------
-def _is_num(x):
-    return isinstance(x, (int, float, np.integer, np.floating)) and np.isfinite(x)
+@torch.no_grad()
+def baseline_predictor_mse(Ytr: torch.Tensor, Y: torch.Tensor) -> float:
+    """
+    Baseline for regression: predict train mean per target dim.
+    If Y is standardized on train, baseline ~ 0-vector and baseline R2 ~ 0.
+    """
+    mu = Ytr.mean(dim=0, keepdim=True)
+    return float(torch.mean((Y - mu) ** 2).item())
 
-def _as_float_vec(x):
-    if isinstance(x, np.ndarray):
-        if x.ndim == 1 and np.issubdtype(x.dtype, np.number):
-            return x.astype(np.float32)
-        return None
-    if isinstance(x, (list, tuple)) and len(x) > 0 and all(_is_num(v) for v in x):
-        return np.asarray(x, dtype=np.float32)
-    return None
 
-def _find_action_in_dict(d):
-    candidate_keys = [
-        "action", "actions",
-        "robot_action", "robot_actions",
-        "ctrl", "control", "command",
-        "ee_action", "ee_delta", "delta",
-    ]
-    for k in candidate_keys:
-        if k in d:
-            v = d[k]
-            vec = _as_float_vec(v)
-            if vec is not None:
-                return vec
-            if isinstance(v, dict):
-                for vv in v.values():
-                    vec2 = _as_float_vec(vv)
-                    if vec2 is not None:
-                        return vec2
+@torch.no_grad()
+def eval_probe_regression(X: torch.Tensor, Y: torch.Tensor, W: torch.Tensor, b: torch.Tensor) -> Dict[str, float]:
+    Yhat = X @ W + b
+    mse = torch.mean((Y - Yhat) ** 2).item()
+    r2_dim = r2_score(Y, Yhat).detach().cpu().numpy()
+    r2_mean = float(np.mean(r2_dim))
+    return {"mse": float(mse), "r2_mean": float(r2_mean)}
 
-    for v in d.values():
-        vec = _as_float_vec(v)
-        if vec is not None:
-            return vec
-        if isinstance(v, dict):
-            for vv in v.values():
-                vec2 = _as_float_vec(vv)
-                if vec2 is not None:
-                    return vec2
-    return None
 
-def load_actions(actions_json_path: str) -> np.ndarray:
-    with open(actions_json_path, "r") as f:
-        obj = json.load(f)
+def orthonormal_basis_of_columns(W: torch.Tensor, rcond: float = 1e-6) -> torch.Tensor:
+    """
+    Returns U where columns of U form an orthonormal basis for col(W).
+    Uses SVD and keeps singular vectors with s > rcond * s_max.
+    W: (D, K)
+    U: (D, r)
+    """
+    if W.numel() == 0:
+        return W.new_zeros((W.shape[0], 0))
+    U, s, _ = torch.linalg.svd(W, full_matrices=False)
+    if s.numel() == 0:
+        return W.new_zeros((W.shape[0], 0))
+    thresh = rcond * s.max()
+    r = int((s > thresh).sum().item())
+    return U[:, :r]
 
-    if isinstance(obj, dict):
-        if "actions" in obj:
-            obj = obj["actions"]
+
+def project_onto_nullspace(X: torch.Tensor, U: torch.Tensor) -> torch.Tensor:
+    """
+    Project features X onto nullspace of span(U):
+      P = I - U U^T
+      X_new = X P = X - (XU)U^T
+    X: (N, D), U: (D, r)
+    """
+    if U.numel() == 0:
+        return X
+    return X - (X @ U) @ U.T
+
+
+@torch.no_grad()
+def stacked_spectrum_stats(W_stack: torch.Tensor) -> Dict:
+    """
+    Save spectrum + summary stats for later plotting/inspection.
+    Uses spectral energy based on s^2.
+    """
+    if W_stack.numel() == 0:
+        return {
+            "shape": [int(W_stack.shape[0]), int(W_stack.shape[1])],
+            "singular_values": [],
+            "stable_rank": 0.0,
+            "effective_rank_entropy": 0.0,
+            "k_90pct_spectral_energy": 0,
+        }
+
+    s = torch.linalg.svdvals(W_stack).detach().cpu()
+    s_np = s.numpy().tolist()
+
+    e = s**2
+    e_sum = float(e.sum().item())
+    if e_sum <= 0:
+        k90 = 0
+    else:
+        c = torch.cumsum(e, dim=0) / e_sum
+        k90 = int(torch.searchsorted(c, torch.tensor(0.90)).item()) + 1
+
+    return {
+        "shape": [int(W_stack.shape[0]), int(W_stack.shape[1])],
+        "singular_values": s_np,
+        "stable_rank": stable_rank_matrix(W_stack),
+        "effective_rank_entropy": effective_rank_entropy(W_stack),
+        "k_90pct_spectral_energy": int(k90),
+    }
+
+
+def inlp_ridge_regression(
+    Xtr: torch.Tensor,
+    Ytr: torch.Tensor,
+    Xstop: torch.Tensor,
+    Ystop: torch.Tensor,
+    lam: float,
+    max_iters: int = 50,
+    stop_on: str = "r2",         # "r2" or "mse"
+    r2_tol: float = 0.0,         # stop if r2_mean <= r2_tol for `patience` iters
+    mse_ratio_tol: float = 1.0,  # stop if mse >= mse_ratio_tol * baseline_mse for `patience` iters
+    patience: int = 3,
+    rcond: float = 1e-6,
+) -> Dict:
+    Xtr_res = Xtr
+    Xstop_res = Xstop
+
+    baseline_mse = baseline_predictor_mse(Ytr, Ystop)
+
+    probes = []
+    W_list = []
+    U_list = []
+
+    bad_count = 0
+
+    for t in range(max_iters):
+        W, b = ridge_fit_predictor(Xtr_res, Ytr, lam=lam)
+        metrics = eval_probe_regression(Xstop_res, Ystop, W, b)
+
+        # decide whether we're at "chance"/baseline
+        at_baseline = False
+        if stop_on == "r2":
+            at_baseline = (metrics["r2_mean"] <= r2_tol)
+        elif stop_on == "mse":
+            at_baseline = (metrics["mse"] >= mse_ratio_tol * baseline_mse)
         else:
-            raise ValueError(f"Dict JSON without 'actions' key in {actions_json_path}")
+            raise ValueError(f"stop_on must be 'r2' or 'mse', got {stop_on}")
 
-    if isinstance(obj, list):
-        if len(obj) == 0:
-            return np.zeros((0, 0), dtype=np.float32)
+        bad_count = bad_count + 1 if at_baseline else 0
 
-        if isinstance(obj[0], (list, tuple, np.ndarray)):
-            acts = np.asarray(obj, dtype=np.float32)
-            if acts.ndim != 2:
-                raise ValueError(f"Expected (T, action_dim); got {acts.shape} in {actions_json_path}")
-            return acts
+        U = orthonormal_basis_of_columns(W, rcond=rcond)
 
-        if isinstance(obj[0], dict):
-            rows = []
-            for i, step in enumerate(obj):
-                vec = _find_action_in_dict(step)
-                if vec is None:
-                    raise ValueError(
-                        f"Could not find numeric action vector at step {i} in {actions_json_path}. "
-                        f"Keys: {list(step.keys())[:30]}"
-                    )
-                rows.append(vec)
+        probes.append({
+            "iter": int(t),
+            "stop_metrics": metrics,
+            "W_shape": [int(W.shape[0]), int(W.shape[1])],
+            "U_rank": int(U.shape[1]),
+            "at_baseline": bool(at_baseline),
+            "bad_count": int(bad_count),
+        })
+        W_list.append(W.detach())
+        U_list.append(U.detach())
 
-            dim0 = rows[0].shape[0]
-            for i, v in enumerate(rows):
-                if v.shape[0] != dim0:
-                    raise ValueError(f"Inconsistent action_dim in {actions_json_path}: step0={dim0}, step{i}={v.shape[0]}")
-            return np.stack(rows, axis=0).astype(np.float32)
+        # if we've hit baseline for `patience` consecutive iterations, stop
+        if bad_count >= patience:
+            break
 
-    raise ValueError(f"Unrecognized action json schema in {actions_json_path}: type={type(obj)}")
+        # project residual features
+        Xtr_res = project_onto_nullspace(Xtr_res, U)
+        Xstop_res = project_onto_nullspace(Xstop_res, U)
+
+    W_stack = torch.cat(W_list, dim=1) if len(W_list) else Xtr.new_zeros((Xtr.shape[1], 0))
+    U_cat = torch.cat(U_list, dim=1) if len(U_list) else Xtr.new_zeros((Xtr.shape[1], 0))
+
+    return {
+        "probes": probes,
+        "W_list": W_list,
+        "U_list": U_list,
+        "W_stack": W_stack,
+        "U_cat": U_cat,
+        "baseline_mse_stop": float(baseline_mse),
+        "n_iters": int(len(W_list)),
+        "Xtr_res": Xtr_res,
+        "Xstop_res": Xstop_res,
+    }
+
+
+# =========================
+# Actions loader (unchanged)
+# =========================
 
 
 
 
-
-
-
-
-# -------------------------
+# =========================
 # Feature extraction
-# -------------------------
+# =========================
+
 def load_layer_acts(ep: Episode, layer_idx: int, d_expected: int) -> Tuple[np.ndarray, np.ndarray]:
     """
     Returns (X_layer, A_actions) aligned in time:
@@ -282,12 +295,13 @@ def load_layer_acts(ep: Episode, layer_idx: int, d_expected: int) -> Tuple[np.nd
         raise ValueError(f"Expected action_dim=7, got {Y.shape[1]} in {ep.actions_path}")
     return X_layer, Y
 
+
 @torch.no_grad()
 def extract_features_and_targets(
     episodes: List[Episode],
     layer_idx: int,
     d_expected: int,
-    feature_mode: str,  
+    feature_mode: str,
     sae: Optional[TopKSAE],
     device: str,
     encode_batch: int = 8192,
@@ -298,7 +312,6 @@ def extract_features_and_targets(
       X: (N, Dfeat)
       Y: (N, 7)
     """
-    # First pass: load everything into CPU arrays (keeps code simple).
     X_list = []
     Y_list = []
 
@@ -329,7 +342,6 @@ def extract_features_and_targets(
         if sae is None:
             raise ValueError("feature_mode='sae' but sae is None")
 
-        # Encode in batches -> use sae.encode(x) -> codes (B, nb_concepts)
         codes_all = []
         for start in range(0, X.shape[0], encode_batch):
             end = min(X.shape[0], start + encode_batch)
@@ -341,12 +353,56 @@ def extract_features_and_targets(
 
     raise ValueError(f"Unknown feature_mode: {feature_mode}")
 
-# -------------------------
+
+def plot_inlp_metrics(inlp_results, out_path_prefix: Optional[str] = None):
+    """
+    Plot r2_mean and mse across INLP iterations.
+    Saves figures if out_path_prefix is provided, otherwise just shows them.
+    """
+    import matplotlib.pyplot as plt
+
+    iters = [p["iter"] for p in inlp_results["probes"]]
+    r2 = [p["stop_metrics"]["r2_mean"] for p in inlp_results["probes"]]
+    mse = [p["stop_metrics"]["mse"] for p in inlp_results["probes"]]
+
+    # ---- R2 plot ----
+    plt.figure()
+    plt.plot(iters, r2, marker="o")
+    plt.axhline(0.0, linestyle="--", label="R2 = 0 (chance)")
+    plt.xlabel("INLP iteration")
+    plt.ylabel("R2 (mean over action dims)")
+    plt.title("INLP: R2 decay on stop set")
+    plt.legend()
+    plt.grid(True)
+
+    plt.savefig(f"inlp_r2.png", bbox_inches="tight") # {out_path_prefix}_
+    plt.close()
+
+    # ---- MSE plot ----
+    baseline_mse = inlp_results["baseline_mse_stop"]
+
+    plt.figure()
+    plt.plot(iters, mse, marker="o")
+    plt.axhline(baseline_mse, linestyle="--", label="Baseline MSE (mean predictor)")
+    plt.xlabel("INLP iteration")
+    plt.ylabel("MSE")
+    plt.title("INLP: MSE increase on stop set")
+    plt.legend()
+    plt.grid(True)
+
+    plt.savefig(f"inlp_mse.png", bbox_inches="tight") # {out_path_prefix}_
+    plt.close()
+
+
+# =========================
 # Main training / eval
-# -------------------------
+# =========================
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--ckpt_path", type=str, default="./checkpoints/sae_layer11_k10_c16000.pt", help="SAE checkpoint path")
+
+    ap.add_argument("--ckpt_path", type=str, default="./checkpoints/sae_layer11_k10_c16000.pt",
+                    help="SAE checkpoint path")
     ap.add_argument("--data_root", type=str, default="/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero")
     ap.add_argument("--activations_root", type=str, default="/n/netscratch/sham_lab/Lab/chloe00/pi0_activations")
     ap.add_argument("--layer_idx", type=int, default=11)
@@ -363,6 +419,18 @@ def main():
     ap.add_argument("--standardize_x", action="store_true", help="Z-score features using train split stats")
     ap.add_argument("--standardize_y", action="store_true", help="Z-score targets using train split stats")
 
+    # INLP / iterative nullspace projection
+    ap.add_argument("--use_inlp", action="store_true",
+                    help="Run INLP-style iterative nullspace projection (regression) before final probe training/eval")
+    ap.add_argument("--inlp_max_iters", type=int, default=50)
+    ap.add_argument("--inlp_stop_on", type=str, default="r2", choices=["r2", "mse"])
+    ap.add_argument("--inlp_r2_tol", type=float, default=0.0, help="Stop when stop-set r2_mean <= this (baseline ~ 0)")
+    ap.add_argument("--inlp_mse_ratio_tol", type=float, default=1.0,
+                    help="Stop when stop-set MSE >= ratio * baseline_mean_predictor_MSE")
+    ap.add_argument("--inlp_min_delta", type=float, default=1e-4, help="Stop when progress < this")
+    ap.add_argument("--inlp_rcond", type=float, default=1e-6, help="SVD cutoff for basis extraction")
+    ap.add_argument("--inlp_patience", type=int, default=3)
+
     ap.add_argument("--out_path", type=str, default="probe_results.json")
     args = ap.parse_args()
 
@@ -371,12 +439,11 @@ def main():
     # ---- load SAE checkpoint if needed ----
     sae = None
     d_expected = None
-    nb_concepts = None
 
     if args.feature_mode == "sae":
         ckpt = torch.load(args.ckpt_path, map_location="cpu", weights_only=False)
-        d_expected = ckpt["d"]
-        nb_concepts = ckpt["nb_concepts"]
+        d_expected = int(ckpt["d"])
+        nb_concepts = int(ckpt["nb_concepts"])
 
         sae = TopKSAE(
             ckpt["d"],
@@ -388,21 +455,22 @@ def main():
         sae.eval().to(args.device)
         print(f"Loaded SAE: d={d_expected}, nb_concepts={nb_concepts}, top_k={ckpt['top_k']}")
     else:
-        # if raw, we still need d_expected; easiest: read from ckpt if provided
-        # ckpt = torch.load(args.ckpt_path, map_location="cpu", weights_only=False)
-        d_expected = 1024 # ckpt["d"]
+        # If raw, set expected dim.
+        d_expected = 1024
         print(f"Raw probe mode. Using d_expected={d_expected}.")
 
     # ---- index episodes ----
     episodes = index_libero_dataset(
         data_root=args.data_root,
         activations_root=args.activations_root,
-        groups=("spatial",) # "10", "goal", "object", "spatial"),
+        groups=("spatial",),
     )
 
-    usable = [ep for ep in episodes
-              if ep.act_path is not None and os.path.exists(ep.act_path)
-              and ep.actions_path is not None and os.path.exists(ep.actions_path)]
+    usable = [
+        ep for ep in episodes
+        if ep.act_path is not None and os.path.exists(ep.act_path)
+        and ep.actions_path is not None and os.path.exists(ep.actions_path)
+    ]
     if len(usable) == 0:
         raise RuntimeError("No usable episodes with both activation and actions found.")
 
@@ -417,11 +485,15 @@ def main():
         feature_mode=args.feature_mode, sae=sae, device=args.device,
         encode_batch=args.encode_batch,
     )
-    Xva, Yva = extract_features_and_targets(
-        val_eps, layer_idx=args.layer_idx, d_expected=d_expected,
-        feature_mode=args.feature_mode, sae=sae, device=args.device,
-        encode_batch=args.encode_batch,
-    ) if len(val_eps) > 0 else (None, None)
+    if len(val_eps) > 0:
+        Xva, Yva = extract_features_and_targets(
+            val_eps, layer_idx=args.layer_idx, d_expected=d_expected,
+            feature_mode=args.feature_mode, sae=sae, device=args.device,
+            encode_batch=args.encode_batch,
+        )
+    else:
+        Xva, Yva = None, None
+
     Xte, Yte = extract_features_and_targets(
         test_eps, layer_idx=args.layer_idx, d_expected=d_expected,
         feature_mode=args.feature_mode, sae=sae, device=args.device,
@@ -430,11 +502,11 @@ def main():
 
     print(f"Frames: train={Xtr.shape[0]}, val={(0 if Xva is None else Xva.shape[0])}, test={Xte.shape[0]}")
     print(f"Feature dim: {Xtr.shape[1]}, target dim: {Ytr.shape[1]}")
-    # import pdb; pdb.set_trace()
 
     # ---- standardization (fit on train only) ----
     x_mu = x_std = None
     y_mu = y_std = None
+
     if args.standardize_x:
         x_mu, x_std = standardize_fit(Xtr)
         Xtr = standardize_apply(Xtr, x_mu, x_std)
@@ -449,30 +521,46 @@ def main():
             Yva = standardize_apply(Yva, y_mu, y_std)
         Yte = standardize_apply(Yte, y_mu, y_std)
 
-    # ---- train ridge probe ----
+    # ---- choose stopping set for INLP ----
+    if Xva is not None and Xva.numel() > 0:
+        Xstop, Ystop = Xva, Yva
+        stop_name = "val"
+    else:
+        Xstop, Ystop = Xte, Yte
+        stop_name = "test"
+
+    # ---- run INLP (optional) ----
+    inlp_results = None
+    if args.use_inlp:
+        inlp_results = inlp_ridge_regression(
+            Xtr=Xtr, Ytr=Ytr,
+            Xstop=Xstop, Ystop=Ystop,
+            lam=args.ridge_lambda,
+            max_iters=args.inlp_max_iters,
+            stop_on=args.inlp_stop_on,
+            r2_tol=args.inlp_r2_tol,
+            mse_ratio_tol=args.inlp_mse_ratio_tol,
+            # min_delta=args.inlp_min_delta,
+            rcond=args.inlp_rcond,
+            patience=args.inlp_patience,
+        )
+
+        # Replace features with residualized ones for downstream probe training/eval
+        Xtr = inlp_results["Xtr_res"]
+        if stop_name == "val":
+            Xva = inlp_results["Xstop_res"]
+        else:
+            Xte = inlp_results["Xstop_res"]
+
+        print(
+            f"[INLP] iters={inlp_results['n_iters']} stop_set={stop_name} "
+            f"baseline_mse={inlp_results['baseline_mse_stop']:.6f}"
+        )
+
+        plot_inlp_metrics(inlp_results, out_path_prefix=None)
+
+    # ---- train ridge probe on (possibly residualized) features ----
     W, b = ridge_closed_form(Xtr, Ytr, lam=args.ridge_lambda)
-
-    # ---- probe dimensionality diagnostics ----
-    # Use unstandardized-X weights for interpretability if --standardize_x was used.
-    W_for_dim, b_for_dim = unstandardize_probe_weights(W, b, x_mu, x_std)
-
-    # Per-action (dx, dy, ...) "how many features are used?"
-    per_action_dim = {}
-    for i, name in enumerate(ACTION_NAMES):
-        wi = W_for_dim[:, i]
-        per_action_dim[name] = {
-            "participation_ratio": participation_ratio(wi),
-            "topk_90pct_energy": topk_energy_count(wi, frac=0.90),
-            "topk_95pct_energy": topk_energy_count(wi, frac=0.95),
-            "l2_norm": float(torch.linalg.vector_norm(wi).item()),
-        }
-
-    # Whole-probe (D x 7) rank-ish measures
-    probe_dim_summary = {
-        "W_space": "raw_X" if (args.standardize_x) else "model_space",
-        "stable_rank": stable_rank_matrix(W_for_dim),
-        "effective_rank_entropy": effective_rank_entropy(W_for_dim),
-    }
 
     def predict(X: torch.Tensor) -> torch.Tensor:
         return X @ W + b
@@ -493,6 +581,67 @@ def main():
             "r2_per_dim": {ACTION_NAMES[i]: float(r2_dim[i]) for i in range(7)},
         }
 
+    # ---- probe dimensionality diagnostics (single-shot final probe) ----
+    W_for_dim, b_for_dim = unstandardize_probe_weights(W, b, x_mu, x_std)
+
+    per_action_dim = {}
+    for i, name in enumerate(ACTION_NAMES):
+        wi = W_for_dim[:, i]
+        per_action_dim[name] = {
+            "participation_ratio": participation_ratio(wi),
+            "topk_90pct_energy": topk_energy_count(wi, frac=0.90),
+            "topk_95pct_energy": topk_energy_count(wi, frac=0.95),
+            "l2_norm": float(torch.linalg.vector_norm(wi).item()),
+        }
+
+    probe_dim_summary = {
+        "W_space": "raw_X" if args.standardize_x else "model_space",
+        "stable_rank": stable_rank_matrix(W_for_dim),
+        "effective_rank_entropy": effective_rank_entropy(W_for_dim),
+        "spectrum": torch.linalg.svdvals(W_for_dim).detach().cpu().numpy().tolist(),
+        "k_90pct_spectral_energy": stacked_spectrum_stats(W_for_dim).get("k_90pct_spectral_energy", 0),
+    }
+
+    # ---- INLP compactness metrics (if used) ----
+    inlp_metrics = None
+    if inlp_results is not None:
+        # Two views:
+        #   (1) W_stack: concatenation of ridge probes (D x 7*T)
+        #   (2) U_cat: concatenation of removed bases (D x sum r_t)  [often most "INLP-faithful"]
+        W_stack = inlp_results["W_stack"]
+        U_cat = inlp_results["U_cat"]
+
+        if args.standardize_x:
+            # unstandardize each W^(t), restack
+            W_list_raw = []
+            for Wt in inlp_results["W_list"]:
+                Wt_raw, _ = unstandardize_probe_weights(Wt, torch.zeros(7, device=Wt.device), x_mu, x_std)
+                W_list_raw.append(Wt_raw)
+            W_stack_raw = torch.cat(W_list_raw, dim=1) if len(W_list_raw) else W_stack
+
+            inlp_metrics = {
+                "stop_set": stop_name,
+                "baseline_mse_stop": inlp_results["baseline_mse_stop"],
+                "n_iters": inlp_results["n_iters"],
+                "per_iter": inlp_results["probes"],
+                "W_stack_space": "raw_X",
+                "W_stack_stats": stacked_spectrum_stats(W_stack_raw),
+                "U_removed_space": "model_space",  # U comes from standardized space if you standardized X
+                "U_removed_stats": stacked_spectrum_stats(U_cat),
+            }
+        else:
+            inlp_metrics = {
+                "stop_set": stop_name,
+                "baseline_mse_stop": inlp_results["baseline_mse_stop"],
+                "n_iters": inlp_results["n_iters"],
+                "per_iter": inlp_results["probes"],
+                "W_stack_space": "model_space",
+                "W_stack_stats": stacked_spectrum_stats(W_stack),
+                "U_removed_space": "model_space",
+                "U_removed_stats": stacked_spectrum_stats(U_cat),
+            }
+
+    # ---- assemble results ----
     results = {
         "config": {
             "ckpt_path": args.ckpt_path,
@@ -506,13 +655,23 @@ def main():
             "seed": args.seed,
             "train_frac": args.train_frac,
             "val_frac": args.val_frac,
+            "use_inlp": bool(args.use_inlp),
+            "inlp_max_iters": args.inlp_max_iters,
+            "inlp_stop_on": args.inlp_stop_on,
+            "inlp_r2_tol": args.inlp_r2_tol,
+            "inlp_mse_ratio_tol": args.inlp_mse_ratio_tol,
+            "inlp_min_delta": args.inlp_min_delta,
+            "inlp_rcond": args.inlp_rcond,
         },
         "splits": {},
         "weights": {
-            # save weights for later analysis if you want
             "W_shape": list(W.shape),
             "b_shape": list(b.shape),
-        }
+        },
+        "probe_dimensionality": {
+            "summary": probe_dim_summary,
+            "per_action": per_action_dim,
+        },
     }
 
     results["splits"]["train"] = eval_split("train", Xtr, Ytr)
@@ -520,33 +679,26 @@ def main():
         results["splits"]["val"] = eval_split("val", Xva, Yva)
     results["splits"]["test"] = eval_split("test", Xte, Yte)
 
-    results["probe_dimensionality"] = {
-        "summary": probe_dim_summary,
-        "per_action": per_action_dim,
-    }
-
-    # ---- optionally unstandardize weight interpretation ----
-    # If you standardize Y, reported metrics are in standardized Y units.
-    # For absolute-action-space metrics, leave --standardize_y off.
+    if inlp_metrics is not None:
+        results["inlp"] = inlp_metrics
 
     with open(args.out_path, "w") as f:
         json.dump(results, f, indent=2)
 
+    # ---- prints ----
     print(f"\nWrote results to: {args.out_path}")
     print("Test R2 per dim:")
     for k, v in results["splits"]["test"]["r2_per_dim"].items():
         print(f"  {k:>7s}: {v: .4f}")
     print(f"Test R2 mean: {results['splits']['test']['r2_mean']:.4f}")
     print(f"Test MSE: {results['splits']['test']['mse']:.6f}")
-    
-    print("\n=== Probe Dimensionality Diagnostics ===")
+
+    print("\n=== Final Probe Dimensionality Diagnostics ===")
     summary = results["probe_dimensionality"]["summary"]
-    print(
-        f"Global probe dimensionality "
-        f"(W ∈ R^{W.shape[0]}×{W.shape[1]}):"
-    )
+    print(f"Global probe: W ∈ R^{W.shape[0]}×{W.shape[1]}")
     print(f"  Stable rank        : {summary['stable_rank']:.2f}")
     print(f"  Effective rank (H) : {summary['effective_rank_entropy']:.2f}")
+    print(f"  k@90% spec energy  : {summary['k_90pct_spectral_energy']}")
     print(f"  Weight space       : {summary['W_space']}")
 
     print("\nPer-action effective dimensionality:")
@@ -558,6 +710,36 @@ def main():
             f"k_90% = {d['topk_90pct_energy']:4d}, "
             f"k_95% = {d['topk_95pct_energy']:4d}"
         )
+
+    if "inlp" in results:
+        print("\n=== INLP (Iterative Nullspace Projection) Diagnostics ===")
+        print(f"Stop set: {results['inlp']['stop_set']}")
+        print(f"INLP iters: {results['inlp']['n_iters']}")
+        print(f"Baseline MSE (stop): {results['inlp']['baseline_mse_stop']:.6f}")
+
+        ws = results["inlp"]["W_stack_stats"]
+        us = results["inlp"]["U_removed_stats"]
+
+        print("\n[W_stack] (concatenated probes) spectrum summary:")
+        print(f"  shape              : {ws['shape']}")
+        print(f"  stable rank        : {ws['stable_rank']:.2f}")
+        print(f"  effective rank (H) : {ws['effective_rank_entropy']:.2f}")
+        print(f"  k@90% spec energy  : {ws['k_90pct_spectral_energy']}")
+
+        print("\n[U_removed] (concatenated removed bases) summary:")
+        print(f"  shape              : {us['shape']}")
+        print(f"  stable rank        : {us['stable_rank']:.2f}")
+        print(f"  effective rank (H) : {us['effective_rank_entropy']:.2f}")
+        print(f"  k@90% spec energy  : {us['k_90pct_spectral_energy']}")
+
+        # Optional: show per-iter quick table
+        print("\nPer-iteration stop metrics:")
+        for it in results["inlp"]["per_iter"]:
+            r2m = it["stop_metrics"]["r2_mean"]
+            mse = it["stop_metrics"]["mse"]
+            ur = it["U_rank"]
+            print(f"  iter={it['iter']:02d}  U_rank={ur:4d}  r2_mean={r2m:+.4f}  mse={mse:.6f}")
+
 
 if __name__ == "__main__":
     main()

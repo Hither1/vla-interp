@@ -14,7 +14,7 @@ from utils import *
 
 
 # =========================
-# 5) selecting top activating frames per concept (diversity + NMS)
+# selecting top activating frames per concept (diversity + NMS)
 # =========================
 
 def select_top_frames_with_nms(
@@ -70,10 +70,10 @@ def mine_concepts_global(
     per_concept_save_k: int = 16,  # number of frames to actually save per concept
     device: str = "cuda",
     encode_batch: int = 8192,      # global batch size over all frames
-    # NEW knobs:
     nms_time_window: int = 5,
     max_per_episode: int = 1,
     skip_missing: bool = True,
+    include_groups: tuple[str, ...] | None = ("10", "goal", "spatial", "object"),
 ):
     os.makedirs(out_dir, exist_ok=True)
 
@@ -100,6 +100,15 @@ def mine_concepts_global(
     # ============================================================
     cached = []
     total_T = 0
+
+
+    if include_groups is not None:
+        include_set = set(include_groups)
+        before = len(episodes)
+        episodes = [ep for ep in episodes if getattr(ep, "group", None) in include_set]
+        after = len(episodes)
+        print(f"Filtered episodes by group {sorted(include_set)}: {before} -> {after}")
+
 
     for ep in episodes:
         if ep.act_path is None or ep.video_path is None:
