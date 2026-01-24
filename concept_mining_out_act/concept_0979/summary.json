@@ -1,0 +1,271 @@
+{
+  "concept": 979,
+  "num_hits_considered": 5,
+  "top_prompts": [
+    [
+      "10:put_both_the_cream_cheese_box_and_the_butter_in_the_basket",
+      1
+    ],
+    [
+      "goal:put_the_bowl_on_the_stove",
+      1
+    ],
+    [
+      "object:pick_up_the_cream_cheese_and_place_it_in_the_basket",
+      1
+    ],
+    [
+      "spatial:pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate",
+      1
+    ],
+    [
+      "spatial:pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate",
+      1
+    ]
+  ],
+  "action_semantics": {
+    "a_t": [
+      "dx",
+      "dy",
+      "dz",
+      "droll",
+      "dpitch",
+      "dyaw",
+      "gripper"
+    ]
+  },
+  "action_mean": [
+    0.1936860978603363,
+    -0.03694533184170723,
+    -0.48266929388046265,
+    -0.0035409159027040005,
+    -0.011370563879609108,
+    -0.041539885103702545,
+    -1.0015344619750977
+  ],
+  "action_mean_named": {
+    "dx": 0.1936860978603363,
+    "dy": -0.03694533184170723,
+    "dz": -0.48266929388046265,
+    "droll": -0.0035409159027040005,
+    "dpitch": -0.011370563879609108,
+    "dyaw": -0.041539885103702545,
+    "gripper": -1.0015344619750977
+  },
+  "action_median": [
+    0.29949986934661865,
+    0.004762204363942146,
+    -0.6204864978790283,
+    0.0015482028247788548,
+    -0.00024249209673143923,
+    -0.029105789959430695,
+    -1.000728964805603
+  ],
+  "action_median_named": {
+    "dx": 0.29949986934661865,
+    "dy": 0.004762204363942146,
+    "dz": -0.6204864978790283,
+    "droll": 0.0015482028247788548,
+    "dpitch": -0.00024249209673143923,
+    "dyaw": -0.029105789959430695,
+    "gripper": -1.000728964805603
+  },
+  "top_action_clusters": [],
+  "action_cluster_params": {
+    "action_quant": 0.01,
+    "top_action_clusters_k": 12,
+    "min_count": 2,
+    "rank_by": "score_sum"
+  },
+  "action_dimension_association": [
+    {
+      "dim": 2,
+      "name": "dz",
+      "corr": -0.9598631255971307,
+      "abs_corr": 0.9598631255971307,
+      "mean": -0.48266929388046265,
+      "std": 0.5147190690040588
+    },
+    {
+      "dim": 1,
+      "name": "dy",
+      "corr": 0.8015253621474684,
+      "abs_corr": 0.8015253621474684,
+      "mean": -0.03694533184170723,
+      "std": 0.3369137942790985
+    },
+    {
+      "dim": 6,
+      "name": "gripper",
+      "corr": -0.6851469964258028,
+      "abs_corr": 0.6851469964258028,
+      "mean": -1.0015344619750977,
+      "std": 0.0028998006600886583
+    },
+    {
+      "dim": 0,
+      "name": "dx",
+      "corr": -0.6662646905008026,
+      "abs_corr": 0.6662646905008026,
+      "mean": 0.1936860978603363,
+      "std": 0.36953091621398926
+    },
+    {
+      "dim": 5,
+      "name": "dyaw",
+      "corr": -0.4630493034447203,
+      "abs_corr": 0.4630493034447203,
+      "mean": -0.041539885103702545,
+      "std": 0.04707437753677368
+    },
+    {
+      "dim": 4,
+      "name": "dpitch",
+      "corr": -0.2704763033757487,
+      "abs_corr": 0.2704763033757487,
+      "mean": -0.011370563879609108,
+      "std": 0.020571254193782806
+    },
+    {
+      "dim": 3,
+      "name": "droll",
+      "corr": -0.16243642479447942,
+      "abs_corr": 0.16243642479447942,
+      "mean": -0.0035409159027040005,
+      "std": 0.018949436023831367
+    }
+  ],
+  "action_assoc_method": "abs_corr",
+  "top_examples": [
+    {
+      "score": 208.4833984375,
+      "group": "10",
+      "episode_id": "put_both_the_cream_cheese_box_and_the_butter_in_the_basket",
+      "t": 32,
+      "prompt": "10:put_both_the_cream_cheese_box_and_the_butter_in_the_basket",
+      "action": [
+        0.29949986934661865,
+        -0.09893380105495453,
+        -0.6204864978790283,
+        0.017393387854099274,
+        -0.04636615514755249,
+        -0.12169794738292694,
+        -0.9996999502182007
+      ],
+      "action_named": {
+        "dx": 0.29949986934661865,
+        "dy": -0.09893380105495453,
+        "dz": -0.6204864978790283,
+        "droll": 0.017393387854099274,
+        "dpitch": -0.04636615514755249,
+        "dyaw": -0.12169794738292694,
+        "gripper": -0.9996999502182007
+      },
+      "video_path": "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero/libero_10/videos/rollout_put_both_the_cream_cheese_box_and_the_butter_in_the_basket_trial12_success.mp4"
+    },
+    {
+      "score": 208.4833984375,
+      "group": "goal",
+      "episode_id": "put_the_bowl_on_the_stove",
+      "t": 32,
+      "prompt": "goal:put_the_bowl_on_the_stove",
+      "action": [
+        -0.42845258116722107,
+        0.005261517595499754,
+        -0.9490408301353455,
+        0.0015482028247788548,
+        0.007217583246529102,
+        0.0044978768564760685,
+        -1.0044111013412476
+      ],
+      "action_named": {
+        "dx": -0.42845258116722107,
+        "dy": 0.005261517595499754,
+        "dz": -0.9490408301353455,
+        "droll": 0.0015482028247788548,
+        "dpitch": 0.007217583246529102,
+        "dyaw": 0.0044978768564760685,
+        "gripper": -1.0044111013412476
+      },
+      "video_path": "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero/libero_goal/videos/rollout_put_the_bowl_on_the_stove_trial12_success.mp4"
+    },
+    {
+      "score": 208.4833984375,
+      "group": "object",
+      "episode_id": "pick_up_the_cream_cheese_and_place_it_in_the_basket",
+      "t": 32,
+      "prompt": "object:pick_up_the_cream_cheese_and_place_it_in_the_basket",
+      "action": [
+        0.35013893246650696,
+        0.004762204363942146,
+        -0.5366120338439941,
+        6.193606532178819e-05,
+        0.005550256930291653,
+        -0.0634491965174675,
+        -1.000728964805603
+      ],
+      "action_named": {
+        "dx": 0.35013893246650696,
+        "dy": 0.004762204363942146,
+        "dz": -0.5366120338439941,
+        "droll": 6.193606532178819e-05,
+        "dpitch": 0.005550256930291653,
+        "dyaw": -0.0634491965174675,
+        "gripper": -1.000728964805603
+      },
+      "video_path": "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero/libero_object/videos/rollout_pick_up_the_cream_cheese_and_place_it_in_the_basket_trial12_success.mp4"
+    },
+    {
+      "score": 208.4833984375,
+      "group": "spatial",
+      "episode_id": "pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate",
+      "t": 32,
+      "prompt": "spatial:pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate",
+      "action": [
+        0.061147380620241165,
+        0.4812186658382416,
+        -0.8126575350761414,
+        -0.0393233485519886,
+        -0.02301201783120632,
+        -0.029105789959430695,
+        -1.005271553993225
+      ],
+      "action_named": {
+        "dx": 0.061147380620241165,
+        "dy": 0.4812186658382416,
+        "dz": -0.8126575350761414,
+        "droll": -0.0393233485519886,
+        "dpitch": -0.02301201783120632,
+        "dyaw": -0.029105789959430695,
+        "gripper": -1.005271553993225
+      },
+      "video_path": "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero/libero_spatial/videos/rollout_pick_up_the_black_bowl_next_to_the_ramekin_and_place_it_on_the_plate_trial12_success.mp4"
+    },
+    {
+      "score": 199.15367126464844,
+      "group": "spatial",
+      "episode_id": "pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate",
+      "t": 6,
+      "prompt": "spatial:pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate",
+      "action": [
+        0.6860969066619873,
+        -0.5770352482795715,
+        0.505450427532196,
+        0.0026152408681809902,
+        -0.00024249209673143923,
+        0.002055626828223467,
+        -0.9975609183311462
+      ],
+      "action_named": {
+        "dx": 0.6860969066619873,
+        "dy": -0.5770352482795715,
+        "dz": 0.505450427532196,
+        "droll": 0.0026152408681809902,
+        "dpitch": -0.00024249209673143923,
+        "dyaw": 0.002055626828223467,
+        "gripper": -0.9975609183311462
+      },
+      "video_path": "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero/libero_spatial/videos/rollout_pick_up_the_black_bowl_on_the_wooden_cabinet_and_place_it_on_the_plate_trial16_success.mp4"
+    }
+  ]
+}

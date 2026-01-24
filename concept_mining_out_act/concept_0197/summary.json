@@ -1,0 +1,421 @@
+{
+  "concept": 197,
+  "num_hits_considered": 50,
+  "top_prompts": [
+    [
+      "10:put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate",
+      10
+    ],
+    [
+      "object:pick_up_the_ketchup_and_place_it_in_the_basket",
+      10
+    ],
+    [
+      "spatial:pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate",
+      9
+    ],
+    [
+      "goal:put_the_bowl_on_top_of_the_cabinet",
+      7
+    ],
+    [
+      "10:put_the_yellow_and_white_mug_in_the_microwave_and_close_it",
+      3
+    ],
+    [
+      "10:turn_on_the_stove_and_put_the_moka_pot_on_it",
+      2
+    ],
+    [
+      "goal:put_the_wine_bottle_on_top_of_the_cabinet",
+      2
+    ],
+    [
+      "object:pick_up_the_salad_dressing_and_place_it_in_the_basket",
+      2
+    ],
+    [
+      "spatial:pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate",
+      2
+    ],
+    [
+      "goal:put_the_wine_bottle_on_the_rack",
+      1
+    ]
+  ],
+  "action_semantics": {
+    "a_t": [
+      "dx",
+      "dy",
+      "dz",
+      "droll",
+      "dpitch",
+      "dyaw",
+      "gripper"
+    ]
+  },
+  "action_mean": [
+    0.04743943363428116,
+    -0.05918136239051819,
+    -0.36985960602760315,
+    -0.00693740788847208,
+    -0.002136356197297573,
+    0.04015512019395828,
+    -0.7602622509002686
+  ],
+  "action_mean_named": {
+    "dx": 0.04743943363428116,
+    "dy": -0.05918136239051819,
+    "dz": -0.36985960602760315,
+    "droll": -0.00693740788847208,
+    "dpitch": -0.002136356197297573,
+    "dyaw": 0.04015512019395828,
+    "gripper": -0.7602622509002686
+  },
+  "action_median": [
+    -0.017395684495568275,
+    -0.07258178293704987,
+    -0.3772285580635071,
+    -0.0011609607608988881,
+    -0.004573348443955183,
+    0.016320543363690376,
+    -0.999721109867096
+  ],
+  "action_median_named": {
+    "dx": -0.017395684495568275,
+    "dy": -0.07258178293704987,
+    "dz": -0.3772285580635071,
+    "droll": -0.0011609607608988881,
+    "dpitch": -0.004573348443955183,
+    "dyaw": 0.016320543363690376,
+    "gripper": -0.999721109867096
+  },
+  "top_action_clusters": [],
+  "action_cluster_params": {
+    "action_quant": 0.01,
+    "top_action_clusters_k": 12,
+    "min_count": 2,
+    "rank_by": "score_sum"
+  },
+  "action_dimension_association": [
+    {
+      "dim": 6,
+      "name": "gripper",
+      "corr": 0.13293239253181344,
+      "abs_corr": 0.13293239253181344,
+      "mean": -0.7602623105049133,
+      "std": 0.6501408219337463
+    },
+    {
+      "dim": 5,
+      "name": "dyaw",
+      "corr": -0.1238234470146062,
+      "abs_corr": 0.1238234470146062,
+      "mean": 0.040155116468667984,
+      "std": 0.06550387293100357
+    },
+    {
+      "dim": 2,
+      "name": "dz",
+      "corr": 0.07727827202623996,
+      "abs_corr": 0.07727827202623996,
+      "mean": -0.36985960602760315,
+      "std": 0.27378755807876587
+    },
+    {
+      "dim": 1,
+      "name": "dy",
+      "corr": 0.045059014436509885,
+      "abs_corr": 0.045059014436509885,
+      "mean": -0.05918135493993759,
+      "std": 0.23070548474788666
+    },
+    {
+      "dim": 3,
+      "name": "droll",
+      "corr": -0.03507086200467328,
+      "abs_corr": 0.03507086200467328,
+      "mean": -0.0069374083541333675,
+      "std": 0.019470548257231712
+    },
+    {
+      "dim": 4,
+      "name": "dpitch",
+      "corr": 0.011963997286297696,
+      "abs_corr": 0.011963997286297696,
+      "mean": -0.002136355498805642,
+      "std": 0.06698659807443619
+    },
+    {
+      "dim": 0,
+      "name": "dx",
+      "corr": -0.011583762243911024,
+      "abs_corr": 0.011583762243911024,
+      "mean": 0.04743943363428116,
+      "std": 0.2704477608203888
+    }
+  ],
+  "action_assoc_method": "abs_corr",
+  "top_examples": [
+    {
+      "score": 280.89599609375,
+      "group": "10",
+      "episode_id": "put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate",
+      "t": 32,
+      "prompt": "10:put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate",
+      "action": [
+        -0.07777968794107437,
+        -0.15107080340385437,
+        -0.4681372046470642,
+        -0.001959472196176648,
+        -0.02457018755376339,
+        0.07935082167387009,
+        -0.9997835755348206
+      ],
+      "action_named": {
+        "dx": -0.07777968794107437,
+        "dy": -0.15107080340385437,
+        "dz": -0.4681372046470642,
+        "droll": -0.001959472196176648,
+        "dpitch": -0.02457018755376339,
+        "dyaw": 0.07935082167387009,
+        "gripper": -0.9997835755348206
+      },
+      "video_path": "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero/libero_10/videos/rollout_put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate_trial3_success.mp4"
+    },
+    {
+      "score": 280.89599609375,
+      "group": "goal",
+      "episode_id": "put_the_bowl_on_top_of_the_cabinet",
+      "t": 32,
+      "prompt": "goal:put_the_bowl_on_top_of_the_cabinet",
+      "action": [
+        -0.09098407626152039,
+        -0.01289573684334755,
+        -0.3534199893474579,
+        -0.01411592960357666,
+        0.0401119627058506,
+        -0.007056340109556913,
+        0.9985279440879822
+      ],
+      "action_named": {
+        "dx": -0.09098407626152039,
+        "dy": -0.01289573684334755,
+        "dz": -0.3534199893474579,
+        "droll": -0.01411592960357666,
+        "dpitch": 0.0401119627058506,
+        "dyaw": -0.007056340109556913,
+        "gripper": 0.9985279440879822
+      },
+      "video_path": "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero/libero_goal/videos/rollout_put_the_bowl_on_top_of_the_cabinet_trial3_success.mp4"
+    },
+    {
+      "score": 280.89599609375,
+      "group": "object",
+      "episode_id": "pick_up_the_ketchup_and_place_it_in_the_basket",
+      "t": 32,
+      "prompt": "object:pick_up_the_ketchup_and_place_it_in_the_basket",
+      "action": [
+        -0.04091092571616173,
+        -0.24001191556453705,
+        -0.3735962212085724,
+        0.0015979338204488158,
+        -0.05325498431921005,
+        0.0020925153512507677,
+        -1.0011011362075806
+      ],
+      "action_named": {
+        "dx": -0.04091092571616173,
+        "dy": -0.24001191556453705,
+        "dz": -0.3735962212085724,
+        "droll": 0.0015979338204488158,
+        "dpitch": -0.05325498431921005,
+        "dyaw": 0.0020925153512507677,
+        "gripper": -1.0011011362075806
+      },
+      "video_path": "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero/libero_object/videos/rollout_pick_up_the_ketchup_and_place_it_in_the_basket_trial3_success.mp4"
+    },
+    {
+      "score": 280.89599609375,
+      "group": "spatial",
+      "episode_id": "pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate",
+      "t": 32,
+      "prompt": "spatial:pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate",
+      "action": [
+        0.0019484852673485875,
+        -0.10766599327325821,
+        -0.6527935862541199,
+        -0.001606714096851647,
+        -0.062080468982458115,
+        0.08364246040582657,
+        -0.9956764578819275
+      ],
+      "action_named": {
+        "dx": 0.0019484852673485875,
+        "dy": -0.10766599327325821,
+        "dz": -0.6527935862541199,
+        "droll": -0.001606714096851647,
+        "dpitch": -0.062080468982458115,
+        "dyaw": 0.08364246040582657,
+        "gripper": -0.9956764578819275
+      },
+      "video_path": "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero/libero_spatial/videos/rollout_pick_up_the_black_bowl_in_the_top_drawer_of_the_wooden_cabinet_and_place_it_on_the_plate_trial3_success.mp4"
+    },
+    {
+      "score": 274.474853515625,
+      "group": "10",
+      "episode_id": "turn_on_the_stove_and_put_the_moka_pot_on_it",
+      "t": 6,
+      "prompt": "10:turn_on_the_stove_and_put_the_moka_pot_on_it",
+      "action": [
+        0.01796753890812397,
+        0.10488477349281311,
+        0.005016823299229145,
+        6.959690654184669e-05,
+        -0.0009206705144606531,
+        -0.0026576118543744087,
+        -1.0038403272628784
+      ],
+      "action_named": {
+        "dx": 0.01796753890812397,
+        "dy": 0.10488477349281311,
+        "dz": 0.005016823299229145,
+        "droll": 6.959690654184669e-05,
+        "dpitch": -0.0009206705144606531,
+        "dyaw": -0.0026576118543744087,
+        "gripper": -1.0038403272628784
+      },
+      "video_path": "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero/libero_10/videos/rollout_turn_on_the_stove_and_put_the_moka_pot_on_it_trial8_success.mp4"
+    },
+    {
+      "score": 274.474853515625,
+      "group": "goal",
+      "episode_id": "put_the_wine_bottle_on_top_of_the_cabinet",
+      "t": 6,
+      "prompt": "goal:put_the_wine_bottle_on_top_of_the_cabinet",
+      "action": [
+        0.4539138674736023,
+        -0.2208632230758667,
+        0.017050648108124733,
+        0.009647826664149761,
+        0.23876994848251343,
+        0.018300959840416908,
+        -0.9951897859573364
+      ],
+      "action_named": {
+        "dx": 0.4539138674736023,
+        "dy": -0.2208632230758667,
+        "dz": 0.017050648108124733,
+        "droll": 0.009647826664149761,
+        "dpitch": 0.23876994848251343,
+        "dyaw": 0.018300959840416908,
+        "gripper": -0.9951897859573364
+      },
+      "video_path": "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero/libero_goal/videos/rollout_put_the_wine_bottle_on_top_of_the_cabinet_trial8_success.mp4"
+    },
+    {
+      "score": 274.474853515625,
+      "group": "object",
+      "episode_id": "pick_up_the_salad_dressing_and_place_it_in_the_basket",
+      "t": 6,
+      "prompt": "object:pick_up_the_salad_dressing_and_place_it_in_the_basket",
+      "action": [
+        0.3683621287345886,
+        -0.3013439178466797,
+        -0.007922044023871422,
+        -0.001680559478700161,
+        0.026577232405543327,
+        -0.039759501814842224,
+        -0.9985259175300598
+      ],
+      "action_named": {
+        "dx": 0.3683621287345886,
+        "dy": -0.3013439178466797,
+        "dz": -0.007922044023871422,
+        "droll": -0.001680559478700161,
+        "dpitch": 0.026577232405543327,
+        "dyaw": -0.039759501814842224,
+        "gripper": -0.9985259175300598
+      },
+      "video_path": "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero/libero_object/videos/rollout_pick_up_the_salad_dressing_and_place_it_in_the_basket_trial8_success.mp4"
+    },
+    {
+      "score": 274.474853515625,
+      "group": "spatial",
+      "episode_id": "pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate",
+      "t": 6,
+      "prompt": "spatial:pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate",
+      "action": [
+        0.7901073098182678,
+        0.38678017258644104,
+        0.02011258155107498,
+        -0.024875527247786522,
+        0.018648888915777206,
+        -0.00043706412543542683,
+        -0.9988251328468323
+      ],
+      "action_named": {
+        "dx": 0.7901073098182678,
+        "dy": 0.38678017258644104,
+        "dz": 0.02011258155107498,
+        "droll": -0.024875527247786522,
+        "dpitch": 0.018648888915777206,
+        "dyaw": -0.00043706412543542683,
+        "gripper": -0.9988251328468323
+      },
+      "video_path": "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero/libero_spatial/videos/rollout_pick_up_the_black_bowl_from_table_center_and_place_it_on_the_plate_trial8_success.mp4"
+    },
+    {
+      "score": 271.9050598144531,
+      "group": "10",
+      "episode_id": "put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate",
+      "t": 31,
+      "prompt": "10:put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate",
+      "action": [
+        -0.13411091268062592,
+        -0.09399130195379257,
+        -0.4465285539627075,
+        -0.0018854063237085938,
+        -0.005267307162284851,
+        0.053322214633226395,
+        -1.0049372911453247
+      ],
+      "action_named": {
+        "dx": -0.13411091268062592,
+        "dy": -0.09399130195379257,
+        "dz": -0.4465285539627075,
+        "droll": -0.0018854063237085938,
+        "dpitch": -0.005267307162284851,
+        "dyaw": 0.053322214633226395,
+        "gripper": -1.0049372911453247
+      },
+      "video_path": "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero/libero_10/videos/rollout_put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate_trial9_success.mp4"
+    },
+    {
+      "score": 271.9050598144531,
+      "group": "goal",
+      "episode_id": "put_the_bowl_on_top_of_the_cabinet",
+      "t": 31,
+      "prompt": "goal:put_the_bowl_on_top_of_the_cabinet",
+      "action": [
+        -0.2977868616580963,
+        -0.029786625877022743,
+        -0.8388478755950928,
+        0.0009574066498316824,
+        0.0068658264353871346,
+        0.06682540476322174,
+        1.0075629949569702
+      ],
+      "action_named": {
+        "dx": -0.2977868616580963,
+        "dy": -0.029786625877022743,
+        "dz": -0.8388478755950928,
+        "droll": 0.0009574066498316824,
+        "dpitch": 0.0068658264353871346,
+        "dyaw": 0.06682540476322174,
+        "gripper": 1.0075629949569702
+      },
+      "video_path": "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero/libero_goal/videos/rollout_put_the_bowl_on_top_of_the_cabinet_trial9_success.mp4"
+    }
+  ]
+}

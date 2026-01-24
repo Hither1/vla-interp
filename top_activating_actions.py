@@ -7,11 +7,11 @@ import torch
 from overcomplete.sae import TopKSAE, BatchTopKSAE
 from utils import *
 
-
-
 import matplotlib
 matplotlib.use("Agg")  # important on headless slurm nodes
 import matplotlib.pyplot as plt
+
+subset = 'spatial'
 
 def pca3_numpy(X: np.ndarray):
     """
@@ -42,7 +42,7 @@ def pca3_numpy(X: np.ndarray):
     return Z, evr, mu.squeeze(0).astype(np.float32), comps.astype(np.float32)
 
 
-def plot_actions_pca_3d(hits, concept_dir: str ='./', title: str = ""):
+def plot_actions_pca_3d(concept_id, hits, concept_dir: str ='./', title: str = ""):
     """
     Saves concept_dir/actions_pca3d.png (and .npz with PCA outputs).
     """
@@ -70,7 +70,7 @@ def plot_actions_pca_3d(hits, concept_dir: str ='./', title: str = ""):
         ax.set_title(title)
 
     plt.tight_layout()
-    out_png = os.path.join(concept_dir, "actions_pca3d.png")
+    out_png = os.path.join(concept_dir, f"actions_pca3d_{subset}_c{concept_id}.png")
     plt.savefig(out_png, dpi=220)
     plt.close(fig)
 
@@ -353,6 +353,7 @@ def mine_concepts_global(
         
 
         plot_actions_pca_3d(
+            c,
             hits,
             title=f"Concept {c} — Actions PCA (N={len(hits)})",
         )
@@ -450,7 +451,8 @@ def mine_concepts_global(
 
 if __name__ == "__main__":
     # ckpt_path = "./checkpoints/TopKSAE/sae_layer11_k10_c16000.pt"  
-    ckpt_path = "./checkpoints/BatchTopKSAE/sae_libero_10_layer11_k16_c1024.pt"
+    ckpt_path = f"./checkpoints/BatchTopKSAE/sae_libero_{subset}_layer11_k16_c1024.pt"
+
     data_root = "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero"
     activations_root = "/n/netscratch/sham_lab/Lab/chloe00/pi0_activations"
 

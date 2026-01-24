@@ -1,0 +1,181 @@
+{
+  "concept": 24,
+  "num_hits_considered": 2,
+  "top_prompts": [
+    [
+      "10:put_both_the_cream_cheese_box_and_the_butter_in_the_basket",
+      1
+    ],
+    [
+      "goal:put_the_bowl_on_the_stove",
+      1
+    ]
+  ],
+  "action_semantics": {
+    "a_t": [
+      "dx",
+      "dy",
+      "dz",
+      "droll",
+      "dpitch",
+      "dyaw",
+      "gripper"
+    ]
+  },
+  "action_mean": [
+    -0.2488817721605301,
+    -0.047683537006378174,
+    -0.8289443850517273,
+    -0.00048648781375959516,
+    -0.026833944022655487,
+    0.0025825267657637596,
+    -0.9977657794952393
+  ],
+  "action_mean_named": {
+    "dx": -0.2488817721605301,
+    "dy": -0.047683537006378174,
+    "dz": -0.8289443850517273,
+    "droll": -0.00048648781375959516,
+    "dpitch": -0.026833944022655487,
+    "dyaw": 0.0025825267657637596,
+    "gripper": -0.9977657794952393
+  },
+  "action_median": [
+    -0.2488817721605301,
+    -0.047683537006378174,
+    -0.8289443850517273,
+    -0.00048648781375959516,
+    -0.026833944022655487,
+    0.0025825267657637596,
+    -0.9977657794952393
+  ],
+  "action_median_named": {
+    "dx": -0.2488817721605301,
+    "dy": -0.047683537006378174,
+    "dz": -0.8289443850517273,
+    "droll": -0.00048648781375959516,
+    "dpitch": -0.026833944022655487,
+    "dyaw": 0.0025825267657637596,
+    "gripper": -0.9977657794952393
+  },
+  "top_action_clusters": [],
+  "action_cluster_params": {
+    "action_quant": 0.01,
+    "top_action_clusters_k": 12,
+    "min_count": 2,
+    "rank_by": "score_sum"
+  },
+  "action_dimension_association": [
+    {
+      "dim": 0,
+      "name": "dx",
+      "corr": 0.0,
+      "abs_corr": 0.0,
+      "mean": -0.2488817721605301,
+      "std": 0.20137913525104523
+    },
+    {
+      "dim": 1,
+      "name": "dy",
+      "corr": 0.0,
+      "abs_corr": 0.0,
+      "mean": -0.047683537006378174,
+      "std": 0.02302004210650921
+    },
+    {
+      "dim": 2,
+      "name": "dz",
+      "corr": 0.0,
+      "abs_corr": 0.0,
+      "mean": -0.8289443850517273,
+      "std": 0.07819604873657227
+    },
+    {
+      "dim": 3,
+      "name": "droll",
+      "corr": 0.0,
+      "abs_corr": 0.0,
+      "mean": -0.00048648781375959516,
+      "std": 0.0009481501765549183
+    },
+    {
+      "dim": 4,
+      "name": "dpitch",
+      "corr": 0.0,
+      "abs_corr": 0.0,
+      "mean": -0.026833944022655487,
+      "std": 0.019708000123500824
+    },
+    {
+      "dim": 5,
+      "name": "dyaw",
+      "corr": 0.0,
+      "abs_corr": 0.0,
+      "mean": 0.0025825267657637596,
+      "std": 0.0015623685903847218
+    },
+    {
+      "dim": 6,
+      "name": "gripper",
+      "corr": 0.0,
+      "abs_corr": 0.0,
+      "mean": -0.9977657794952393,
+      "std": 0.00018164515495300293
+    }
+  ],
+  "action_assoc_method": "abs_corr",
+  "top_examples": [
+    {
+      "score": 207.3060302734375,
+      "group": "10",
+      "episode_id": "put_both_the_cream_cheese_box_and_the_butter_in_the_basket",
+      "t": 33,
+      "prompt": "10:put_both_the_cream_cheese_box_and_the_butter_in_the_basket",
+      "action": [
+        -0.04750264436006546,
+        -0.024663496762514114,
+        -0.9071404337882996,
+        0.0004616623918991536,
+        -0.04654194414615631,
+        0.0010201582917943597,
+        -0.9975841641426086
+      ],
+      "action_named": {
+        "dx": -0.04750264436006546,
+        "dy": -0.024663496762514114,
+        "dz": -0.9071404337882996,
+        "droll": 0.0004616623918991536,
+        "dpitch": -0.04654194414615631,
+        "dyaw": 0.0010201582917943597,
+        "gripper": -0.9975841641426086
+      },
+      "video_path": "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero/libero_10/videos/rollout_put_both_the_cream_cheese_box_and_the_butter_in_the_basket_trial18_success.mp4"
+    },
+    {
+      "score": 207.3060302734375,
+      "group": "goal",
+      "episode_id": "put_the_bowl_on_the_stove",
+      "t": 33,
+      "prompt": "goal:put_the_bowl_on_the_stove",
+      "action": [
+        -0.4502609074115753,
+        -0.07070358097553253,
+        -0.750748336315155,
+        -0.0014346380485221744,
+        -0.0071259429678320885,
+        0.004144895356148481,
+        -0.9979474544525146
+      ],
+      "action_named": {
+        "dx": -0.4502609074115753,
+        "dy": -0.07070358097553253,
+        "dz": -0.750748336315155,
+        "droll": -0.0014346380485221744,
+        "dpitch": -0.0071259429678320885,
+        "dyaw": 0.004144895356148481,
+        "gripper": -0.9979474544525146
+      },
+      "video_path": "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero/libero_goal/videos/rollout_put_the_bowl_on_the_stove_trial18_success.mp4"
+    }
+  ]
+}
