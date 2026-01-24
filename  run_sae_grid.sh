@@ -1,4 +1,27 @@
 #!/usr/bin/env bash
+#SBATCH --job-name=train-token-adapter
+
+#SBATCH --output=/n/holylfs06/LABS/sham_lab/Users/chloe00/adaptive-decoding/logs/%A_%a.log
+#SBATCH --nodes=1
+
+#SBATCH --ntasks-per-node=4
+#SBATCH --gpus-per-node=4    
+#SBATCH --cpus-per-task=24
+#SBATCH --mem=240G
+#SBATCH --time=71:30:00
+
+#SBATCH --account=kempner_grads
+#SBATCH --partition=kempner_h100
+#SBATCH --mail-user=csu@g.harvard.edu
+#SBATCH --mail-type=END
+#SBATCH --exclusive
+
+
+# Custom environment
+source ~/.bashrc
+conda deactivate
+conda activate vla
+
 set -euo pipefail
 
 export PYTHONPATH=$PYTHONPATH:$PWD/third_party/libero
