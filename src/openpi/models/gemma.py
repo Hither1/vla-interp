@@ -1,16 +1,3 @@
-# Copyright 2024 Big Vision Authors.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 """Gemma adaptation for Pi, taken from big_vision.
 
@@ -45,6 +32,65 @@ import openpi.training.sharding as sharding
 PALIGEMMA_VOCAB_SIZE = 257_152
 
 
+# ===== SAE INTERVENTION CONFIG =====
+SAE_INTERVENTION = {
+    "enabled": False,
+    "mode": "none",           # "ablate" | "steer"
+    "feature_idx": None,      # int
+    "strength": 1.0,          # float (for steering)
+    "layer_idx": None,        # which transformer block
+}
+
+# Torch SAE (loaded externally)
+SAE_MODEL = None
+
+def _apply_sae_intervention_host(x_np):
+    """
+    x_np: numpy array [B, T, D] from action expert
+    returns: modified numpy array [B, T, D]
+    """
+    cfg = SAE_INTERVENTION
+    if not cfg["enabled"]:
+        return x_np
+
+    sae = SAE_MODEL
+    assert sae is not None, "SAE_MODEL not loaded"
+
+    B, T, D = x_np.shape
+    x_flat = x_np.reshape(-1, D)
+
+    with torch.no_grad():
+        x_t = torch.from_numpy(x_flat).to(next(sae.parameters()).device)
+
+        z = sae.encode(x_t)  # [B*T, K]
+
+        if cfg["mode"] == "ablate":
+            z[:, cfg["feature_idx"]] = 0.0
+
+        elif cfg["mode"] == "steer":
+            z[:, cfg["feature_idx"]] += cfg["strength"]
+
+        x_hat = sae.decode(z)  # [B*T, D]
+        x_hat = x_hat.cpu().numpy()
+
+    return x_hat.reshape(B, T, D)
+
+
+def _sae_intervene(x):
+    """
+    x: jax array [B, T, D]
+    returns: jax array [B, T, D]
+    """
+    def _cb(x_np):
+        return _apply_sae_intervention_host(x_np)
+
+    return jax_debug.callback(
+        _cb,
+        x,
+        result_shape=x.shape,
+        result_dtype=x.dtype,
+    )
+
 @dataclasses.dataclass
 class Config:
     width: int
@@ -57,47 +103,6 @@ class Config:
 
 
 Variant = Literal["dummy", "gemma_300m", "gemma_300m_lora", "gemma_2b", "gemma_2b_lora"]
-
-
-
-# =========================
-# Intervention hook (global)
-# =========================
-
-INTERVENTION = {
-    "enabled": False,         # bool
-    "layer": -1,              # int: which transformer block
-    "expert": 1,              # int: action expert stream index (1 in your setup)
-    "mode": "add",            # "add" | "zero" | "clamp"
-    "token_start": None,      # int or None (supports negative indexing)
-    "token_end": None,        # int or None
-    "delta": None,            # jnp.ndarray shape (D,) when mode="add"
-    "clamp_value": 0.0,       # float for clamp
-}
-
-def set_intervention(
-    *,
-    enabled: bool,
-    layer: int,
-    expert: int = 1,
-    mode: str = "add",
-    token_start: int | None = None,
-    token_end: int | None = None,
-    delta: jnp.ndarray | None = None,
-    clamp_value: float = 0.0,
-):
-    INTERVENTION.update(
-        dict(
-            enabled=enabled,
-            layer=layer,
-            expert=expert,
-            mode=mode,
-            token_start=token_start,
-            token_end=token_end,
-            delta=delta,
-            clamp_value=clamp_value,
-        )
-    )
 
 
 def get_config(variant: Variant) -> Config:
@@ -351,7 +356,7 @@ def _record_action_activation(tag, x):
 
 
         _layer_counter[tag] += 1
-   
+    
         ACTION_EXPERT_ACTS.setdefault(tag, []).append(x_np[:, 0])
 
         
@@ -369,7 +374,7 @@ class Block(nn.Module):
     dropout_bdims: tuple[int, ...] = ()
 
     @nn.compact
-    def __call__(self, xs, kv_cache, positions, attn_mask, adarms_cond, layer_id, deterministic=True):  # noqa: FBT002
+    def __call__(self, xs, kv_cache, positions, attn_mask, adarms_cond, deterministic=True):  # noqa: FBT002
         xs = sharding.activation_sharding_constraint(xs)
         drop = nn.Dropout(self.dropout, self.dropout_bdims) if self.dropout else lambda x, _: x
 
@@ -384,6 +389,10 @@ class Block(nn.Module):
             gates.append(gate if x is not None else None)
         
 
+        # === RECORD: pre-attention norm activation for action expert (expert index 1) ===
+        # if len(pre_attn) > 1 and pre_attn[1] is not None:
+        #     _record_action_activation("block_pre_attn", pre_attn[1])
+
 
         pre_attn = sharding.activation_sharding_constraint(pre_attn)
         post_attn, kv_cache = attn(pre_attn, positions, attn_mask, kv_cache)
@@ -392,7 +401,9 @@ class Block(nn.Module):
         xs = [_gated_residual(x, y, gate) for x, y, gate in zip(xs, post_attn, gates, strict=True)]
         xs = sharding.activation_sharding_constraint(xs)
 
-        
+        # === RECORD: post-attention residual for action expert ===
+        # if len(xs) > 1 and xs[1] is not None:
+        #     _record_action_activation("block_post_attn", xs[1])
 
         out = []
         gates = []
@@ -418,49 +429,14 @@ class Block(nn.Module):
         if len(xs) > 1 and xs[1] is not None:
             _record_action_activation("block_post_ffn", xs[1])
 
+            # Apply SAE intervention only at selected layer
+            layer_idx = self.scope.path[-1] if isinstance(self.scope.path[-1], int) else None
 
-        # === INTERVENE: edit action-expert stream at a chosen layer ===
-        if INTERVENTION["enabled"] and (int(layer_id) == int(INTERVENTION["layer"])):
-            ei = int(INTERVENTION["expert"])
-            if ei < len(xs) and xs[ei] is not None:
-                x = xs[ei]  # (B, T, D)
-                B, T, D = x.shape
-                s = INTERVENTION["token_start"]
-                e = INTERVENTION["token_end"]
-
-                # resolve slice bounds (allow None and negative indexing)
-                if s is None:
-                    s = 0
-                if e is None:
-                    e = T
-                if s < 0:
-                    s = T + s
-                if e < 0:
-                    e = T + e
-                s = jnp.clip(jnp.asarray(s), 0, T)
-                e = jnp.clip(jnp.asarray(e), 0, T)
-
-                def apply_slice(x_in):
-                    x_mod = x_in
-                    if INTERVENTION["mode"] == "zero":
-                        x_mod = x_mod.at[:, s:e, :].set(jnp.zeros((B, e - s, D), dtype=x_mod.dtype))
-                    elif INTERVENTION["mode"] == "clamp":
-                        v = jnp.asarray(INTERVENTION["clamp_value"], dtype=x_mod.dtype)
-                        x_mod = x_mod.at[:, s:e, :].set(v)
-                    elif INTERVENTION["mode"] == "add":
-                        delta = INTERVENTION["delta"]
-                        if delta is None:
-                            raise ValueError("INTERVENTION mode='add' requires delta")
-                        delta = delta.astype(x_mod.dtype)  # (D,)
-                        x_mod = x_mod.at[:, s:e, :].add(delta[None, None, :])
-                    else:
-                        raise ValueError(f"Unknown INTERVENTION mode: {INTERVENTION['mode']}")
-                    return x_mod
-
-                xs = list(xs)
-                xs[ei] = apply_slice(x)
-                xs = tuple(xs)
-
+            if (
+                SAE_INTERVENTION["enabled"]
+                and layer_idx == SAE_INTERVENTION["layer_idx"]
+            ):
+                xs[1] = _sae_intervene(xs[1])
 
         return xs, kv_cache
 
@@ -491,7 +467,7 @@ class Module(nn.Module):
         block_cls = nn.remat(
             Block,
             prevent_cse=False,
-            static_argnums=(6,),  # 0=self, 6=deterministic
+            static_argnums=(5,),  # 0=self, 6=deterministic
             policy=jax.checkpoint_policies.nothing_saveable,
         )
         self.layers = nn.scan(
@@ -504,8 +480,6 @@ class Module(nn.Module):
                 nn.broadcast,
                 nn.broadcast,
                 nn.broadcast,
-                0, # layer_id
-                nn.broadcast,   # deterministic
             ),  # 0=kv_cache, 1=positions, 2=mask, 3=adarms_cond, 4=deterministic
             length=self.configs[0].depth,
         )(
@@ -536,10 +510,7 @@ class Module(nn.Module):
         if adarms_cond is None:
             adarms_cond = [None] * len(self.configs)
 
-
-        layer_ids = jnp.arange(self.configs[0].depth, dtype=jnp.int32)
-
-        embedded, kv_cache = self.layers(embedded, kv_cache, positions, mask, adarms_cond, layer_ids, deterministic)
+        embedded, kv_cache = self.layers(embedded, kv_cache, positions, mask, adarms_cond, deterministic)
 
         assert all(e.dtype == jnp.dtype(self.embed_dtype) for e in embedded if e is not None)
 
