@@ -1,39 +1,36 @@
 import os
 import glob
-import re
+import random
+from typing import Tuple
+
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 
-import random
-
-
-from typing import Tuple, Optional
 import matplotlib
 matplotlib.use("Agg")  # safe on headless SLURM
-if not hasattr(np, "Inf"):
-    np.Inf = np.inf
 import matplotlib.pyplot as plt
-from overcomplete.sae import TopKSAE, JumpSAE, BatchTopKSAE, train_sae
+
+# overcomplete SAE libs
+from overcomplete.sae import BatchTopKSAE
+
 
 # -------------------------
 # Config
 # -------------------------
 SEED = 42
 npy_dir = "/n/netscratch/sham_lab/Lab/chloe00/pi0_activations"
-layer_indices = [ 11]
+layer_indices = [11]
+
 batch_size = 1024
 lr = 3e-4
 nb_epochs = 200
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-nb_concepts = 40
-NB_CONCEPTS_LIST = [512, 1024, 2048, 4096]     # <-- sweep n
-TOPK_LIST        = [16]            # <-- sweep k (per sample notion)
+NB_CONCEPTS_LIST = [512, 1024, 2048, 4096]  # sweep n
+TOPK_LIST = [16]                             # sweep k (per-sample notion)
 
-
-# Train a separate SAE per subset:
-# Put whatever LIBERO subsets 
+# Combined training across subsets
 LIBERO_SUBSETS = [
     "libero_object",
     "libero_goal",
@@ -44,155 +41,34 @@ LIBERO_SUBSETS = [
 ckpt_dir = "./checkpoints/BatchTopKSAE"
 os.makedirs(ckpt_dir, exist_ok=True)
 
+# When selecting the "best" checkpoint, only consider epochs >= this
+MIN_EPOCH_FOR_BEST = 10
 
 
 # -------------------------
-# Targets / labels loading
+# Seeding
 # -------------------------
-def list_subset_label_files(y_dir: str, subset: str):
-    """
-    Return .npy paths whose basename starts with subset, same as activations.
-    Assumes labels are stored as npy files parallel to activations.
-    """
-    pattern = os.path.join(y_dir, "*.npy")
-    all_paths = sorted(glob.glob(pattern))
-    subset_paths = [p for p in all_paths if os.path.basename(p).startswith(subset)]
-    return subset_paths
-
-def load_concat_labels(paths):
-    """Load and concatenate label npys. Ensures float32 (or int64 if you prefer)."""
-    assert len(paths) > 0, "No label paths provided."
-    chunks = []
-    for p in paths:
-        print(f"Loading labels {p}")
-        arr = np.load(p)
-        # Allow (N,), (N,1), (N,k). We'll standardize later.
-        chunks.append(arr)
-    y = np.concatenate(chunks, axis=0)
-    return y
-
-# -------------------------
-# SAE code extraction
-# -------------------------
-@torch.no_grad()
-def sae_get_codes(sae, X: torch.Tensor, batch_size: int, device: str) -> torch.Tensor:
-    """
-    Returns SAE sparse codes Z with shape [N, nb_concepts].
-    Tries common APIs:
-      - sae.encode(X)
-      - sae(X) returning (x_hat, pre_codes, codes, dictionary?) or similar
-    """
-    sae.eval()
-    Z_list = []
-    N = X.shape[0]
-    for start in range(0, N, batch_size):
-        xb = X[start:start + batch_size].to(device, non_blocking=True)
-
-        if hasattr(sae, "encode"):
-            codes = sae.encode(xb)
-        else:
-            out = sae(xb)
-            # Handle different return signatures:
-            # expected in your criterion: x_hat, pre_codes, codes, dictionary
-            if isinstance(out, (tuple, list)) and len(out) >= 3:
-                codes = out[2]
-            else:
-                raise RuntimeError("Could not infer codes from sae forward(). "
-                                   "Please adapt sae_get_codes() to your SAE API.")
-
-        Z_list.append(codes.detach().cpu())
-
-    return torch.cat(Z_list, dim=0)
-
-# -------------------------
-# Least squares (linear regression) with bias
-# -------------------------
-def fit_least_squares(Z_train: np.ndarray, y_train: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Fit y ~= Z W + b using least squares.
-    Returns (W, b) where:
-      W shape: [d, k] if y is [N, k], else [d, 1]
-      b shape: [k] or [1]
-    """
-    if y_train.ndim == 1:
-        y_train = y_train[:, None]  # [N,1]
-
-    N, d = Z_train.shape
-    k = y_train.shape[1]
-
-    # Add bias column
-    A = np.concatenate([Z_train, np.ones((N, 1), dtype=Z_train.dtype)], axis=1)  # [N, d+1]
-
-    # Solve min ||A theta - y||_2
-    # theta: [d+1, k]
-    theta, *_ = np.linalg.lstsq(A, y_train, rcond=None)
-
-    W = theta[:d, :]            # [d,k]
-    b = theta[d, :]             # [k]
-    return W, b
-
-def predict_linear(Z: np.ndarray, W: np.ndarray, b: np.ndarray) -> np.ndarray:
-    if W.ndim == 1:
-        W = W[:, None]
-    yhat = Z @ W + b[None, :]
-    return yhat
-
-def mse(y: np.ndarray, yhat: np.ndarray) -> float:
-    return float(np.mean((yhat - y) ** 2))
-
-def r2_score(y: np.ndarray, yhat: np.ndarray) -> float:
-    # Supports y as [N] or [N,k]; returns mean over outputs
-    if y.ndim == 1:
-        y = y[:, None]
-    if yhat.ndim == 1:
-        yhat = yhat[:, None]
-    ss_res = np.sum((y - yhat) ** 2, axis=0)
-    y_mean = np.mean(y, axis=0, keepdims=True)
-    ss_tot = np.sum((y - y_mean) ** 2, axis=0) + 1e-12
-    return float(np.mean(1.0 - ss_res / ss_tot))
-
-
-def binarize_from_score(score: np.ndarray, threshold: float = 0.5) -> np.ndarray:
-    return (score.reshape(-1) >= threshold).astype(np.int64)
-
-# -------------------------
-# Train/val split
-# -------------------------
-def train_val_split_indices(N: int, val_frac: float, seed: int) -> Tuple[np.ndarray, np.ndarray]:
-    rng = np.random.default_rng(seed)
-    idx = np.arange(N)
-    rng.shuffle(idx)
-    n_val = int(round(val_frac * N))
-    val_idx = idx[:n_val]
-    train_idx = idx[n_val:]
-    return train_idx, val_idx
-
 def set_seed(seed: int):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-
-    # Ensure deterministic behavior where possible
+    # Deterministic-ish
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
+
 # -------------------------
-# Helpers
+# Data helpers
 # -------------------------
 def list_subset_files(npy_dir: str, subset: str):
-    """Return .npy paths whose basename starts with e.g. 'libero_90'."""
     pattern = os.path.join(npy_dir, "*.npy")
     all_paths = sorted(glob.glob(pattern))
-    subset_paths = [
-        p for p in all_paths
-        if os.path.basename(p).startswith(subset)
-    ]
+    subset_paths = [p for p in all_paths if os.path.basename(p).startswith(subset)]
     return subset_paths
 
 
 def load_concat(paths):
-    """Load and concatenate a list of .npy files into one big float32 array."""
     assert len(paths) > 0, "No paths provided."
     chunks = []
     for p in paths:
@@ -203,7 +79,6 @@ def load_concat(paths):
 
 
 def collect_all_subset_paths(npy_dir: str, subsets):
-    """Collect all npy paths for all subsets; returns (all_paths, per_subset_paths)."""
     per_subset = {}
     all_paths = []
     for s in subsets:
@@ -216,17 +91,10 @@ def collect_all_subset_paths(npy_dir: str, subsets):
     return all_paths, per_subset
 
 
-def plot_training_curves(logs, out_path, title_prefix="", min_epoch_for_best=30):
-    """
-    Plots:
-      - Loss (avg_loss or step_loss)
-      - R2
-      - Dead features
-
-    Annotates:
-      - final value
-      - best value after min_epoch_for_best
-    """
+# -------------------------
+# Plotting
+# -------------------------
+def plot_training_curves(logs, out_path, title_prefix="", min_epoch_for_best=10):
     # Pick loss series
     if "avg_loss" in logs and len(logs["avg_loss"]) > 0:
         loss = logs["avg_loss"]
@@ -238,7 +106,6 @@ def plot_training_curves(logs, out_path, title_prefix="", min_epoch_for_best=30)
     r2 = logs.get("r2", [])
     dead = logs.get("dead_features", [])
 
-    # Ensure consistent length
     L = min(len(loss), len(r2), len(dead))
     if L == 0:
         print("No log data to plot.")
@@ -250,253 +117,178 @@ def plot_training_curves(logs, out_path, title_prefix="", min_epoch_for_best=30)
 
     epochs = np.arange(1, L + 1)
 
-    # Epoch mask for "after epoch 100"
     start_idx = min(min_epoch_for_best - 1, L - 1)
     mask = np.arange(L) >= start_idx
 
     fig, axes = plt.subplots(3, 1, figsize=(10, 11), sharex=True)
 
-    # ---------------- Loss ----------------
+    # Loss
     axes[0].plot(epochs, loss, label="loss")
-
-    # Final
     axes[0].scatter(epochs[-1], loss[-1], zorder=3, label="final")
-
-    # Best after epoch 100 (min)
     best_loss_idx = start_idx + np.argmin(loss[mask])
-    axes[0].scatter(
-        epochs[best_loss_idx], loss[best_loss_idx],
-        marker="*", s=120, zorder=4, label="best ≥100"
-    )
-
+    axes[0].scatter(epochs[best_loss_idx], loss[best_loss_idx], marker="*", s=120, zorder=4, label=f"best ≥{min_epoch_for_best}")
     axes[0].set_ylabel(loss_name)
     axes[0].set_title(f"{title_prefix} Loss")
-
-    axes[0].annotate(
-        f"final = {loss[-1]:.4g}",
-        (epochs[-1], loss[-1]),
-        xytext=(5, 5),
-        textcoords="offset points",
-        fontsize=9,
-    )
-    axes[0].annotate(
-        f"best@≥{min_epoch_for_best} = {loss[best_loss_idx]:.4g}",
-        (epochs[best_loss_idx], loss[best_loss_idx]),
-        xytext=(5, -12),
-        textcoords="offset points",
-        fontsize=9,
-    )
-
+    axes[0].annotate(f"final = {loss[-1]:.4g}", (epochs[-1], loss[-1]), xytext=(5, 5), textcoords="offset points", fontsize=9)
+    axes[0].annotate(f"best@≥{min_epoch_for_best} = {loss[best_loss_idx]:.4g}", (epochs[best_loss_idx], loss[best_loss_idx]), xytext=(5, -12), textcoords="offset points", fontsize=9)
     axes[0].legend(loc="best", fontsize=9)
 
-    # ---------------- R2 ----------------
+    # R2
     axes[1].plot(epochs, r2, label="R2")
-
-    # Final
     axes[1].scatter(epochs[-1], r2[-1], zorder=3, label="final")
-
-    # Best after epoch 100 (max)
     best_r2_idx = start_idx + np.argmax(r2[mask])
-    axes[1].scatter(
-        epochs[best_r2_idx], r2[best_r2_idx],
-        marker="*", s=120, zorder=4, label="best ≥100"
-    )
-
+    axes[1].scatter(epochs[best_r2_idx], r2[best_r2_idx], marker="*", s=120, zorder=4, label=f"best ≥{min_epoch_for_best}")
     axes[1].set_ylabel("R2")
     axes[1].set_title(f"{title_prefix} R2")
-
-    axes[1].annotate(
-        f"final = {r2[-1]:.4f}",
-        (epochs[-1], r2[-1]),
-        xytext=(5, 5),
-        textcoords="offset points",
-        fontsize=9,
-    )
-    axes[1].annotate(
-        f"best@≥{min_epoch_for_best} = {r2[best_r2_idx]:.4f}",
-        (epochs[best_r2_idx], r2[best_r2_idx]),
-        xytext=(5, -12),
-        textcoords="offset points",
-        fontsize=9,
-    )
-
+    axes[1].annotate(f"final = {r2[-1]:.4f}", (epochs[-1], r2[-1]), xytext=(5, 5), textcoords="offset points", fontsize=9)
+    axes[1].annotate(f"best@≥{min_epoch_for_best} = {r2[best_r2_idx]:.4f}", (epochs[best_r2_idx], r2[best_r2_idx]), xytext=(5, -12), textcoords="offset points", fontsize=9)
     axes[1].legend(loc="best", fontsize=9)
 
-    # ---------------- Dead features ----------------
+    # Dead features
     axes[2].plot(epochs, dead, label="dead")
-
-    # Final
     axes[2].scatter(epochs[-1], dead[-1], zorder=3, label="final")
-
-    # Best after epoch 100 (min)
     best_dead_idx = start_idx + np.argmin(dead[mask])
-    axes[2].scatter(
-        epochs[best_dead_idx], dead[best_dead_idx],
-        marker="*", s=120, zorder=4, label="best ≥100"
-    )
-
+    axes[2].scatter(epochs[best_dead_idx], dead[best_dead_idx], marker="*", s=120, zorder=4, label=f"best ≥{min_epoch_for_best}")
     axes[2].set_ylabel("Dead features")
     axes[2].set_xlabel("Epoch")
     axes[2].set_title(f"{title_prefix} Dead Features")
-
-    axes[2].annotate(
-        f"final = {dead[-1]}",
-        (epochs[-1], dead[-1]),
-        xytext=(5, 5),
-        textcoords="offset points",
-        fontsize=9,
-    )
-    axes[2].annotate(
-        f"best@≥{min_epoch_for_best} = {dead[best_dead_idx]}",
-        (epochs[best_dead_idx], dead[best_dead_idx]),
-        xytext=(5, -12),
-        textcoords="offset points",
-        fontsize=9,
-    )
-
+    axes[2].annotate(f"final = {dead[-1]}", (epochs[-1], dead[-1]), xytext=(5, 5), textcoords="offset points", fontsize=9)
+    axes[2].annotate(f"best@≥{min_epoch_for_best} = {dead[best_dead_idx]}", (epochs[best_dead_idx], dead[best_dead_idx]), xytext=(5, -12), textcoords="offset points", fontsize=9)
     axes[2].legend(loc="best", fontsize=9)
 
     fig.tight_layout()
     fig.savefig(out_path, dpi=200)
     plt.close(fig)
-
     print(f"Saved training curves to: {out_path}")
 
 
+# -------------------------
+# SAE training loop that saves BEST checkpoint by min dead features
+# -------------------------
+def train_sae_with_best_dead_checkpoint(
+    sae: torch.nn.Module,
+    dataloader: DataLoader,
+    criterion,
+    optimizer: torch.optim.Optimizer,
+    nb_epochs: int,
+    device: str,
+    min_epoch_for_best: int = 10,
+):
+    """
+    Returns:
+      logs: dict with keys ['avg_loss', 'r2', 'dead_features']
+      best: dict with keys ['epoch', 'dead', 'state_dict', 'optimizer_state_dict']
+    """
+    sae.to(device)
+    logs = {"avg_loss": [], "r2": [], "dead_features": []}
 
-def train_sae_for_subset(subset: str):
-    npy_paths = list_subset_files(npy_dir, subset)
-    assert len(npy_paths) > 0, f"No .npy files found for subset='{subset}' in {npy_dir}"
+    best = {
+        "epoch": None,  # 1-based epoch number
+        "dead": float("inf"),
+        "state_dict": None,
+        "optimizer_state_dict": None,
+    }
 
-    Activations_np = load_concat(npy_paths)
-    Activations = torch.from_numpy(Activations_np)  # CPU tensor
+    for epoch in range(1, nb_epochs + 1):
+        sae.train()
 
-    print(f"[{subset}] Torch activations shape:", Activations.shape)
+        total_loss = 0.0
+        total_batches = 0
 
-    N_total = Activations.shape[0]
-    num_layers = Activations.shape[1]
+        # For dead feature counting across the *whole epoch*
+        fire_counts = None  # [C] on CPU
+        r2_sum = 0.0
 
-    # Select layer, flatten any extra dims
-    layer_acts_list = []
-    per_layer_dims = []
-    for li in layer_indices:
-        acts_li = Activations[:, li, ...].reshape(N_total, -1)  # [N, d_li]
-        layer_acts_list.append(acts_li)
-        per_layer_dims.append(acts_li.shape[1])
+        for (x,) in dataloader:
+            x = x.to(device, non_blocking=True)
 
-    layer_acts = torch.cat(layer_acts_list, dim=1)  # [N, sum(d_li)]
-    d = layer_acts.shape[1]
+            out = sae(x)
+            # Expect something like: x_hat, pre_codes, codes, dictionary
+            if not isinstance(out, (tuple, list)) or len(out) < 3:
+                raise RuntimeError(
+                    "SAE forward() must return (x_hat, pre_codes, codes, ...) "
+                    "for this training loop. Adapt unpacking if your API differs."
+                )
 
-    print(
-        f"[{subset}] Training on layers {layer_indices} "
-        f"with per-layer dims={per_layer_dims}, total d={d}, N={layer_acts.shape[0]}"
-    )
+            x_hat = out[0]
+            pre_codes = out[1] if len(out) > 1 else None
+            codes = out[2]
+            dictionary = out[3] if len(out) > 3 else None
 
-    g = torch.Generator()
-    g.manual_seed(SEED)
-    dataloader = DataLoader(
-        TensorDataset(layer_acts),
-        batch_size=batch_size,
-        shuffle=True,
-        pin_memory=True,
-        generator=g,
-    )
+            loss = criterion(x, x_hat, pre_codes, codes, dictionary)
 
-    def load_balance_loss(codes, eps=1e-8):
-        # codes: [B, C], sparse with zeros for non-selected
-        sel = (codes != 0).float()                 # [B, C]
-        p = sel.mean(dim=0)                        # selection rate per feature
-        p = p / (p.sum() + eps)                    # normalize to distribution
-        # maximize entropy <=> minimize negative entropy
-        entropy = -(p * (p + eps).log()).sum()
-        return -entropy  # minimize negative entropy => maximize entropy
+            optimizer.zero_grad(set_to_none=True)
+            loss.backward()
+            optimizer.step()
 
-    lb_coeff = 5e-2
-    def criterion(x, x_hat, pre_codes, codes, dictionary):
-        mse = (x - x_hat).square().mean()
-        lb = load_balance_loss(codes)
+            total_loss += float(loss.detach().item())
+            total_batches += 1
 
-        return mse + lb_coeff * lb
+            # Dead features: accumulate fires across the epoch
+            fires = (codes.detach() > 0).sum(dim=0).to("cpu")  # [C]
+            if fire_counts is None:
+                fire_counts = fires
+            else:
+                fire_counts += fires
 
+            # R2: compute per-batch reconstruction R2 and average over batches
+            with torch.no_grad():
+                ss_res = (x - x_hat).pow(2).sum()
+                x_mean = x.mean(dim=0, keepdim=True)
+                ss_tot = (x - x_mean).pow(2).sum() + 1e-12
+                r2_batch = 1.0 - (ss_res / ss_tot)
+                r2_sum += float(r2_batch.detach().item())
 
-    # JumpRelu
-    def criterion(x, x_hat, pre_codes, codes, dictionary):
-        # here we directly use the thresholds of the model to control the sparsity
-        loss = (x - x_hat).square().mean()
+        avg_loss = total_loss / max(total_batches, 1)
+        avg_r2 = r2_sum / max(total_batches, 1)
 
-        sparsity = (codes > 0).float().mean().detach()
-        if sparsity > desired_sparsity:
-            # if we are not sparse enough, increase the thresholds levels
-            loss -= sae.thresholds.sum()
+        if fire_counts is None:
+            dead_features = 0
+        else:
+            dead_features = int((fire_counts == 0).sum().item())
 
-        return loss
+        logs["avg_loss"].append(avg_loss)
+        logs["r2"].append(avg_r2)
+        logs["dead_features"].append(dead_features)
 
-    #  BatchTopKSAE
-    def criterion(x, x_hat, pre_codes, codes, dictionary):
-        loss = (x - x_hat).square().mean()
+        print(
+            f"Epoch {epoch:4d}/{nb_epochs} | loss={avg_loss:.6g} | "
+            f"r2={avg_r2:.4f} | dead={dead_features}"
+        )
 
-        # is dead of shape (k) (nb concepts) and is 1 iif
-        # not a single code has fire in the batch
-        is_dead = ((codes > 0).sum(dim=0) == 0).float().detach()
-        # we push the pre_codes (before relu) towards the positive orthant
-        reanim_loss = (pre_codes * is_dead[None, :]).mean()
+        # Update BEST checkpoint by MIN dead features (ties -> keep earlier best)
+        if epoch >= min_epoch_for_best and dead_features < best["dead"]:
+            best["epoch"] = epoch
+            best["dead"] = dead_features
+            # Deep-copy weights to CPU to avoid later mutation
+            best["state_dict"] = {k: v.detach().cpu().clone() for k, v in sae.state_dict().items()}
+            best["optimizer_state_dict"] = optimizer.state_dict()
+            print(f"  -> New BEST by dead features: epoch={epoch}, dead={dead_features}")
 
-        loss -= reanim_loss * 1e-3
-        return loss
-
-
-    for nb_concepts in NB_CONCEPTS_LIST:
-        for top_k in TOPK_LIST:
-            # sae = TopKSAE(d, nb_concepts=nb_concepts, top_k=top_k, device=device)
-            sae = BatchTopKSAE(d, nb_concepts=nb_concepts, top_k=top_k * batch_size, device=device)
-            optimizer = torch.optim.Adam(sae.parameters(), lr=lr)
-
-            set_seed(SEED)
-            logs = train_sae(
-                sae,
-                dataloader,
-                criterion,
-                optimizer,
-                nb_epochs=nb_epochs,
-                device=device,
-            )
-
-            layers_tag = "-".join(map(str, layer_indices))
-            ckpt_path = os.path.join(
-                ckpt_dir,
-                f"sae_{subset}_layer{layers_tag}_k{top_k}_c{nb_concepts}.pt"
-            )
-
-
-            ckpt = {
-                "subset": subset,
-                "layer_idx": layers_tag,
-                "d": d,
-                "nb_concepts": nb_concepts,
-                "top_k": top_k,
-                "lr": lr,
-                "nb_epochs": nb_epochs,
-                "model_state_dict": sae.state_dict(),
-                "optimizer_state_dict": optimizer.state_dict(),
-                "logs": logs,
-                "npy_paths": npy_paths,
-            }
-            torch.save(ckpt, ckpt_path)
-
-            plot_path = os.path.join(
-                ckpt_dir,
-                f"curves_{subset}_layer{layers_tag}_k{top_k}_c{nb_concepts}.png"
-            )
-            plot_training_curves(
-                logs,
-                plot_path,
-                title_prefix=f"{subset} | layer {layers_tag} | k={top_k} | c={nb_concepts}"
-            )
-
-            print(f"[{subset}] Saved checkpoint to: {ckpt_path}")
+    return logs, best
 
 
+# -------------------------
+# Criterion (BatchTopKSAE "reanimation" trick)
+# -------------------------
+def batchtopk_reanim_criterion(x, x_hat, pre_codes, codes, dictionary):
+    loss = (x - x_hat).square().mean()
+
+    # dead feature = no fires in batch
+    is_dead = ((codes > 0).sum(dim=0) == 0).float().detach()
+    # push pre-codes for dead feats positive to "reanimate"
+    reanim_loss = (pre_codes * is_dead[None, :]).mean()
+
+    loss -= reanim_loss * 1e-3
+    return loss
+
+
+# -------------------------
+# Main: combined training on all subsets
+# -------------------------
 def train_sae_on_all_subsets():
+    set_seed(SEED)
+
     # 1) Collect all files across subsets
     all_paths, per_subset_paths = collect_all_subset_paths(npy_dir, LIBERO_SUBSETS)
     print("\n=== Combined training ===")
@@ -504,12 +296,11 @@ def train_sae_on_all_subsets():
         print(f"  {s}: {len(ps)} files")
     print(f"TOTAL files: {len(all_paths)}\n")
 
-    # 2) Load activations (concatenate across all subsets)
-    Activations_np = load_concat(all_paths)   # [N, L, ...]
+    # 2) Load activations
+    Activations_np = load_concat(all_paths)  # [N, L, ...]
     Activations = torch.from_numpy(Activations_np)  # CPU tensor
 
     print("[ALL] Torch activations shape:", Activations.shape)
-
     N_total = Activations.shape[0]
 
     # 3) Select layers and flatten
@@ -540,47 +331,46 @@ def train_sae_on_all_subsets():
         drop_last=False,
     )
 
-    # 5) Criterion (BatchTopKSAE reanimation)
-    def criterion(x, x_hat, pre_codes, codes, dictionary):
-        loss = (x - x_hat).square().mean()
-
-        # dead feature = no fires in batch
-        is_dead = ((codes > 0).sum(dim=0) == 0).float().detach()
-        # push pre-codes for dead feats positive to "reanimate"
-        reanim_loss = (pre_codes * is_dead[None, :]).mean()
-
-        loss -= reanim_loss * 1e-3
-        return loss
-
-    # 6) Sweep and train
     combined_tag = "libero_all"
     layers_tag = "-".join(map(str, layer_indices))
 
     for nb_concepts in NB_CONCEPTS_LIST:
-        for top_k in TOPK_LIST:
+        for top_k_per_sample in TOPK_LIST:
             set_seed(SEED)
 
-            # NOTE: BatchTopKSAE expects top_k as "total number of nonzeros per batch"
+            # BatchTopKSAE expects top_k as "total number of nonzeros per batch"
             sae = BatchTopKSAE(
                 d,
                 nb_concepts=nb_concepts,
-                top_k=top_k * batch_size,
+                top_k=top_k_per_sample * batch_size,
                 device=device,
             )
             optimizer = torch.optim.Adam(sae.parameters(), lr=lr)
 
-            logs = train_sae(
-                sae,
-                dataloader,
-                criterion,
-                optimizer,
+            logs, best = train_sae_with_best_dead_checkpoint(
+                sae=sae,
+                dataloader=dataloader,
+                criterion=batchtopk_reanim_criterion,
+                optimizer=optimizer,
                 nb_epochs=nb_epochs,
                 device=device,
+                min_epoch_for_best=MIN_EPOCH_FOR_BEST,
             )
+
+            # If we never set a best (e.g. nb_epochs < MIN_EPOCH_FOR_BEST), fall back to final
+            if best["state_dict"] is None:
+                best["epoch"] = nb_epochs
+                best["dead"] = logs["dead_features"][-1] if len(logs["dead_features"]) else None
+                best["state_dict"] = {k: v.detach().cpu().clone() for k, v in sae.state_dict().items()}
+                best["optimizer_state_dict"] = optimizer.state_dict()
+
+            best_dead = best["dead"]
+            best_epoch = best["epoch"]
 
             ckpt_path = os.path.join(
                 ckpt_dir,
-                f"sae_{combined_tag}_layer{layers_tag}_k{top_k}_c{nb_concepts}.pt"
+                f"sae_{combined_tag}_layer{layers_tag}_k{top_k_per_sample}_c{nb_concepts}"
+                f"_bestdead{int(best_dead)}_at{int(best_epoch)}.pt"
             )
 
             ckpt = {
@@ -589,33 +379,32 @@ def train_sae_on_all_subsets():
                 "layer_idx": layers_tag,
                 "d": d,
                 "nb_concepts": nb_concepts,
-                "top_k": top_k,
+                "top_k_per_sample": top_k_per_sample,
+                "top_k_batch": top_k_per_sample * batch_size,
                 "lr": lr,
                 "nb_epochs": nb_epochs,
-                "model_state_dict": sae.state_dict(),
-                "optimizer_state_dict": optimizer.state_dict(),
+                "best_epoch": best_epoch,
+                "best_dead_features": best_dead,
+                "model_state_dict": best["state_dict"],  # <-- BEST by min dead features
+                "optimizer_state_dict": best["optimizer_state_dict"],
                 "logs": logs,
                 "npy_paths_all": all_paths,
                 "npy_paths_per_subset": per_subset_paths,
             }
             torch.save(ckpt, ckpt_path)
+            print(f"[ALL] Saved BEST checkpoint to: {ckpt_path}")
 
             plot_path = os.path.join(
                 ckpt_dir,
-                f"curves_{combined_tag}_layer{layers_tag}_k{top_k}_c{nb_concepts}.png"
+                f"curves_{combined_tag}_layer{layers_tag}_k{top_k_per_sample}_c{nb_concepts}.png"
             )
             plot_training_curves(
                 logs,
                 plot_path,
-                title_prefix=f"{combined_tag} | layer {layers_tag} | k={top_k} | c={nb_concepts}",
+                title_prefix=f"{combined_tag} | layer {layers_tag} | k={top_k_per_sample} | c={nb_concepts}",
+                min_epoch_for_best=MIN_EPOCH_FOR_BEST,
             )
 
-            print(f"[ALL] Saved checkpoint to: {ckpt_path}")
 
-# -------------------------
-# Run: train SAEs per subset
-# -------------------------
-# for subset in LIBERO_SUBSETS:
-#     train_sae_for_subset(subset)
-
-train_sae_on_all_subsets()
+if __name__ == "__main__":
+    train_sae_on_all_subsets()

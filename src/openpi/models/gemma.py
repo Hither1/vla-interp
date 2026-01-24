@@ -32,6 +32,20 @@ import openpi.training.sharding as sharding
 PALIGEMMA_VOCAB_SIZE = 257_152
 
 
+import os
+
+def _load_sae_intervention_from_env():
+    if os.environ.get("SAE_ENABLED", "0") != "1":
+        return
+
+    SAE_INTERVENTION.update({
+        "enabled": True,
+        "mode": os.environ["SAE_MODE"],              # ablate | steer
+        "feature_idx": int(os.environ["SAE_FEATURE"]),
+        "layer_idx": int(os.environ["SAE_LAYER"]),
+        "strength": float(os.environ.get("SAE_STRENGTH", "1.0")),
+    })
+
 # ===== SAE INTERVENTION CONFIG =====
 SAE_INTERVENTION = {
     "enabled": False,
@@ -456,6 +470,9 @@ class Module(nn.Module):
     adarms: bool = False
 
     def setup(self):
+        # e.g. inside Module.setup() or first __call__
+        _load_sae_intervention_from_env()
+
         # all experts must have the same depth
         assert all(config.depth == self.configs[0].depth for config in self.configs)
 
