@@ -1,0 +1,1453 @@
+{
+  "concept": 543,
+  "num_frame_hits_total": 636,
+  "num_frame_hits_considered": 636,
+  "prompt_score_method": "mean_topk",
+  "top_prompts_per_concept": 10,
+  "prompt_top_k_frames": 10,
+  "frames_to_save_per_prompt": 8,
+  "min_hits_per_concept": 300,
+  "min_max_score_per_concept": 0.0,
+  "top_prompts": [
+    {
+      "prompt": "10:put_both_moka_pots_on_the_stove",
+      "prompt_score": 14.61780071258545,
+      "num_hits_for_prompt": 43
+    },
+    {
+      "prompt": "10:put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it",
+      "prompt_score": 14.594125747680664,
+      "num_hits_for_prompt": 19
+    },
+    {
+      "prompt": "goal:open_the_top_drawer_and_put_the_bowl_inside",
+      "prompt_score": 14.525671005249023,
+      "num_hits_for_prompt": 17
+    },
+    {
+      "prompt": "object:pick_up_the_bbq_sauce_and_place_it_in_the_basket",
+      "prompt_score": 14.525671005249023,
+      "num_hits_for_prompt": 17
+    },
+    {
+      "prompt": "spatial:pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate",
+      "prompt_score": 14.525671005249023,
+      "num_hits_for_prompt": 17
+    },
+    {
+      "prompt": "object:pick_up_the_chocolate_pudding_and_place_it_in_the_basket",
+      "prompt_score": 14.386789321899414,
+      "num_hits_for_prompt": 29
+    },
+    {
+      "prompt": "spatial:pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate",
+      "prompt_score": 14.386789321899414,
+      "num_hits_for_prompt": 28
+    },
+    {
+      "prompt": "goal:put_the_bowl_on_the_plate",
+      "prompt_score": 14.350746154785156,
+      "num_hits_for_prompt": 27
+    },
+    {
+      "prompt": "10:put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate",
+      "prompt_score": 14.163439750671387,
+      "num_hits_for_prompt": 16
+    },
+    {
+      "prompt": "goal:put_the_bowl_on_top_of_the_cabinet",
+      "prompt_score": 14.163439750671387,
+      "num_hits_for_prompt": 16
+    }
+  ],
+  "top_prompt_details": [
+    {
+      "prompt_rank": 0,
+      "prompt_score": 14.61780071258545,
+      "prompt": "10:put_both_moka_pots_on_the_stove",
+      "num_hits_for_prompt": 43,
+      "num_hits_for_prompt_considered": 43,
+      "saved_examples": [
+        {
+          "score": 14.93022632598877,
+          "group": "10",
+          "episode_id": "put_both_moka_pots_on_the_stove",
+          "t": 54,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_10/videos/rollout_put_both_moka_pots_on_the_stove_trial3_failure.mp4",
+          "action": [
+            0.21140311658382416,
+            0.1812613606452942,
+            -0.17913220822811127,
+            -0.04760805144906044,
+            0.011345572769641876,
+            -0.18296396732330322,
+            -1.0016041994094849
+          ]
+        },
+        {
+          "score": 14.93022632598877,
+          "group": "10",
+          "episode_id": "put_both_moka_pots_on_the_stove",
+          "t": 54,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_10/videos/rollout_put_both_moka_pots_on_the_stove_trial3_success.mp4",
+          "action": [
+            0.2291908711194992,
+            0.21199050545692444,
+            -0.19196166098117828,
+            -0.0360131561756134,
+            0.0061317868530750275,
+            -0.18400424718856812,
+            -1.0034441947937012
+          ]
+        },
+        {
+          "score": 14.9277925491333,
+          "group": "10",
+          "episode_id": "put_both_moka_pots_on_the_stove",
+          "t": 58,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_10/videos/rollout_put_both_moka_pots_on_the_stove_trial18_failure.mp4",
+          "action": [
+            0.30928370356559753,
+            0.04441307857632637,
+            -0.09187639504671097,
+            0.0020026853308081627,
+            0.022002529352903366,
+            -0.20767617225646973,
+            -1.0011824369430542
+          ]
+        },
+        {
+          "score": 14.9277925491333,
+          "group": "10",
+          "episode_id": "put_both_moka_pots_on_the_stove",
+          "t": 58,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_10/videos/rollout_put_both_moka_pots_on_the_stove_trial18_success.mp4",
+          "action": [
+            0.33731913566589355,
+            0.022107910364866257,
+            -0.09353384375572205,
+            0.004224277567118406,
+            0.02798888459801674,
+            -0.2179950624704361,
+            -0.9998305439949036
+          ]
+        },
+        {
+          "score": 14.597199440002441,
+          "group": "10",
+          "episode_id": "put_both_moka_pots_on_the_stove",
+          "t": 57,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_10/videos/rollout_put_both_moka_pots_on_the_stove_trial18_failure.mp4",
+          "action": [
+            0.3149224817752838,
+            0.023411819711327553,
+            -0.06808408349752426,
+            0.0025945755187422037,
+            0.03371422365307808,
+            -0.21358731389045715,
+            -0.998237133026123
+          ]
+        },
+        {
+          "score": 14.597199440002441,
+          "group": "10",
+          "episode_id": "put_both_moka_pots_on_the_stove",
+          "t": 57,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_10/videos/rollout_put_both_moka_pots_on_the_stove_trial18_success.mp4",
+          "action": [
+            0.33342403173446655,
+            0.0073232827708125114,
+            -0.0682508647441864,
+            0.0040123723447322845,
+            0.03842366486787796,
+            -0.22273388504981995,
+            -1.0009676218032837
+          ]
+        },
+        {
+          "score": 14.38579273223877,
+          "group": "10",
+          "episode_id": "put_both_moka_pots_on_the_stove",
+          "t": 75,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_10/videos/rollout_put_both_moka_pots_on_the_stove_trial9_failure.mp4",
+          "action": [
+            0.0004150406748522073,
+            0.048242971301078796,
+            -0.24915830790996552,
+            0.030621865764260292,
+            -0.0024070097133517265,
+            -0.04917056858539581,
+            -1.0030101537704468
+          ]
+        },
+        {
+          "score": 14.38579273223877,
+          "group": "10",
+          "episode_id": "put_both_moka_pots_on_the_stove",
+          "t": 75,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_10/videos/rollout_put_both_moka_pots_on_the_stove_trial9_success.mp4",
+          "action": [
+            0.002787481527775526,
+            0.0026226930785924196,
+            -0.26384231448173523,
+            0.04630722478032112,
+            -0.000612240401096642,
+            -0.04025575518608093,
+            -1.0010719299316406
+          ]
+        }
+      ]
+    },
+    {
+      "prompt_rank": 1,
+      "prompt_score": 14.594125747680664,
+      "prompt": "10:put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it",
+      "num_hits_for_prompt": 19,
+      "num_hits_for_prompt_considered": 19,
+      "saved_examples": [
+        {
+          "score": 15.422807693481445,
+          "group": "10",
+          "episode_id": "put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it",
+          "t": 41,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_10/videos/rollout_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it_trial0_success.mp4",
+          "action": [
+            0.10239620506763458,
+            0.00043458706932142377,
+            -0.35838788747787476,
+            -0.006504306104034185,
+            -0.10836154222488403,
+            -0.30311140418052673,
+            -1.002402901649475
+          ]
+        },
+        {
+          "score": 14.857748985290527,
+          "group": "10",
+          "episode_id": "put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it",
+          "t": 43,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_10/videos/rollout_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it_trial10_success.mp4",
+          "action": [
+            0.16019153594970703,
+            -0.07138191163539886,
+            -0.25565165281295776,
+            -0.00015026165056042373,
+            -0.11472444236278534,
+            -0.31191423535346985,
+            -1.0016005039215088
+          ]
+        },
+        {
+          "score": 14.811280250549316,
+          "group": "10",
+          "episode_id": "put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it",
+          "t": 40,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_10/videos/rollout_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it_trial12_success.mp4",
+          "action": [
+            0.05856086686253548,
+            -0.019150016829371452,
+            -0.2994456887245178,
+            -0.0035529888700693846,
+            -0.1018056645989418,
+            -0.3055252730846405,
+            -0.9961581826210022
+          ]
+        },
+        {
+          "score": 14.499970436096191,
+          "group": "10",
+          "episode_id": "put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it",
+          "t": 59,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_10/videos/rollout_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it_trial2_failure.mp4",
+          "action": [
+            0.04394043982028961,
+            -0.0011861674720421433,
+            -0.4907151162624359,
+            0.019164299592375755,
+            -0.005318454932421446,
+            -0.053403306752443314,
+            -0.9975089430809021
+          ]
+        },
+        {
+          "score": 14.499970436096191,
+          "group": "10",
+          "episode_id": "put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it",
+          "t": 59,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_10/videos/rollout_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it_trial2_success.mp4",
+          "action": [
+            0.00022613792680203915,
+            -0.016947392374277115,
+            -0.5014160871505737,
+            0.03058098815381527,
+            -0.0027899479027837515,
+            -0.029751239344477654,
+            -1.0027846097946167
+          ]
+        },
+        {
+          "score": 14.415623664855957,
+          "group": "10",
+          "episode_id": "put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it",
+          "t": 37,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_10/videos/rollout_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it_trial19_success.mp4",
+          "action": [
+            0.0548454113304615,
+            -0.046910859644412994,
+            -0.33022478222846985,
+            0.052966199815273285,
+            -0.005705957766622305,
+            -0.15376494824886322,
+            -0.998617947101593
+          ]
+        },
+        {
+          "score": 14.399746894836426,
+          "group": "10",
+          "episode_id": "put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it",
+          "t": 58,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_10/videos/rollout_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it_trial2_failure.mp4",
+          "action": [
+            0.059039440006017685,
+            0.000499331159517169,
+            -0.49428144097328186,
+            0.016174398362636566,
+            -0.0049611362628638744,
+            -0.060203343629837036,
+            -0.9995090365409851
+          ]
+        },
+        {
+          "score": 14.399746894836426,
+          "group": "10",
+          "episode_id": "put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it",
+          "t": 58,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_10/videos/rollout_put_the_black_bowl_in_the_bottom_drawer_of_the_cabinet_and_close_it_trial2_success.mp4",
+          "action": [
+            0.0025469698011875153,
+            -0.01874440908432007,
+            -0.5076291561126709,
+            0.03111552633345127,
+            -0.0026583222206681967,
+            -0.03171519190073013,
+            -1.0033448934555054
+          ]
+        }
+      ]
+    },
+    {
+      "prompt_rank": 2,
+      "prompt_score": 14.525671005249023,
+      "prompt": "goal:open_the_top_drawer_and_put_the_bowl_inside",
+      "num_hits_for_prompt": 17,
+      "num_hits_for_prompt_considered": 17,
+      "saved_examples": [
+        {
+          "score": 15.422807693481445,
+          "group": "goal",
+          "episode_id": "open_the_top_drawer_and_put_the_bowl_inside",
+          "t": 41,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_goal/videos/rollout_open_the_top_drawer_and_put_the_bowl_inside_trial0_success.mp4",
+          "action": [
+            0.03122830018401146,
+            0.7296274304389954,
+            -0.5352054238319397,
+            0.0067002964206039906,
+            0.020057709887623787,
+            0.013893979601562023,
+            -1.000807285308838
+          ]
+        },
+        {
+          "score": 14.857748985290527,
+          "group": "goal",
+          "episode_id": "open_the_top_drawer_and_put_the_bowl_inside",
+          "t": 43,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_goal/videos/rollout_open_the_top_drawer_and_put_the_bowl_inside_trial10_success.mp4",
+          "action": [
+            -0.08896505832672119,
+            0.5621002316474915,
+            -0.6728456616401672,
+            0.001937707420438528,
+            -0.005025227088481188,
+            0.04974737390875816,
+            -0.9979972839355469
+          ]
+        },
+        {
+          "score": 14.811280250549316,
+          "group": "goal",
+          "episode_id": "open_the_top_drawer_and_put_the_bowl_inside",
+          "t": 40,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_goal/videos/rollout_open_the_top_drawer_and_put_the_bowl_inside_trial12_success.mp4",
+          "action": [
+            -0.1318238377571106,
+            0.6710111498832703,
+            -0.5221629738807678,
+            0.0008422010578215122,
+            -0.0014797940384596586,
+            0.040326036512851715,
+            -0.9996502995491028
+          ]
+        },
+        {
+          "score": 14.499970436096191,
+          "group": "goal",
+          "episode_id": "open_the_top_drawer_and_put_the_bowl_inside",
+          "t": 59,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_goal/videos/rollout_open_the_top_drawer_and_put_the_bowl_inside_trial2_success.mp4",
+          "action": [
+            -0.38863274455070496,
+            -0.22961266338825226,
+            0.7705070376396179,
+            0.0017378168413415551,
+            -0.003125472692772746,
+            -0.019524553790688515,
+            -1.0082296133041382
+          ]
+        },
+        {
+          "score": 14.415623664855957,
+          "group": "goal",
+          "episode_id": "open_the_top_drawer_and_put_the_bowl_inside",
+          "t": 37,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_goal/videos/rollout_open_the_top_drawer_and_put_the_bowl_inside_trial19_success.mp4",
+          "action": [
+            -0.15134495496749878,
+            0.4037749171257019,
+            -0.7791430950164795,
+            0.00025584304239600897,
+            -0.0001790657261153683,
+            0.05802902579307556,
+            -1.0025416612625122
+          ]
+        },
+        {
+          "score": 14.399746894836426,
+          "group": "goal",
+          "episode_id": "open_the_top_drawer_and_put_the_bowl_inside",
+          "t": 58,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_goal/videos/rollout_open_the_top_drawer_and_put_the_bowl_inside_trial2_success.mp4",
+          "action": [
+            -0.14006589353084564,
+            -0.21983200311660767,
+            0.8324477076530457,
+            -0.0011039149248972535,
+            0.0020578233525156975,
+            -0.0070320055820047855,
+            -1.0047109127044678
+          ]
+        },
+        {
+          "score": 14.365220069885254,
+          "group": "goal",
+          "episode_id": "open_the_top_drawer_and_put_the_bowl_inside",
+          "t": 40,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_goal/videos/rollout_open_the_top_drawer_and_put_the_bowl_inside_trial17_success.mp4",
+          "action": [
+            0.003617875976487994,
+            0.6839773058891296,
+            -0.6761029958724976,
+            0.0005946701276116073,
+            0.0588994100689888,
+            -0.009933972731232643,
+            -1.0003278255462646
+          ]
+        },
+        {
+          "score": 14.269131660461426,
+          "group": "goal",
+          "episode_id": "open_the_top_drawer_and_put_the_bowl_inside",
+          "t": 27,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_goal/videos/rollout_open_the_top_drawer_and_put_the_bowl_inside_trial12_success.mp4",
+          "action": [
+            0.006449514999985695,
+            -0.22071053087711334,
+            -0.7220280170440674,
+            0.0032593354117125273,
+            -0.07338563352823257,
+            0.0016887547681108117,
+            -1.0043597221374512
+          ]
+        }
+      ]
+    },
+    {
+      "prompt_rank": 3,
+      "prompt_score": 14.525671005249023,
+      "prompt": "object:pick_up_the_bbq_sauce_and_place_it_in_the_basket",
+      "num_hits_for_prompt": 17,
+      "num_hits_for_prompt_considered": 17,
+      "saved_examples": [
+        {
+          "score": 15.422807693481445,
+          "group": "object",
+          "episode_id": "pick_up_the_bbq_sauce_and_place_it_in_the_basket",
+          "t": 41,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_object/videos/rollout_pick_up_the_bbq_sauce_and_place_it_in_the_basket_trial0_success.mp4",
+          "action": [
+            -0.25539419054985046,
+            0.0037863487377762794,
+            -0.5094351768493652,
+            -0.0005907836020924151,
+            -0.051340989768505096,
+            -0.0526910237967968,
+            -0.9984936118125916
+          ]
+        },
+        {
+          "score": 14.857748985290527,
+          "group": "object",
+          "episode_id": "pick_up_the_bbq_sauce_and_place_it_in_the_basket",
+          "t": 43,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_object/videos/rollout_pick_up_the_bbq_sauce_and_place_it_in_the_basket_trial10_success.mp4",
+          "action": [
+            -0.34123554825782776,
+            0.037326373159885406,
+            -0.4709729254245758,
+            -0.047376103699207306,
+            -0.07770489901304245,
+            -0.00012562032497953624,
+            -0.996787428855896
+          ]
+        },
+        {
+          "score": 14.811280250549316,
+          "group": "object",
+          "episode_id": "pick_up_the_bbq_sauce_and_place_it_in_the_basket",
+          "t": 40,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_object/videos/rollout_pick_up_the_bbq_sauce_and_place_it_in_the_basket_trial12_success.mp4",
+          "action": [
+            0.05103565379977226,
+            0.0388798788189888,
+            -0.5059984922409058,
+            0.00012723717372864485,
+            -0.13015587627887726,
+            -0.09028322994709015,
+            -0.9983077645301819
+          ]
+        },
+        {
+          "score": 14.499970436096191,
+          "group": "object",
+          "episode_id": "pick_up_the_bbq_sauce_and_place_it_in_the_basket",
+          "t": 59,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_object/videos/rollout_pick_up_the_bbq_sauce_and_place_it_in_the_basket_trial2_success.mp4",
+          "action": [
+            -0.14395922422409058,
+            -0.006493397522717714,
+            -0.004326047375798225,
+            -0.0011552992509678006,
+            -0.0019054438453167677,
+            -0.010716044344007969,
+            0.9992437362670898
+          ]
+        },
+        {
+          "score": 14.415623664855957,
+          "group": "object",
+          "episode_id": "pick_up_the_bbq_sauce_and_place_it_in_the_basket",
+          "t": 37,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_object/videos/rollout_pick_up_the_bbq_sauce_and_place_it_in_the_basket_trial19_success.mp4",
+          "action": [
+            0.02889075316488743,
+            0.09424951672554016,
+            -0.7199689745903015,
+            0.0008661201572977006,
+            -0.04852989688515663,
+            -0.0314624086022377,
+            -1.0000407695770264
+          ]
+        },
+        {
+          "score": 14.399746894836426,
+          "group": "object",
+          "episode_id": "pick_up_the_bbq_sauce_and_place_it_in_the_basket",
+          "t": 58,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_object/videos/rollout_pick_up_the_bbq_sauce_and_place_it_in_the_basket_trial2_success.mp4",
+          "action": [
+            -0.14530019462108612,
+            -0.024673765525221825,
+            -0.013113567605614662,
+            -0.0005936981760896742,
+            -0.0012453693198040128,
+            -0.019914276897907257,
+            0.9991321563720703
+          ]
+        },
+        {
+          "score": 14.365220069885254,
+          "group": "object",
+          "episode_id": "pick_up_the_bbq_sauce_and_place_it_in_the_basket",
+          "t": 40,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_object/videos/rollout_pick_up_the_bbq_sauce_and_place_it_in_the_basket_trial17_success.mp4",
+          "action": [
+            -0.23105257749557495,
+            -0.01835271529853344,
+            -0.6922983527183533,
+            0.022659581154584885,
+            -0.06948357075452805,
+            -0.001041377312503755,
+            -1.0005582571029663
+          ]
+        },
+        {
+          "score": 14.269131660461426,
+          "group": "object",
+          "episode_id": "pick_up_the_bbq_sauce_and_place_it_in_the_basket",
+          "t": 27,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_object/videos/rollout_pick_up_the_bbq_sauce_and_place_it_in_the_basket_trial12_success.mp4",
+          "action": [
+            0.21497270464897156,
+            -0.1433231681585312,
+            -0.5213800668716431,
+            0.0017129371408373117,
+            -0.0889161005616188,
+            -0.05152808129787445,
+            -1.0014275312423706
+          ]
+        }
+      ]
+    },
+    {
+      "prompt_rank": 4,
+      "prompt_score": 14.525671005249023,
+      "prompt": "spatial:pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate",
+      "num_hits_for_prompt": 17,
+      "num_hits_for_prompt_considered": 17,
+      "saved_examples": [
+        {
+          "score": 15.422807693481445,
+          "group": "spatial",
+          "episode_id": "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate",
+          "t": 41,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_spatial/videos/rollout_pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate_trial0_success.mp4",
+          "action": [
+            -0.5950285196304321,
+            -0.0023202255833894014,
+            -0.884440004825592,
+            -0.001247563399374485,
+            -0.10317610949277878,
+            0.015460713766515255,
+            -1.0026781558990479
+          ]
+        },
+        {
+          "score": 14.857748985290527,
+          "group": "spatial",
+          "episode_id": "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate",
+          "t": 43,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_spatial/videos/rollout_pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate_trial10_success.mp4",
+          "action": [
+            -0.27236828207969666,
+            -0.03469488024711609,
+            -0.23748941719532013,
+            -0.018080705776810646,
+            -0.041693065315485,
+            0.0021117788273841143,
+            0.9969857335090637
+          ]
+        },
+        {
+          "score": 14.811280250549316,
+          "group": "spatial",
+          "episode_id": "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate",
+          "t": 40,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_spatial/videos/rollout_pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate_trial12_success.mp4",
+          "action": [
+            -0.6058486700057983,
+            -0.16906674206256866,
+            -0.9229824542999268,
+            0.006395915988832712,
+            -0.06200363487005234,
+            -0.000620911130681634,
+            -0.9992968440055847
+          ]
+        },
+        {
+          "score": 14.499970436096191,
+          "group": "spatial",
+          "episode_id": "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate",
+          "t": 59,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_spatial/videos/rollout_pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate_trial2_success.mp4",
+          "action": [
+            0.23953035473823547,
+            0.7656562328338623,
+            0.7506005764007568,
+            -0.07915988564491272,
+            0.04399032145738602,
+            0.004982965067028999,
+            0.9960879683494568
+          ]
+        },
+        {
+          "score": 14.415623664855957,
+          "group": "spatial",
+          "episode_id": "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate",
+          "t": 37,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_spatial/videos/rollout_pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate_trial19_success.mp4",
+          "action": [
+            -0.5595096349716187,
+            -0.004225294105708599,
+            -0.9361993074417114,
+            -0.011645794846117496,
+            -0.0863812193274498,
+            0.018544290214776993,
+            -0.9951279163360596
+          ]
+        },
+        {
+          "score": 14.399746894836426,
+          "group": "spatial",
+          "episode_id": "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate",
+          "t": 58,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_spatial/videos/rollout_pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate_trial2_success.mp4",
+          "action": [
+            0.22548341751098633,
+            0.7643939852714539,
+            0.8160049915313721,
+            -0.07741807401180267,
+            0.035746052861213684,
+            0.002320989267900586,
+            0.9903373718261719
+          ]
+        },
+        {
+          "score": 14.365220069885254,
+          "group": "spatial",
+          "episode_id": "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate",
+          "t": 40,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_spatial/videos/rollout_pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate_trial17_success.mp4",
+          "action": [
+            -0.40520790219306946,
+            -0.036487266421318054,
+            -0.4983088970184326,
+            -0.0014589842176064849,
+            -0.04259404167532921,
+            0.005688955076038837,
+            0.9952273964881897
+          ]
+        },
+        {
+          "score": 14.269131660461426,
+          "group": "spatial",
+          "episode_id": "pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate",
+          "t": 27,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_spatial/videos/rollout_pick_up_the_black_bowl_on_the_cookie_box_and_place_it_on_the_plate_trial12_success.mp4",
+          "action": [
+            0.931637167930603,
+            -0.09174202382564545,
+            -0.698412299156189,
+            0.05167820304632187,
+            -0.03538065403699875,
+            0.0035465406253933907,
+            -1.0028555393218994
+          ]
+        }
+      ]
+    },
+    {
+      "prompt_rank": 5,
+      "prompt_score": 14.386789321899414,
+      "prompt": "object:pick_up_the_chocolate_pudding_and_place_it_in_the_basket",
+      "num_hits_for_prompt": 29,
+      "num_hits_for_prompt_considered": 29,
+      "saved_examples": [
+        {
+          "score": 14.93022632598877,
+          "group": "object",
+          "episode_id": "pick_up_the_chocolate_pudding_and_place_it_in_the_basket",
+          "t": 54,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_object/videos/rollout_pick_up_the_chocolate_pudding_and_place_it_in_the_basket_trial3_success.mp4",
+          "action": [
+            -0.14075137674808502,
+            -0.12617284059524536,
+            -0.19344092905521393,
+            0.003631800413131714,
+            0.02218349277973175,
+            -0.0032942015677690506,
+            1.000145435333252
+          ]
+        },
+        {
+          "score": 14.9277925491333,
+          "group": "object",
+          "episode_id": "pick_up_the_chocolate_pudding_and_place_it_in_the_basket",
+          "t": 58,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_object/videos/rollout_pick_up_the_chocolate_pudding_and_place_it_in_the_basket_trial18_success.mp4",
+          "action": [
+            0.3532799482345581,
+            0.01376996748149395,
+            0.9463346600532532,
+            -0.03387828543782234,
+            0.06338327378034592,
+            -0.015818821266293526,
+            0.9952513575553894
+          ]
+        },
+        {
+          "score": 14.597199440002441,
+          "group": "object",
+          "episode_id": "pick_up_the_chocolate_pudding_and_place_it_in_the_basket",
+          "t": 57,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_object/videos/rollout_pick_up_the_chocolate_pudding_and_place_it_in_the_basket_trial18_success.mp4",
+          "action": [
+            0.3307787775993347,
+            0.008656302466988564,
+            0.9369386434555054,
+            -0.0401674248278141,
+            0.08043043315410614,
+            -0.016527656465768814,
+            0.9961126446723938
+          ]
+        },
+        {
+          "score": 14.38579273223877,
+          "group": "object",
+          "episode_id": "pick_up_the_chocolate_pudding_and_place_it_in_the_basket",
+          "t": 75,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_object/videos/rollout_pick_up_the_chocolate_pudding_and_place_it_in_the_basket_trial9_success.mp4",
+          "action": [
+            0.2497871220111847,
+            0.3613206744194031,
+            0.718576192855835,
+            0.00015978612645994872,
+            0.02843732014298439,
+            0.0003777072124648839,
+            1.0015109777450562
+          ]
+        },
+        {
+          "score": 14.249574661254883,
+          "group": "object",
+          "episode_id": "pick_up_the_chocolate_pudding_and_place_it_in_the_basket",
+          "t": 62,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_object/videos/rollout_pick_up_the_chocolate_pudding_and_place_it_in_the_basket_trial4_success.mp4",
+          "action": [
+            0.1341703236103058,
+            -0.025623869150877,
+            0.9474021792411804,
+            0.0001193512580357492,
+            0.032689377665519714,
+            -0.02124844677746296,
+            0.9999385476112366
+          ]
+        },
+        {
+          "score": 14.246411323547363,
+          "group": "object",
+          "episode_id": "pick_up_the_chocolate_pudding_and_place_it_in_the_basket",
+          "t": 83,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_object/videos/rollout_pick_up_the_chocolate_pudding_and_place_it_in_the_basket_trial13_success.mp4",
+          "action": [
+            0.07683784514665604,
+            0.23268115520477295,
+            0.9404335021972656,
+            -0.00039241070044226944,
+            0.03458533063530922,
+            -0.02046240121126175,
+            1.0007327795028687
+          ]
+        },
+        {
+          "score": 14.231269836425781,
+          "group": "object",
+          "episode_id": "pick_up_the_chocolate_pudding_and_place_it_in_the_basket",
+          "t": 62,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_object/videos/rollout_pick_up_the_chocolate_pudding_and_place_it_in_the_basket_trial8_success.mp4",
+          "action": [
+            -0.2891615033149719,
+            -0.1168210357427597,
+            -0.18934808671474457,
+            -0.003242952050641179,
+            0.06092768907546997,
+            2.5051116608665325e-05,
+            1.00062096118927
+          ]
+        },
+        {
+          "score": 14.173737525939941,
+          "group": "object",
+          "episode_id": "pick_up_the_chocolate_pudding_and_place_it_in_the_basket",
+          "t": 57,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_object/videos/rollout_pick_up_the_chocolate_pudding_and_place_it_in_the_basket_trial8_success.mp4",
+          "action": [
+            -0.1648009866476059,
+            -0.030519355088472366,
+            -0.5781992077827454,
+            -0.0004949321155436337,
+            0.02676514908671379,
+            0.03744126483798027,
+            -1.0016520023345947
+          ]
+        }
+      ]
+    },
+    {
+      "prompt_rank": 6,
+      "prompt_score": 14.386789321899414,
+      "prompt": "spatial:pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate",
+      "num_hits_for_prompt": 28,
+      "num_hits_for_prompt_considered": 28,
+      "saved_examples": [
+        {
+          "score": 14.93022632598877,
+          "group": "spatial",
+          "episode_id": "pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate",
+          "t": 54,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_spatial/videos/rollout_pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate_trial3_success.mp4",
+          "action": [
+            -0.029743794351816177,
+            0.33935242891311646,
+            -0.2529444694519043,
+            -0.010616752319037914,
+            -0.04048515111207962,
+            -0.01565365120768547,
+            1.000166416168213
+          ]
+        },
+        {
+          "score": 14.9277925491333,
+          "group": "spatial",
+          "episode_id": "pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate",
+          "t": 58,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_spatial/videos/rollout_pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate_trial18_success.mp4",
+          "action": [
+            -0.09144537150859833,
+            0.06902562826871872,
+            0.017110437154769897,
+            -0.00040090567199513316,
+            0.015621758066117764,
+            -0.055456966161727905,
+            0.9972436428070068
+          ]
+        },
+        {
+          "score": 14.597199440002441,
+          "group": "spatial",
+          "episode_id": "pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate",
+          "t": 57,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_spatial/videos/rollout_pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate_trial18_success.mp4",
+          "action": [
+            -0.1543770730495453,
+            0.06745902448892593,
+            -0.016961820423603058,
+            -0.000403347221435979,
+            0.0017761875642463565,
+            -0.05734763666987419,
+            0.99776291847229
+          ]
+        },
+        {
+          "score": 14.38579273223877,
+          "group": "spatial",
+          "episode_id": "pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate",
+          "t": 75,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_spatial/videos/rollout_pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate_trial9_success.mp4",
+          "action": [
+            0.32002922892570496,
+            -0.7803685665130615,
+            -0.11731532216072083,
+            0.04423787444829941,
+            0.0024098039139062166,
+            -0.047060273587703705,
+            1.0012555122375488
+          ]
+        },
+        {
+          "score": 14.249574661254883,
+          "group": "spatial",
+          "episode_id": "pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate",
+          "t": 62,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_spatial/videos/rollout_pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate_trial4_success.mp4",
+          "action": [
+            0.3144930601119995,
+            -0.20482203364372253,
+            0.8975322246551514,
+            -0.002283053006976843,
+            0.029995324090123177,
+            -0.0628134235739708,
+            0.9976592659950256
+          ]
+        },
+        {
+          "score": 14.246411323547363,
+          "group": "spatial",
+          "episode_id": "pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate",
+          "t": 83,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_spatial/videos/rollout_pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate_trial13_success.mp4",
+          "action": [
+            -0.028732653707265854,
+            -0.20721177756786346,
+            -0.7805135846138,
+            0.0005640973104164004,
+            -0.10481668263673782,
+            -0.009765442460775375,
+            0.999819278717041
+          ]
+        },
+        {
+          "score": 14.231269836425781,
+          "group": "spatial",
+          "episode_id": "pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate",
+          "t": 62,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_spatial/videos/rollout_pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate_trial8_success.mp4",
+          "action": [
+            0.004907509312033653,
+            0.28914564847946167,
+            0.029938554391264915,
+            -0.022202109917998314,
+            -0.029361719265580177,
+            -0.02355227991938591,
+            0.9963176250457764
+          ]
+        },
+        {
+          "score": 14.173737525939941,
+          "group": "spatial",
+          "episode_id": "pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate",
+          "t": 57,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_spatial/videos/rollout_pick_up_the_black_bowl_next_to_the_plate_and_place_it_on_the_plate_trial8_success.mp4",
+          "action": [
+            -0.3000507950782776,
+            0.14876966178417206,
+            -0.34127023816108704,
+            -0.0023983672726899385,
+            -0.034924741834402084,
+            -0.0240512415766716,
+            0.9973209500312805
+          ]
+        }
+      ]
+    },
+    {
+      "prompt_rank": 7,
+      "prompt_score": 14.350746154785156,
+      "prompt": "goal:put_the_bowl_on_the_plate",
+      "num_hits_for_prompt": 27,
+      "num_hits_for_prompt_considered": 27,
+      "saved_examples": [
+        {
+          "score": 14.93022632598877,
+          "group": "goal",
+          "episode_id": "put_the_bowl_on_the_plate",
+          "t": 54,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_goal/videos/rollout_put_the_bowl_on_the_plate_trial3_success.mp4",
+          "action": [
+            0.921891450881958,
+            -0.17620521783828735,
+            0.5157904624938965,
+            -0.0025269705802202225,
+            0.025398150086402893,
+            0.011909415945410728,
+            1.0000823736190796
+          ]
+        },
+        {
+          "score": 14.9277925491333,
+          "group": "goal",
+          "episode_id": "put_the_bowl_on_the_plate",
+          "t": 58,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_goal/videos/rollout_put_the_bowl_on_the_plate_trial18_success.mp4",
+          "action": [
+            0.9192711710929871,
+            -0.25774842500686646,
+            0.38724514842033386,
+            0.007631530985236168,
+            0.003198564052581787,
+            0.009625713340938091,
+            0.9985353350639343
+          ]
+        },
+        {
+          "score": 14.597199440002441,
+          "group": "goal",
+          "episode_id": "put_the_bowl_on_the_plate",
+          "t": 57,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_goal/videos/rollout_put_the_bowl_on_the_plate_trial18_success.mp4",
+          "action": [
+            0.910952627658844,
+            -0.27134934067726135,
+            0.5671272873878479,
+            0.0024531965609639883,
+            0.006765993312001228,
+            0.0034414874389767647,
+            0.9948606491088867
+          ]
+        },
+        {
+          "score": 14.38579273223877,
+          "group": "goal",
+          "episode_id": "put_the_bowl_on_the_plate",
+          "t": 75,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_goal/videos/rollout_put_the_bowl_on_the_plate_trial9_success.mp4",
+          "action": [
+            -0.5653001666069031,
+            -0.024106059223413467,
+            -0.8020334839820862,
+            0.002444525947794318,
+            -0.0450466126203537,
+            0.007460915949195623,
+            0.9988746047019958
+          ]
+        },
+        {
+          "score": 14.249574661254883,
+          "group": "goal",
+          "episode_id": "put_the_bowl_on_the_plate",
+          "t": 62,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_goal/videos/rollout_put_the_bowl_on_the_plate_trial4_success.mp4",
+          "action": [
+            0.9532382488250732,
+            -0.12359225749969482,
+            0.20085418224334717,
+            -0.005383147858083248,
+            0.0035971628967672586,
+            0.001010121894069016,
+            0.9977918267250061
+          ]
+        },
+        {
+          "score": 14.231269836425781,
+          "group": "goal",
+          "episode_id": "put_the_bowl_on_the_plate",
+          "t": 62,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_goal/videos/rollout_put_the_bowl_on_the_plate_trial8_success.mp4",
+          "action": [
+            0.3626415729522705,
+            0.03315361961722374,
+            -0.7273183465003967,
+            0.008013220503926277,
+            -0.014973722398281097,
+            0.023001154884696007,
+            0.9972779154777527
+          ]
+        },
+        {
+          "score": 14.173737525939941,
+          "group": "goal",
+          "episode_id": "put_the_bowl_on_the_plate",
+          "t": 57,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_goal/videos/rollout_put_the_bowl_on_the_plate_trial8_success.mp4",
+          "action": [
+            0.9627826809883118,
+            -0.16568705439567566,
+            0.11973462253808975,
+            0.004717834759503603,
+            -0.0005949414917267859,
+            0.030626511201262474,
+            0.9960358142852783
+          ]
+        },
+        {
+          "score": 14.122122764587402,
+          "group": "goal",
+          "episode_id": "put_the_bowl_on_the_plate",
+          "t": 49,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_goal/videos/rollout_put_the_bowl_on_the_plate_trial12_success.mp4",
+          "action": [
+            0.24751177430152893,
+            0.037896618247032166,
+            0.6975847482681274,
+            -0.04567824304103851,
+            0.10827584564685822,
+            0.013522952795028687,
+            0.9935738444328308
+          ]
+        }
+      ]
+    },
+    {
+      "prompt_rank": 8,
+      "prompt_score": 14.163439750671387,
+      "prompt": "10:put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate",
+      "num_hits_for_prompt": 16,
+      "num_hits_for_prompt_considered": 16,
+      "saved_examples": [
+        {
+          "score": 14.7670259475708,
+          "group": "10",
+          "episode_id": "put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate",
+          "t": 22,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_10/videos/rollout_put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate_trial1_success.mp4",
+          "action": [
+            -0.13023610413074493,
+            -0.17242392897605896,
+            -0.46699824929237366,
+            -5.787780901300721e-05,
+            -0.0382019467651844,
+            0.08323552459478378,
+            -0.998449981212616
+          ]
+        },
+        {
+          "score": 14.748361587524414,
+          "group": "10",
+          "episode_id": "put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate",
+          "t": 34,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_10/videos/rollout_put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate_trial12_success.mp4",
+          "action": [
+            -0.11618471890687943,
+            -0.07028985023498535,
+            -0.37389007210731506,
+            0.00015834691294003278,
+            0.012431868351995945,
+            0.11254563182592392,
+            -0.9976307153701782
+          ]
+        },
+        {
+          "score": 14.679831504821777,
+          "group": "10",
+          "episode_id": "put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate",
+          "t": 33,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_10/videos/rollout_put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate_trial17_success.mp4",
+          "action": [
+            -0.23544122278690338,
+            -0.18046677112579346,
+            -0.4509238600730896,
+            -0.0011009079171344638,
+            -0.028602948412299156,
+            0.10986651480197906,
+            -0.9981579780578613
+          ]
+        },
+        {
+          "score": 14.436022758483887,
+          "group": "10",
+          "episode_id": "put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate",
+          "t": 33,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_10/videos/rollout_put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate_trial3_success.mp4",
+          "action": [
+            -0.09868190437555313,
+            -0.12679526209831238,
+            -0.46718689799308777,
+            -0.0026984133291989565,
+            -0.0171180609613657,
+            0.08370637893676758,
+            -1.0011695623397827
+          ]
+        },
+        {
+          "score": 14.266410827636719,
+          "group": "10",
+          "episode_id": "put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate",
+          "t": 31,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_10/videos/rollout_put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate_trial5_success.mp4",
+          "action": [
+            -0.04450664669275284,
+            -0.16336163878440857,
+            -0.4869771897792816,
+            -0.001279184129089117,
+            -0.027748653665184975,
+            0.07720589637756348,
+            -1.0013689994812012
+          ]
+        },
+        {
+          "score": 14.11716079711914,
+          "group": "10",
+          "episode_id": "put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate",
+          "t": 38,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_10/videos/rollout_put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate_trial4_success.mp4",
+          "action": [
+            -0.22058206796646118,
+            -0.057048115879297256,
+            -0.34899505972862244,
+            -0.0015031835064291954,
+            -0.001430773758329451,
+            0.1178661361336708,
+            -1.0026092529296875
+          ]
+        },
+        {
+          "score": 13.925006866455078,
+          "group": "10",
+          "episode_id": "put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate",
+          "t": 31,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_10/videos/rollout_put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate_trial17_success.mp4",
+          "action": [
+            -0.2035062611103058,
+            -0.1719166785478592,
+            -0.4681975543498993,
+            -0.0016131398733705282,
+            -0.03221791237592697,
+            0.10476569831371307,
+            -0.9954503774642944
+          ]
+        },
+        {
+          "score": 13.736794471740723,
+          "group": "10",
+          "episode_id": "put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate",
+          "t": 34,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_10/videos/rollout_put_the_white_mug_on_the_left_plate_and_put_the_yellow_and_white_mug_on_the_right_plate_trial3_success.mp4",
+          "action": [
+            -0.1214623749256134,
+            -0.11442511528730392,
+            -0.4641830027103424,
+            -0.0031220540404319763,
+            -0.013317529112100601,
+            0.08710882067680359,
+            -1.0027472972869873
+          ]
+        }
+      ]
+    },
+    {
+      "prompt_rank": 9,
+      "prompt_score": 14.163439750671387,
+      "prompt": "goal:put_the_bowl_on_top_of_the_cabinet",
+      "num_hits_for_prompt": 16,
+      "num_hits_for_prompt_considered": 16,
+      "saved_examples": [
+        {
+          "score": 14.7670259475708,
+          "group": "goal",
+          "episode_id": "put_the_bowl_on_top_of_the_cabinet",
+          "t": 22,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_goal/videos/rollout_put_the_bowl_on_top_of_the_cabinet_trial1_success.mp4",
+          "action": [
+            -0.12528501451015472,
+            -0.13329556584358215,
+            -0.9334030151367188,
+            -0.008469258435070515,
+            -0.028401819989085197,
+            -0.0069484347477555275,
+            -1.0041184425354004
+          ]
+        },
+        {
+          "score": 14.748361587524414,
+          "group": "goal",
+          "episode_id": "put_the_bowl_on_top_of_the_cabinet",
+          "t": 34,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_goal/videos/rollout_put_the_bowl_on_top_of_the_cabinet_trial12_success.mp4",
+          "action": [
+            -0.19981937110424042,
+            -0.021678360179066658,
+            -0.13664472103118896,
+            -0.036644190549850464,
+            0.08827374875545502,
+            -0.002956246957182884,
+            1.0002034902572632
+          ]
+        },
+        {
+          "score": 14.679831504821777,
+          "group": "goal",
+          "episode_id": "put_the_bowl_on_top_of_the_cabinet",
+          "t": 33,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_goal/videos/rollout_put_the_bowl_on_top_of_the_cabinet_trial17_success.mp4",
+          "action": [
+            -0.01751750521361828,
+            0.005188782699406147,
+            -0.23059974610805511,
+            -0.0043947407975792885,
+            0.042567670345306396,
+            -0.0020920198876410723,
+            0.9950679540634155
+          ]
+        },
+        {
+          "score": 14.436022758483887,
+          "group": "goal",
+          "episode_id": "put_the_bowl_on_top_of_the_cabinet",
+          "t": 33,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_goal/videos/rollout_put_the_bowl_on_top_of_the_cabinet_trial3_success.mp4",
+          "action": [
+            -0.022315271198749542,
+            -0.008765528909862041,
+            -0.1917843073606491,
+            -0.016998285427689552,
+            0.06968245655298233,
+            -0.013931234367191792,
+            1.0029839277267456
+          ]
+        },
+        {
+          "score": 14.266410827636719,
+          "group": "goal",
+          "episode_id": "put_the_bowl_on_top_of_the_cabinet",
+          "t": 31,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_goal/videos/rollout_put_the_bowl_on_top_of_the_cabinet_trial5_success.mp4",
+          "action": [
+            0.00362092861905694,
+            0.0201907679438591,
+            -0.2728395462036133,
+            -0.04339690878987312,
+            0.12739916145801544,
+            0.0101004708558321,
+            0.9974504709243774
+          ]
+        },
+        {
+          "score": 14.11716079711914,
+          "group": "goal",
+          "episode_id": "put_the_bowl_on_top_of_the_cabinet",
+          "t": 38,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_goal/videos/rollout_put_the_bowl_on_top_of_the_cabinet_trial4_success.mp4",
+          "action": [
+            -0.025012537837028503,
+            -0.03202731907367706,
+            0.15130992233753204,
+            -0.05139660835266113,
+            0.08225008100271225,
+            -0.04435001313686371,
+            1.0035074949264526
+          ]
+        },
+        {
+          "score": 13.925006866455078,
+          "group": "goal",
+          "episode_id": "put_the_bowl_on_top_of_the_cabinet",
+          "t": 31,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_goal/videos/rollout_put_the_bowl_on_top_of_the_cabinet_trial17_success.mp4",
+          "action": [
+            -0.017177274450659752,
+            0.0018755467608571053,
+            -0.5462963581085205,
+            -0.0019158076029270887,
+            0.03424070402979851,
+            -0.0006332033663056791,
+            1.0059665441513062
+          ]
+        },
+        {
+          "score": 13.736794471740723,
+          "group": "goal",
+          "episode_id": "put_the_bowl_on_top_of_the_cabinet",
+          "t": 34,
+          "video_path": "/n/netscratch/sham_lab/Lab/chloe00/data/libero/libero_goal/videos/rollout_put_the_bowl_on_top_of_the_cabinet_trial3_success.mp4",
+          "action": [
+            -0.013427079655230045,
+            -0.0119973449036479,
+            -0.08903472125530243,
+            -0.01529758796095848,
+            0.07577487081289291,
+            -0.019450541585683823,
+            1.0009275674819946
+          ]
+        }
+      ]
+    }
+  ],
+  "action_mean_over_saved": [
+    0.04010345786809921,
+    0.02218753844499588,
+    -0.18312789499759674,
+    -0.003511910093948245,
+    -0.004385930486023426,
+    -0.02731097862124443,
+    -0.10108523070812225
+  ],
+  "action_median_over_saved": [
+    0.000320589286275208,
+    -0.01038143690675497,
+    -0.26834094524383545,
+    -0.0004491396830417216,
+    -0.001338071539066732,
+    -0.0069902203977108,
+    -0.9971481561660767
+  ]
+}

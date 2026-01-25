@@ -451,12 +451,11 @@ def mine_concepts_global(
 
 if __name__ == "__main__":
     # ckpt_path = "./checkpoints/TopKSAE/sae_layer11_k10_c16000.pt"  
-    ckpt_path = f"./checkpoints/BatchTopKSAE/sae_libero_{subset}_layer11_k16_c1024.pt"
-
-    data_root = "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero"
+    ckpt_path = f"./checkpoints/BatchTopKSAE/sae_libero_all_layer11_k16_c512.pt"
+    data_root = "/n/netscratch/sham_lab/Lab/chloe00/data/libero"
     activations_root = "/n/netscratch/sham_lab/Lab/chloe00/pi0_activations"
 
-    out_dir = "./concept_mining_out"
+    out_dir = "./concept_mining_out_act"
     layer_idx = 11
 
     mine_concepts_global(

@@ -7,164 +7,8 @@ from typing import Dict, List, Any, Tuple, Optional
 import numpy as np
 import torch
 
-from overcomplete.sae import TopKSAE  
+from overcomplete.sae import TopKSAE
 from utils import *
-
-
-# def index_libero_dataset(
-#     data_root: str,
-#     activations_root: str,
-#     groups=("10", "goal", "object", "spatial"),
-# ) -> List[Episode]:
-#     # Build maps from episode_id -> path for actions/videos
-#     actions_map: Dict[Tuple[str, str], str] = {}
-#     video_map: Dict[Tuple[str, str], str] = {}
-
-#     for g in groups:
-#         actions_dir = os.path.join(data_root, g, "actions")
-#         videos_dir = os.path.join(data_root, g, "videos")
-
-#         for p in sorted(glob.glob(os.path.join(actions_dir, "*.json"))):
-#             eid = parse_episode_id_from_actions_json(p)
-#             actions_map[(g, eid)] = p
-
-#         for p in sorted(glob.glob(os.path.join(videos_dir, "*.mp4"))):
-#             eid = parse_episode_id_from_video(p)
-#             video_map[(g, eid)] = p
-
-#     act_paths = sorted(glob.glob(os.path.join(activations_root, "*.npy")))
-#     act_map: Dict[str, str] = {}
-#     for p in act_paths:
-#         eid = parse_episode_id_from_activation_npy(p)
-#         act_map[eid] = p
-
-#     episodes: List[Episode] = []
-
-#     for (g, raw_eid), a_path in actions_map.items():
-#         # Find video: in some datasets actions file name differs from video stem.
-#         v_path = video_map.get((g, raw_eid), None)
-
-#         # Your downstream logic expects to parse a number from raw_eid
-#         mnum = re.search(r"\d+", raw_eid)
-#         if mnum is None:
-#             num = None
-#         else:
-#             num = int(mnum.group())
-
-#         #   raw: "actions_..._trial..." -> eid = "...", and then find task index by substring search.
-#         eid = raw_eid
-#         eid = eid.replace("actions_", "")
-#         eid = eid.split("_trial")[0]
-
-#         # Determine task index based on eid contained in the prompt strings
-#         task = -1
-#         key = f"libero_{g}"
-#         if key in libero_task_map:
-#             task = next((i for i, s in enumerate(libero_task_map[key]) if eid in s), -1)
-
-#         #   f"task{task}_ep{num}_post_ffn_last_step"
-#         act_path = None
-#         if (task is not None) and (task >= 0) and (num is not None):
-#             act_key = f"task{task}_ep{num}_post_ffn_last_step"
-#             act_path = act_map.get(act_key, None)
-
-#         prompt = prompt_for_group_and_episode(g, eid)
-#         episodes.append(Episode(g, eid, a_path, v_path, prompt, act_path))
-
-#     print(f"Indexed {len(episodes)} episodes (may include missing video/activation).")
-#     return episodes
-
-
-
-
-
-# def _find_action_in_dict(d):
-#     """
-#     Heuristics: try common keys, else find first list-of-numbers value (possibly nested one level).
-#     Returns np.float32 vector or None.
-#     """
-#     candidate_keys = [
-#         "action", "actions",
-#         "robot_action", "robot_actions",
-#         "ctrl", "control", "command",
-#         "ee_action", "ee_delta", "delta",
-#     ]
-
-#     for k in candidate_keys:
-#         if k in d:
-#             v = d[k]
-#             vec = _as_float_vec(v)
-#             if vec is not None:
-#                 return vec
-#             if isinstance(v, dict):
-#                 for vv in v.values():
-#                     vec2 = _as_float_vec(vv)
-#                     if vec2 is not None:
-#                         return vec2
-
-#     for v in d.values():
-#         vec = _as_float_vec(v)
-#         if vec is not None:
-#             return vec
-#         if isinstance(v, dict):
-#             for vv in v.values():
-#                 vec2 = _as_float_vec(vv)
-#                 if vec2 is not None:
-#                     return vec2
-
-#     return None
-
-
-# def load_actions(actions_json_path: str) -> np.ndarray:
-#     """
-#     Returns actions as float array (T, action_dim).
-#     Supports:
-#       - {"actions": [[...], ...]}
-#       - {"actions": [{...}, {...}, ...]}
-#       - [[...], ...]
-#       - [{...}, {...}, ...]   (list of dict per timestep)
-#     """
-#     with open(actions_json_path, "r") as f:
-#         obj = json.load(f)
-
-#     if isinstance(obj, dict):
-#         if "actions" in obj:
-#             obj = obj["actions"]
-#         else:
-#             raise ValueError(f"Dict JSON without 'actions' key in {actions_json_path}")
-
-#     if isinstance(obj, list):
-#         if len(obj) == 0:
-#             return np.zeros((0, 0), dtype=np.float32)
-
-#         if isinstance(obj[0], (list, tuple, np.ndarray)):
-#             acts = np.asarray(obj, dtype=np.float32)
-#             if acts.ndim != 2:
-#                 raise ValueError(f"Expected (T, action_dim) from list-of-vectors; got {acts.shape} in {actions_json_path}")
-#             return acts
-
-#         if isinstance(obj[0], dict):
-#             rows = []
-#             for i, step in enumerate(obj):
-#                 vec = _find_action_in_dict(step)
-#                 if vec is None:
-#                     raise ValueError(
-#                         f"Could not find numeric action vector at step {i} in {actions_json_path}. "
-#                         f"Keys were: {list(step.keys())[:30]}"
-#                     )
-#                 rows.append(vec)
-
-#             dim0 = rows[0].shape[0]
-#             for i, v in enumerate(rows):
-#                 if v.shape[0] != dim0:
-#                     raise ValueError(
-#                         f"Inconsistent action_dim in {actions_json_path}: step0={dim0}, step{i}={v.shape[0]}"
-#                     )
-#             return np.stack(rows, axis=0).astype(np.float32)
-
-#     raise ValueError(f"Unrecognized action json schema in {actions_json_path}: type={type(obj)}")
-
-
 
 
 # =========================
@@ -237,6 +81,12 @@ def mine_concepts_global(
     frames_to_save_per_prompt: int = 8,
     prompt_score: str = "mean_topk",  # {"max","mean_topk","sum_topk"}
 
+    # ---- NEW (Option A): concept-level filtering ----
+    # Only write concept outputs if total number of frame hits for that concept >= this threshold
+    min_hits_per_concept: int = 0,
+    # Optional: also require the concept's max score (top hit after sorting) >= this
+    min_max_score_per_concept: float = 0.0,
+
     # If True, drop episodes that are missing video or activations
     strict: bool = True,
 ):
@@ -268,14 +118,12 @@ def mine_concepts_global(
     dropped = 0
 
     for ep in episodes:
-        # import pdb; pdb.set_trace()
         if strict and (ep.act_path is None):
             dropped += 1
             continue
 
         acts = load_actions(ep.actions_path)  # (T_a, action_dim)
         A = np.load(ep.act_path).astype(np.float32)
-   
 
         if A.ndim == 4:
             # your old comment: squeeze(-2) — keep same behavior
@@ -380,6 +228,8 @@ def mine_concepts_global(
     # PASS 3: for each concept, rank prompts by activation, then save examples
     # ============================================================
     summaries: Dict[int, Any] = {}
+    skipped_by_hit_threshold = 0
+    skipped_by_score_threshold = 0
 
     for c in range(nb_concepts):
         hits = concept_hits[c]
@@ -388,6 +238,15 @@ def mine_concepts_global(
 
         # Sort by frame score desc
         hits.sort(key=lambda x: x["score"], reverse=True)
+
+        # ---- NEW (Option A): concept-level thresholding BEFORE writing anything ----
+        if min_hits_per_concept > 0 and len(hits) < min_hits_per_concept:
+            skipped_by_hit_threshold += 1
+            continue
+
+        if min_max_score_per_concept > 0.0 and hits[0]["score"] < min_max_score_per_concept:
+            skipped_by_score_threshold += 1
+            continue
 
         # Optionally cap frames considered for prompt ranking (for speed/memory)
         if top_m_frames_per_concept is not None and top_m_frames_per_concept > 0:
@@ -405,7 +264,7 @@ def mine_concepts_global(
         concept_dir = os.path.join(out_dir, f"concept_{c:04d}")
         os.makedirs(concept_dir, exist_ok=True)
 
-        prompts_txt_path = os.path.join(concept_dir, "prompts.txt")
+        prompts_txt_path = os.path.join(concept_dir, f"prompts_{c:04d}.txt")
         with open(prompts_txt_path, "w") as f:
             for p_rank, (p, p_score, phits_sorted) in enumerate(ranked_prompts):
                 f.write(f"[{p_rank:02d}] score={p_score:.6f} hits={len(phits_sorted)}\n")
@@ -483,6 +342,10 @@ def mine_concepts_global(
             "prompt_top_k_frames": prompt_top_k_frames,
             "frames_to_save_per_prompt": frames_to_save_per_prompt,
 
+            # NEW: record filtering thresholds used
+            "min_hits_per_concept": int(min_hits_per_concept),
+            "min_max_score_per_concept": float(min_max_score_per_concept),
+
             # quick view
             "top_prompts": [
                 {
@@ -509,6 +372,11 @@ def mine_concepts_global(
         json.dump(summaries, f, indent=2)
 
     print(f"Done. Wrote concept folders to: {out_dir}")
+    if min_hits_per_concept > 0 or min_max_score_per_concept > 0.0:
+        print(
+            f"Filtering: skipped {skipped_by_hit_threshold} concepts by min_hits_per_concept={min_hits_per_concept}, "
+            f"skipped {skipped_by_score_threshold} by min_max_score_per_concept={min_max_score_per_concept}"
+        )
 
 
 # =========================
@@ -516,11 +384,11 @@ def mine_concepts_global(
 # =========================
 
 if __name__ == "__main__":
-    ckpt_path = "./checkpoints/TopKSAE/sae_layer11_k10_c50.pt"  # TODO
-    data_root = "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero"
+    ckpt_path = f"./checkpoints/BatchTopKSAE/sae_libero_all_layer11_k16_c1024.pt"
+    data_root = "/n/netscratch/sham_lab/Lab/chloe00/data/libero"
     activations_root = "/n/netscratch/sham_lab/Lab/chloe00/pi0_activations"
 
-    out_dir = "./concept_mining_out"
+    out_dir = "./concept_mining_out_prompts"
     layer_idx = 11
 
     mine_concepts_global(
@@ -538,6 +406,10 @@ if __name__ == "__main__":
         prompt_top_k_frames=10,
         frames_to_save_per_prompt=8,
         prompt_score="mean_topk",        # or "max" if you want “single strongest moment”
+
+        # ---- NEW (Option A): concept-level filtering ----
+        min_hits_per_concept=300,        # example: only save concepts with >= 200 frame hits
+        min_max_score_per_concept=0.0,   # optional: e.g. 0.5 to require strong max activation
 
         strict=True,
     )
