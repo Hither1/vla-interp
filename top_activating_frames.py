@@ -12,6 +12,7 @@ from overcomplete.sae import TopKSAE, BatchTopKSAE
 from utils import *
 
 
+nb_concepts = 4096  # set globally for naming consistency
 
 # =========================
 # selecting top activating frames per concept (diversity + NMS)
@@ -243,7 +244,7 @@ def mine_concepts_global(
         action_mean = action_mat.mean(axis=0)
         action_median = np.median(action_mat, axis=0)
 
-        concept_dir = os.path.join(out_dir, f"concept_{c:04d}")
+        concept_dir = os.path.join(out_dir, f"nb_{nb_concepts}_concept_{c:04d}")
         os.makedirs(concept_dir, exist_ok=True)
 
         for rank, h in enumerate(selected):
@@ -315,7 +316,7 @@ def mine_concepts_global(
 if __name__ == "__main__":
     # ckpt_path = "./checkpoints/TopKSAE/sae_layer11_k10_c16000.pt"
  
-    ckpt_path = f"./checkpoints/BatchTopKSAE/sae_libero_all_layer11_k16_c512.pt"
+    ckpt_path = f"./checkpoints/BatchTopKSAE/sae_libero_all_layer11_k16_c{nb_concepts}.pt"
     data_root = "/n/netscratch/sham_lab/Lab/chloe00/data/libero"
     activations_root = "/n/netscratch/sham_lab/Lab/chloe00/pi0_activations"
 

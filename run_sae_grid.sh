@@ -8,7 +8,7 @@
 #SBATCH --gpus-per-node=1    
 #SBATCH --cpus-per-task=24
 #SBATCH --mem=240G
-#SBATCH --time=71:30:00
+#SBATCH --time=11:30:00
 
 #SBATCH --account=kempner_grads
 #SBATCH --partition=kempner
@@ -34,7 +34,7 @@ export LIBERO_CONFIG_PATH=/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/th
 ENV_NAME="LIBERO"
 PORT=8000
 
-LAYERS=(10 11 12 13)
+# LAYERS=(10 11 12 13)
 FEATURES=(3 7 12 19 42)
 STRENGTHS=(-2.0 -1.0 1.0 2.0)
 
@@ -92,16 +92,16 @@ kill_server
 # ABLATION GRID
 ############################################
 
-for LAYER in "${LAYERS[@]}"; do
-  for FEATURE in "${FEATURES[@]}"; do
-    echo "Ablation: layer=$LAYER feature=$FEATURE"
+# for LAYER in "${LAYERS[@]}"; do
+for FEATURE in "${FEATURES[@]}"; do
+    echo "Ablation: feature=$FEATURE"
 
-    OUTDIR="$RESULTS_DIR/ablate/layer_$LAYER/feature_$FEATURE"
+    OUTDIR="$RESULTS_DIR/ablate/feature_$FEATURE"
     mkdir -p "$OUTDIR"
 
     export SAE_ENABLED=1
     export SAE_MODE="ablate"
-    export SAE_LAYER=$LAYER
+    # export SAE_LAYER=$LAYER
     export SAE_FEATURE=$FEATURE
 
     python scripts/serve_policy.py --env $ENV_NAME \
@@ -114,24 +114,24 @@ for LAYER in "${LAYERS[@]}"; do
       > "$OUTDIR/$EVAL_LOG" 2>&1
 
     kill_server
-  done
 done
+# done
 
 ############################################
 # STEERING GRID
 ############################################
 
-for LAYER in "${LAYERS[@]}"; do
-  for FEATURE in "${FEATURES[@]}"; do
-    for STRENGTH in "${STRENGTHS[@]}"; do
-      echo "Steering: layer=$LAYER feature=$FEATURE strength=$STRENGTH"
+# for LAYER in "${LAYERS[@]}"; do
+for FEATURE in "${FEATURES[@]}"; do
+  for STRENGTH in "${STRENGTHS[@]}"; do
+      echo "Steering: feature=$FEATURE strength=$STRENGTH"
 
-      OUTDIR="$RESULTS_DIR/steer/layer_$LAYER/feature_$FEATURE/strength_$STRENGTH"
+      OUTDIR="$RESULTS_DIR/steer/feature_$FEATURE/strength_$STRENGTH"
       mkdir -p "$OUTDIR"
 
       export SAE_ENABLED=1
       export SAE_MODE="steer"
-      export SAE_LAYER=$LAYER
+      # export SAE_LAYER=$LAYER
       export SAE_FEATURE=$FEATURE
       export SAE_STRENGTH=$STRENGTH
 
@@ -145,8 +145,8 @@ for LAYER in "${LAYERS[@]}"; do
         > "$OUTDIR/$EVAL_LOG" 2>&1
 
       kill_server
-    done
   done
 done
+# done
 
 echo "Grid search complete."

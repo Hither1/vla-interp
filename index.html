@@ -11,6 +11,19 @@
     #media img, #media video, #media iframe { max-width: 100%; max-height: 70vh; border-radius: 10px; }
     #title { font-weight: 600; margin-bottom: 6px; }
     #desc { color: #666; margin-top: 6px; font-size: 0.95em; }
+
+    #figure-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+  }
+  #figure-gallery img {
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+    border: 1px solid #eee;
+    background: #fafafa;
+  }
   </style>
 </head>
 
@@ -31,7 +44,7 @@
       <div id="media-title" class="media-title">None selected</div>
 
       <div class="media-wrap">
-        <img id="figure" class="hidden" alt="Concept figure" />
+        <div id="figure-gallery" class="hidden"></div>
         <video id="video" class="hidden" controls muted playsinline></video>
 
         <div id="no-media" class="legend-info">

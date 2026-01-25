@@ -11,9 +11,7 @@ from overcomplete.sae import TopKSAE
 from utils import *
 
 
-# =========================
-# 5) Prompt ranking helpers
-# =========================
+nb_concepts = 512
 
 def rank_prompts_for_concept(
     hits: List[Dict[str, Any]],
@@ -261,7 +259,7 @@ def mine_concepts_global(
         )
         ranked_prompts = ranked_prompts[:top_prompts_per_concept]
 
-        concept_dir = os.path.join(out_dir, f"concept_{c:04d}")
+        concept_dir = os.path.join(out_dir, f"nb_{nb_concepts}_concept_{c:04d}")
         os.makedirs(concept_dir, exist_ok=True)
 
         prompts_txt_path = os.path.join(concept_dir, f"prompts_{c:04d}.txt")
@@ -384,7 +382,7 @@ def mine_concepts_global(
 # =========================
 
 if __name__ == "__main__":
-    ckpt_path = f"./checkpoints/BatchTopKSAE/sae_libero_all_layer11_k16_c1024.pt"
+    ckpt_path = f"./checkpoints/BatchTopKSAE/sae_libero_all_layer11_k16_c{nb_concepts}.pt"
     data_root = "/n/netscratch/sham_lab/Lab/chloe00/data/libero"
     activations_root = "/n/netscratch/sham_lab/Lab/chloe00/pi0_activations"
 
