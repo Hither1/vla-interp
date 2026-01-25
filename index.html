@@ -67,6 +67,7 @@
 
       //   2. 
       { id: "grasp_readiness", label: "Concept: Grasp Readiness", category: "Functional / Task Phase",
+        figure: "assets/figures/target_to_gripper.png",
         video: "assets/videos/grasp_readiness.mp4"
       },
       
@@ -83,21 +84,29 @@
 
       //   3. 
       { id: "container_focus", label: "Concept: Container-Focus", category: "Linguistic Context",
-        figure: "assets/figures/container_focus.png"
+        figure: "assets/figures/container_focus.png",
+        prompts: [
+            "Move the gripper close to the object.",
+            "Approach until you are within a small distance."
+            ]
       },
       { id: "tool_affordance", label: "Concept: Tool-Affordance", category: "Linguistic Context",
-        figure: "assets/figures/tool_affordance.png",
-        video:  "assets/videos/tool_affordance.mp4"
+        figure: "assets/figures/.png",
+        video:  "assets/videos/.mp4",
+        prompts: [
+            "Raise the gripper slightly above the object's center.",
+            "Maintain a safe height clearance before descending."
+            ]
       },
 
       //   4.
-      { id: "tool_affordance", label: "Concept: Tool-Affordance", category: "Dynamic Control",
-        figure: "assets/figures/tool_affordance.png",
-        video:  "assets/videos/tool_affordance.mp4"
+      { id: "jerk_acceleration_inhibition", label: "Concept: Jerk/Acceleration-Inhibition", category: "Dynamic Control",
+        figure: "assets/figures/.png",
+        video:  "assets/videos/.mp4"
       },
-      { id: "tool_affordance", label: "Concept: Tool-Affordance", category: "Dynamic Control",
-        figure: "assets/figures/tool_affordance.png",
-        video:  "assets/videos/tool_affordance.mp4"
+      { id: "stopping_event", label: "Concept: Stopping-Event", category: "Dynamic Control",
+        figure: "assets/figures/.png",
+        video:  "assets/videos/.mp4"
       },
     ];
 
