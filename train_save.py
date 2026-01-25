@@ -24,7 +24,7 @@ npy_dir = "/n/netscratch/sham_lab/Lab/chloe00/pi0_activations"
 layer_indices = [ 11]
 batch_size = 1024
 lr = 3e-4
-nb_epochs = 6
+nb_epochs = 10
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 nb_concepts = 40
@@ -42,16 +42,7 @@ LIBERO_SUBSETS = [
 ]
 
 ckpt_dir = "./checkpoints/BatchTopKSAE"
-os.makedirs(ckpt_dir, exist_ok=True)
-
-# -------------------------
-# Normalization config
-# -------------------------
-# NORMALIZE_ACTS = True
-# NORM_MODE = "feature_zscore"
-# NORM_EPS = 1e-6
-# NORM_CHUNK = 200_000     
-# Somehow add normalization is much worse      
+os.makedirs(ckpt_dir, exist_ok=True) 
 
 
 @torch.no_grad()
@@ -399,6 +390,38 @@ def plot_training_curves(logs, out_path, title_prefix="", min_epoch_for_best=10)
 
 
 
+# def criterion(x, x_hat, pre_codes, codes, dictionary):
+#     mse = (x - x_hat).square().mean()
+#     lb = load_balance_loss(codes)
+
+#     return mse + lb_coeff * lb
+
+
+# JumpRelu
+# def criterion(x, x_hat, pre_codes, codes, dictionary):
+    #     # here we directly use the thresholds of the model to control the sparsity
+    #     loss = (x - x_hat).square().mean()
+
+    #     sparsity = (codes > 0).float().mean().detach()
+    #     if sparsity > desired_sparsity:
+    #         # if we are not sparse enough, increase the thresholds levels
+    #         loss -= sae.thresholds.sum()
+
+    #     return loss
+
+#  BatchTopKSAE
+def criterion(x, x_hat, pre_codes, codes, dictionary):
+    loss = (x - x_hat).square().mean()
+
+    # is dead of shape (k) (nb concepts) and is 1 iif
+    # not a single code has fire in the batch
+    is_dead = ((codes > 0).sum(dim=0) == 0).float().detach()
+    # we push the pre_codes (before relu) towards the positive orthant
+    reanim_loss = (pre_codes * is_dead[None, :]).mean()
+  
+    loss -= reanim_loss * 1e-2
+    return loss
+
 def train_sae_for_subset(subset: str):
     npy_paths = list_subset_files(npy_dir, subset)
     assert len(npy_paths) > 0, f"No .npy files found for subset='{subset}' in {npy_dir}"
@@ -447,37 +470,7 @@ def train_sae_for_subset(subset: str):
         return -entropy  # minimize negative entropy => maximize entropy
 
     lb_coeff = 5e-2
-    def criterion(x, x_hat, pre_codes, codes, dictionary):
-        mse = (x - x_hat).square().mean()
-        lb = load_balance_loss(codes)
 
-        return mse + lb_coeff * lb
-
-
-    # JumpRelu
-    def criterion(x, x_hat, pre_codes, codes, dictionary):
-        # here we directly use the thresholds of the model to control the sparsity
-        loss = (x - x_hat).square().mean()
-
-        sparsity = (codes > 0).float().mean().detach()
-        if sparsity > desired_sparsity:
-            # if we are not sparse enough, increase the thresholds levels
-            loss -= sae.thresholds.sum()
-
-        return loss
-
-    #  BatchTopKSAE
-    def criterion(x, x_hat, pre_codes, codes, dictionary):
-        loss = (x - x_hat).square().mean()
-
-        # is dead of shape (k) (nb concepts) and is 1 iif
-        # not a single code has fire in the batch
-        is_dead = ((codes > 0).sum(dim=0) == 0).float().detach()
-        # we push the pre_codes (before relu) towards the positive orthant
-        reanim_loss = (pre_codes * is_dead[None, :]).mean()
-
-        loss -= reanim_loss * 1e-3
-        return loss
 
 
     for nb_concepts in NB_CONCEPTS_LIST:
@@ -575,19 +568,7 @@ def train_sae_on_all_subsets():
         drop_last=False,
     )
 
-    # 5) Criterion (BatchTopKSAE reanimation)
-    def criterion(x, x_hat, pre_codes, codes, dictionary):
-        loss = (x - x_hat).square().mean()
 
-        # dead feature = no fires in batch
-        is_dead = ((codes > 0).sum(dim=0) == 0).float().detach()
-        # push pre-codes for dead feats positive to "reanimate"
-        reanim_loss = (pre_codes * is_dead[None, :]).mean()
-
-        loss -= reanim_loss * 1e-3
-        return loss
-
-    # 6) Sweep and train
     combined_tag = "libero_all"
     layers_tag = "-".join(map(str, layer_indices))
 

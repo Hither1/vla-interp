@@ -2,12 +2,16 @@
 <head>
     <meta charset="utf-8" />
     <style>
-        body { font-family: sans-serif; margin: 20px; display: flex; flex-direction: column; height: 100vh; }
-        #controls { padding: 15px; background: #f4f4f4; border-radius: 8px; margin-bottom: 10px; display: flex; gap: 20px; align-items: center; }
-        .container { flex-grow: 1; position: relative; }
-        select { padding: 5px; border-radius: 4px; }
-        .legend-info { font-size: 0.8em; color: #666; }
-    </style>
+    body { font-family: sans-serif; margin: 20px; display: flex; flex-direction: column; height: 100vh; }
+    #controls { padding: 15px; background: #f4f4f4; border-radius: 8px; margin-bottom: 10px; display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+    select { padding: 6px; border-radius: 6px; }
+    .legend-info { font-size: 0.9em; color: #666; }
+    .container { flex: 1; display: grid; grid-template-columns: 1fr; gap: 12px; min-height: 0; }
+    #media { background: #fafafa; border: 1px solid #eee; border-radius: 10px; padding: 12px; min-height: 280px; display: flex; align-items: center; justify-content: center; }
+    #media img, #media video, #media iframe { max-width: 100%; max-height: 70vh; border-radius: 10px; }
+    #title { font-weight: 600; margin-bottom: 6px; }
+    #desc { color: #666; margin-top: 6px; font-size: 0.95em; }
+  </style>
 </head>
 
 
@@ -15,19 +19,174 @@
 <body>
 
     <div id="controls">
-        <div>
-            <strong>SAE Concept Overlay:</strong>
-            <select id="feature-selector" onchange="updateVisualization()">
-                <option value="none">None (Standard PCA)</option>
-                <option value="gripper">Feature 104: Gripper Open/Close</option>
-                <option value="arm_z">Feature 212: Vertical Arm Movement</option>
-                <option value="proximity">Feature 45: Table Proximity</option>
-            </select>
-        </div>
-        <div class="legend-info">
-            High intensity (yellow) indicates feature activation.
-        </div>
+    <div>
+      <strong>SAE Concepts:</strong>
+      <select id="feature-selector"></select>
+      <div class="legend-info">Pick a concept to load its figure/video.</div>
     </div>
+  </div>
+
+  <div class="container">
+    <div class="media-card">
+      <div id="media-title" class="media-title">None selected</div>
+
+      <div class="media-wrap">
+        <img id="figure" class="hidden" alt="Concept figure" />
+        <video id="video" class="hidden" controls muted playsinline></video>
+
+        <div id="no-media" class="legend-info">
+          Select a concept to view its associated assets.
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+    <script>
+    // 1) Define your concepts ONCE here.
+    // Each concept can have: id, label, category, figure, video (any can be null/undefined)
+    const CONCEPTS = [
+      { id: "none", label: "None", category: "General" },
+
+      // --- Example categories ---
+      { id: "feature_104", label: "Feature 104: Object-Proximity", category: "Geometry / Spatial",
+        figure: "assets/figures/feature_104.png",
+        video:  "assets/videos/feature_104.mp4"
+      },
+      { id: "feature_212", label: "Feature 212: Height-Offset", category: "Geometry / Spatial",
+        figure: "assets/figures/feature_212.png"
+      },
+      { id: "feature_045", label: "Feature 45: Alignment-Angle", category: "Geometry / Spatial",
+        figure: "assets/figures/feature_045.png",
+        video:  "assets/videos/feature_045.mp4"
+      },
+
+      { id: "grasp_readiness", label: "Feature: Grasp Readiness", category: "Grasping Phase",
+        video: "assets/videos/grasp_readiness.mp4"
+      },
+      { id: "target_to_gripper", label: "Feature: Target-to-Gripper Vector", category: "Grasping Phase",
+        figure: "assets/figures/target_to_gripper.png"
+      },
+      { id: "approach_phase", label: "Feature: Approach-Phase", category: "Grasping Phase",
+        video: "assets/videos/approach_phase.mp4"
+      },
+      { id: "post_contact", label: "Feature: Post-Contact Stabilizer", category: "Grasping Phase",
+        figure: "assets/figures/post_contact.png"
+      },
+
+      { id: "obstacle_avoid", label: "Feature: Obstacle-Avoidance", category: "Safety / Constraints",
+        video: "assets/videos/obstacle_avoidance.mp4"
+      },
+      { id: "container_focus", label: "Feature: Container-Focus", category: "Task Context",
+        figure: "assets/figures/container_focus.png"
+      },
+      { id: "tool_affordance", label: "Feature: Tool-Affordance", category: "Task Context",
+        figure: "assets/figures/tool_affordance.png",
+        video:  "assets/videos/tool_affordance.mp4"
+      },
+    ];
+
+    // ---- Build the categorized dropdown (optgroup) ----
+    function buildSelector() {
+      const sel = document.getElementById("feature-selector");
+      sel.innerHTML = "";
+
+      // group concepts by category
+      const byCat = new Map();
+      for (const c of CONCEPTS) {
+        if (!byCat.has(c.category)) byCat.set(c.category, []);
+        byCat.get(c.category).push(c);
+      }
+
+      // Put "General" first if present, otherwise alphabetical
+      const cats = Array.from(byCat.keys());
+      cats.sort((a, b) => {
+        if (a === "General") return -1;
+        if (b === "General") return 1;
+        return a.localeCompare(b);
+      });
+
+      for (const cat of cats) {
+        const group = document.createElement("optgroup");
+        group.label = cat;
+
+        for (const c of byCat.get(cat)) {
+          const opt = document.createElement("option");
+          opt.value = c.id;
+          opt.textContent = c.label;
+          group.appendChild(opt);
+        }
+        sel.appendChild(group);
+      }
+
+      sel.addEventListener("change", updateVisualization);
+    }
+
+    // ---- Media rendering ----
+    function setHidden(el, hidden) {
+      el.classList.toggle("hidden", hidden);
+    }
+
+    function updateVisualization() {
+      const sel = document.getElementById("feature-selector");
+      const id = sel.value;
+
+      const concept = CONCEPTS.find(c => c.id === id);
+
+      const title = document.getElementById("media-title");
+      const fig = document.getElementById("figure");
+      const vid = document.getElementById("video");
+      const noMedia = document.getElementById("no-media");
+
+      if (!concept || concept.id === "none") {
+        title.textContent = "None selected";
+        setHidden(fig, true);
+        setHidden(vid, true);
+        setHidden(noMedia, false);
+        // stop any playing video
+        vid.pause();
+        vid.removeAttribute("src");
+        vid.load();
+        return;
+      }
+
+      title.textContent = `${concept.label}  —  ${concept.category}`;
+
+      // Figure
+      if (concept.figure) {
+        fig.src = concept.figure;
+        setHidden(fig, false);
+      } else {
+        fig.removeAttribute("src");
+        setHidden(fig, true);
+      }
+
+      // Video
+      if (concept.video) {
+        // reset video cleanly (important when switching)
+        vid.pause();
+        vid.src = concept.video;
+        vid.load();
+        setHidden(vid, false);
+      } else {
+        vid.pause();
+        vid.removeAttribute("src");
+        vid.load();
+        setHidden(vid, true);
+      }
+
+      // If neither exists, show a message
+      const hasAny = Boolean(concept.figure || concept.video);
+      setHidden(noMedia, hasAny);
+      if (!hasAny) noMedia.textContent = "No media mapped for this concept yet.";
+    }
+
+    // init
+    buildSelector();
+    // select None by default
+    document.getElementById("feature-selector").value = "none";
+    updateVisualization();
+  </script>
 
     <!-- interative 3D PCA Scatter Plot -->
     <div>                        

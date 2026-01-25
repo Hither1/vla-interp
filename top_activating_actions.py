@@ -13,6 +13,141 @@ import matplotlib.pyplot as plt
 
 subset = 'spatial'
 
+
+def plot_actions_3d_top_assoc(
+    concept_id,
+    hits,
+    concept_dir: str = "./",
+    title: str = "",
+    subset: str = "spatial",
+    assoc=None,                 # optionally pass precomputed association list
+    assoc_method: str = "abs_corr",
+    fallback_dims=(0, 1, 2),    # dx,dy,dz fallback
+    s: int = 18,
+    alpha: float = 0.8,
+):
+    """
+    Plot actions in 3D using the TOP-3 action dimensions most associated with concept score.
+    Association is computed by action_dimension_association(...).
+
+    Saves: concept_dir/actions_3d_topassoc_<subset>_c{concept_id}.png
+    """
+    if len(hits) < 3:
+        return
+
+    # compute association if not provided
+    if assoc is None:
+        assoc = action_dimension_association(hits, method=assoc_method)
+
+    # pick top-3 unique dims
+    chosen = []
+    for r in assoc:
+        d = int(r["dim"])
+        if d not in chosen:
+            chosen.append(d)
+        if len(chosen) == 3:
+            break
+
+    if len(chosen) < 3:
+        chosen = list(fallback_dims)
+
+    A = np.stack([np.asarray(h["action"], dtype=np.float32) for h in hits], axis=0)  # (N,7)
+    scores = np.asarray([float(h["score"]) for h in hits], dtype=np.float32)
+
+    x, y, z = A[:, chosen[0]], A[:, chosen[1]], A[:, chosen[2]]
+
+    def dim_name(i: int) -> str:
+        if "ACTION_NAMES" in globals() and i < len(ACTION_NAMES):
+            return ACTION_NAMES[i]
+        return f"a{i}"
+
+    # make a helpful default title if none provided
+    if not title:
+        # include corr values if available
+        corr_map = {int(r["dim"]): float(r.get("corr", 0.0)) for r in assoc}
+        title = (
+            f"Concept {concept_id} — top-assoc dims: "
+            f"{dim_name(chosen[0])}({corr_map.get(chosen[0], 0.0):+.2f}), "
+            f"{dim_name(chosen[1])}({corr_map.get(chosen[1], 0.0):+.2f}), "
+            f"{dim_name(chosen[2])}({corr_map.get(chosen[2], 0.0):+.2f}) "
+            f"(N={len(hits)})"
+        )
+
+    fig = plt.figure(figsize=(7, 6))
+    ax = fig.add_subplot(111, projection="3d")
+
+    sc = ax.scatter(x, y, z, c=scores, s=s, alpha=alpha)
+    cb = fig.colorbar(sc, ax=ax, shrink=0.75, pad=0.08)
+    cb.set_label("concept activation score")
+
+    ax.set_xlabel(dim_name(chosen[0]))
+    ax.set_ylabel(dim_name(chosen[1]))
+    ax.set_zlabel(dim_name(chosen[2]))
+    ax.set_title(title)
+
+    plt.tight_layout()
+    out_png = os.path.join(concept_dir, f"actions_3d_topassoc_{subset}_c{concept_id}.png")
+    plt.savefig(out_png, dpi=220)
+    plt.close(fig)
+
+
+def plot_actions_3d_dims(
+    concept_id,
+    hits,
+    concept_dir: str = "./",
+    title: str = "",
+    dims=(0, 1, 2),   # default: dx, dy, dz
+    subset: str = "spatial",
+    s: int = 18,
+    alpha: float = 0.8,
+):
+    """
+    Plot action points in 3D using raw action dimensions (no PCA).
+    - dims: tuple of 3 indices into the action vector (len 7), e.g. (0,1,2) for dx,dy,dz.
+    """
+    if len(hits) < 3:
+        return
+
+    if len(dims) != 3:
+        raise ValueError(f"dims must have length 3, got {dims}")
+
+    # actions: (N, 7)
+    A = np.stack([np.asarray(h["action"], dtype=np.float32) for h in hits], axis=0)
+    scores = np.asarray([float(h["score"]) for h in hits], dtype=np.float32)
+
+    D = A.shape[1]
+    for d in dims:
+        if d < 0 or d >= D:
+            raise ValueError(f"dim index {d} out of range [0, {D-1}] for action dim {D}")
+
+    x, y, z = A[:, dims[0]], A[:, dims[1]], A[:, dims[2]]
+
+    # Axis labels: use ACTION_NAMES if available
+    def dim_name(i: int) -> str:
+        if "ACTION_NAMES" in globals() and i < len(ACTION_NAMES):
+            return ACTION_NAMES[i]
+        return f"a{i}"
+
+    fig = plt.figure(figsize=(7, 6))
+    ax = fig.add_subplot(111, projection="3d")
+
+    sc = ax.scatter(x, y, z, c=scores, s=s, alpha=alpha)
+    cb = fig.colorbar(sc, ax=ax, shrink=0.75, pad=0.08)
+    cb.set_label("concept activation score")
+
+    ax.set_xlabel(dim_name(dims[0]))
+    ax.set_ylabel(dim_name(dims[1]))
+    ax.set_zlabel(dim_name(dims[2]))
+
+    if title:
+        ax.set_title(title)
+
+    plt.tight_layout()
+    out_png = os.path.join(concept_dir, f"outputs/actions_3d_{subset}_c{concept_id}.png")
+    plt.savefig(out_png, dpi=220)
+    plt.close(fig)
+
+
 def pca3_numpy(X: np.ndarray):
     """
     X: (N, D). Returns:
@@ -352,11 +487,19 @@ def mine_concepts_global(
             continue
         
 
-        plot_actions_pca_3d(
-            c,
-            hits,
-            title=f"Concept {c} — Actions PCA (N={len(hits)})",
-        )
+        # plot_actions_pca_3d(
+        #     c,
+        #     hits,
+        #     title=f"Concept {c} — Actions PCA (N={len(hits)})",
+        # )
+
+        # plot_actions_3d_dims(
+        #     c,
+        #     hits,
+        #     title=f"Concept {c} — Actions (dx,dy,dz) (N={len(hits)})",
+        #     dims=(0, 1, 2),
+        # )
+
 
         if len(hits) > 0:
             action_mat = np.stack([h["action"] for h in hits], axis=0)  # (N,7)
@@ -377,6 +520,15 @@ def mine_concepts_global(
 
         # NEW 2) per-dimension association with concept score
         action_assoc = action_dimension_association(hits, method=action_assoc_method)
+
+        plot_actions_3d_top_assoc(
+            c,
+            hits,
+            assoc=action_assoc,                 # reuse computed assoc
+            assoc_method=action_assoc_method,   # e.g. "abs_corr"
+            subset=subset,
+        )
+
 
         concept_dir = os.path.join(out_dir, f"concept_{c:04d}")
         os.makedirs(concept_dir, exist_ok=True)
@@ -451,7 +603,7 @@ def mine_concepts_global(
 
 if __name__ == "__main__":
     # ckpt_path = "./checkpoints/TopKSAE/sae_layer11_k10_c16000.pt"  
-    ckpt_path = f"./checkpoints/BatchTopKSAE/sae_libero_all_layer11_k16_c512.pt"
+    ckpt_path = f"./checkpoints/BatchTopKSAE/sae_libero_all_layer11_k16_c1024.pt"
     data_root = "/n/netscratch/sham_lab/Lab/chloe00/data/libero"
     activations_root = "/n/netscratch/sham_lab/Lab/chloe00/pi0_activations"
 
