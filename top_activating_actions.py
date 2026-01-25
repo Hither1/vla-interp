@@ -12,7 +12,7 @@ matplotlib.use("Agg")  # important on headless slurm nodes
 import matplotlib.pyplot as plt
 
 subset = 'spatial'
-
+nb_concepts = 2048
 
 def plot_actions_3d_top_assoc(
     concept_id,
@@ -30,7 +30,6 @@ def plot_actions_3d_top_assoc(
     Plot actions in 3D using the TOP-3 action dimensions most associated with concept score.
     Association is computed by action_dimension_association(...).
 
-    Saves: concept_dir/actions_3d_topassoc_<subset>_c{concept_id}.png
     """
     if len(hits) < 3:
         return
@@ -530,7 +529,7 @@ def mine_concepts_global(
         )
 
 
-        concept_dir = os.path.join(out_dir, f"concept_{c:04d}")
+        concept_dir = os.path.join(out_dir, f"nb_{nb_concepts}_concept_{c:04d}")
         os.makedirs(concept_dir, exist_ok=True)
 
         # Save frames for top examples
@@ -603,7 +602,7 @@ def mine_concepts_global(
 
 if __name__ == "__main__":
     # ckpt_path = "./checkpoints/TopKSAE/sae_layer11_k10_c16000.pt"  
-    ckpt_path = f"./checkpoints/BatchTopKSAE/sae_libero_all_layer11_k16_c1024.pt"
+    ckpt_path = f"./checkpoints/BatchTopKSAE/sae_libero_all_layer11_k16_c{nb_concepts}.pt"
     data_root = "/n/netscratch/sham_lab/Lab/chloe00/data/libero"
     activations_root = "/n/netscratch/sham_lab/Lab/chloe00/pi0_activations"
 
@@ -616,7 +615,7 @@ if __name__ == "__main__":
         activations_root=activations_root,
         out_dir=out_dir,
         layer_idx=layer_idx,
-        top_m=50,
+        top_m=100,
         per_concept_save_k=16,
         device="cuda",
 

@@ -67,7 +67,10 @@
 
       //   2. 
       { id: "grasp_readiness", label: "Concept: Grasp Readiness", category: "Functional / Task Phase",
-        figure: "assets/figures/target_to_gripper.png",
+        figures: ["assets/figures/actions_3d_topassoc_spatial_c188.png",
+            "",
+            ""
+        ],
         video: "assets/videos/grasp_readiness.mp4"
       },
       
@@ -83,19 +86,27 @@
       },
 
       //   3. 
-      { id: "container_focus", label: "Concept: Container-Focus", category: "Linguistic Context",
-        figure: "assets/figures/container_focus.png",
+      { id: "container_focus", label: "Concept: Container-Focus", category: "Linguistic Grounding",
+        figure: "assets/figures/.png",
         prompts: [
-            "Move the gripper close to the object.",
-            "Approach until you are within a small distance."
+            ".",
+            "."
             ]
       },
-      { id: "tool_affordance", label: "Concept: Tool-Affordance", category: "Linguistic Context",
+      { id: "tool_affordance", label: "Concept: Tool-Affordance", category: "Linguistic Grounding",
         figure: "assets/figures/.png",
         video:  "assets/videos/.mp4",
         prompts: [
-            "Raise the gripper slightly above the object's center.",
-            "Maintain a safe height clearance before descending."
+            ".",
+            "."
+            ]
+      },
+      { id: "spatial_relation", label: "Concept: Spatial-Relation", category: "Linguistic Grounding",
+        figure: "assets/figures/.png",
+        video:  "assets/videos/.mp4",
+        prompts: [
+            ".",
+            "."
             ]
       },
 
