@@ -17,7 +17,7 @@ subset = 'spatial'
 def plot_actions_3d_top_assoc(
     concept_id,
     hits,
-    concept_dir: str = "./",
+    concept_dir: str = "./assets/figures",
     title: str = "",
     subset: str = "spatial",
     assoc=None,                 # optionally pass precomputed association list
@@ -94,7 +94,7 @@ def plot_actions_3d_top_assoc(
 def plot_actions_3d_dims(
     concept_id,
     hits,
-    concept_dir: str = "./",
+    concept_dir: str = "./assets/figures",
     title: str = "",
     dims=(0, 1, 2),   # default: dx, dy, dz
     subset: str = "spatial",
@@ -143,7 +143,7 @@ def plot_actions_3d_dims(
         ax.set_title(title)
 
     plt.tight_layout()
-    out_png = os.path.join(concept_dir, f"outputs/actions_3d_{subset}_c{concept_id}.png")
+    out_png = os.path.join(concept_dir, f"actions_3d_{subset}_c{concept_id}.png")
     plt.savefig(out_png, dpi=220)
     plt.close(fig)
 
@@ -177,7 +177,7 @@ def pca3_numpy(X: np.ndarray):
     return Z, evr, mu.squeeze(0).astype(np.float32), comps.astype(np.float32)
 
 
-def plot_actions_pca_3d(concept_id, hits, concept_dir: str ='./', title: str = ""):
+def plot_actions_pca_3d(concept_id, hits, concept_dir: str ='./assets', title: str = ""):
     """
     Saves concept_dir/actions_pca3d.png (and .npz with PCA outputs).
     """
