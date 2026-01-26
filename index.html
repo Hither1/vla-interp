@@ -108,6 +108,31 @@
       border-radius: 10px;
     }
 
+    #failure-video-gallery {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 10px;
+        align-items: start;
+        }
+
+    .failure-video-item {
+        border: 1px solid #eee;
+        background: #fafafa;
+        border-radius: 10px;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        }
+
+    .failure-video-item video {
+        width: 100%;
+        height: auto;
+        max-height: 50vh;
+        border-radius: 10px;
+        }
+
     /* PCA placeholder styling */
     #pca-plot {
       width: 100%;
@@ -453,7 +478,19 @@
             const m = String(path || "").match(/trial(\d+)/i);
             return m ? `Trial ${m[1]}` : null;
             }
-            
+
+    function inferOutcomeFromPath(path) {
+        const p = String(path || "").toLowerCase();
+        if (p.includes("success")) return "Success";
+        if (p.includes("failure")) return "Failure";
+        return "Video";
+        }
+
+    function inferTrialFromPath(path) {
+        const m = String(path || "").match(/trial(\d+)/i);
+        return m ? `Trial ${m[1]}` : null;
+        }
+
 
     function updateFailureView() {
         const sel = document.getElementById("failure-selector");
@@ -461,54 +498,57 @@
         const scenario = FAILED_SCENARIOS.find(s => s.id === id);
 
         const title = document.getElementById("failure-media-title");
-        const vid = document.getElementById("failure-video");
-        const cap = document.getElementById("failure-video-caption");
+        const gallery = document.getElementById("failure-video-gallery");
         const noMedia = document.getElementById("failure-no-media");
 
-        // helper to set caption
-        function setCaptionFor(src) {
-            if (!src) {
-            cap.textContent = "";
-            setHidden(cap, true);
-            return;
-            }
-            const outcome = inferOutcomeFromPath(src);
-            const trial = inferTrialFromPath(src);
-            cap.textContent = trial ? `${outcome} — ${trial}` : outcome;
-            setHidden(cap, false);
-        }
+        // Reset gallery
+        gallery.innerHTML = "";
+        setHidden(gallery, true);
 
         if (!scenario || scenario.id === "none") {
             title.textContent = "None selected";
-            stopVideo(vid);
-            setHidden(vid, true);
             setHidden(noMedia, false);
             noMedia.textContent = "Select a failed scenario to view its video.";
-            setCaptionFor(null);
             return;
         }
 
         title.textContent = scenario.label;
 
-        // support: scenario.video (string) OR scenario.videos (array)
-        const videoSrc =
-            scenario.video ??
-            (Array.isArray(scenario.videos) && scenario.videos.length ? scenario.videos[0] : null);
+        // Normalize into an array of src strings
+        const srcs =
+            Array.isArray(scenario.videos) ? scenario.videos.filter(Boolean) :
+            (scenario.video ? [scenario.video] : []);
 
-        if (videoSrc) {
-            vid.pause();
-            vid.src = videoSrc;
-            vid.load();
-            setHidden(vid, false);
-            setHidden(noMedia, true);
-            setCaptionFor(videoSrc);
-        } else {
-            stopVideo(vid);
-            setHidden(vid, true);
+        if (srcs.length === 0) {
             setHidden(noMedia, false);
             noMedia.textContent = "No video mapped for this failed scenario yet.";
-            setCaptionFor(null);
+            return;
         }
+
+        // Render all videos side-by-side
+        for (const src of srcs) {
+            const item = document.createElement("div");
+            item.className = "failure-video-item";
+
+            const v = document.createElement("video");
+            v.controls = true;
+            v.muted = true;
+            v.playsInline = true;
+            v.src = src;
+
+            const caption = document.createElement("div");
+            caption.className = "legend-info";
+            const outcome = inferOutcomeFromPath(src);
+            const trial = inferTrialFromPath(src);
+            caption.textContent = trial ? `${outcome} — ${trial}` : outcome;
+
+            item.appendChild(v);
+            item.appendChild(caption);
+            gallery.appendChild(item);
+        }
+
+        setHidden(gallery, false);
+        setHidden(noMedia, true);
         }
 
 
