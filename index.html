@@ -442,38 +442,42 @@
     // Failures rendering
     // -----------------------------
     function updateFailureView() {
-      const sel = document.getElementById("failure-selector");
-      const id = sel.value;
-      const scenario = FAILED_SCENARIOS.find(s => s.id === id);
+  const sel = document.getElementById("failure-selector");
+  const id = sel.value;
+  const scenario = FAILED_SCENARIOS.find(s => s.id === id);
 
-      const title = document.getElementById("failure-media-title");
-      const vid = document.getElementById("failure-video");
-      const noMedia = document.getElementById("failure-no-media");
+  const title = document.getElementById("failure-media-title");
+  const vid = document.getElementById("failure-video");
+  const noMedia = document.getElementById("failure-no-media");
 
-      if (!scenario || scenario.id === "none") {
-        title.textContent = "None selected";
-        stopVideo(vid);
-        setHidden(vid, true);
-        setHidden(noMedia, false);
-        noMedia.textContent = "Select a failed scenario to view its video.";
-        return;
-      }
+  if (!scenario || scenario.id === "none") {
+    title.textContent = "None selected";
+    stopVideo(vid);
+    setHidden(vid, true);
+    setHidden(noMedia, false);
+    noMedia.textContent = "Select a failed scenario to view its video.";
+    return;
+  }
 
-      title.textContent = scenario.label;
+  title.textContent = scenario.label;
 
-      if (scenario.video) {
-        vid.pause();
-        vid.src = scenario.video;
-        vid.load();
-        setHidden(vid, false);
-        setHidden(noMedia, true);
-      } else {
-        stopVideo(vid);
-        setHidden(vid, true);
-        setHidden(noMedia, false);
-        noMedia.textContent = "No video mapped for this failed scenario yet.";
-      }
-    }
+  const videoSrc =
+    scenario.video ??
+    (Array.isArray(scenario.videos) && scenario.videos.length ? scenario.videos[0] : null);
+
+  if (videoSrc) {
+    vid.pause();
+    vid.src = videoSrc;
+    vid.load();
+    setHidden(vid, false);
+    setHidden(noMedia, true);
+  } else {
+    stopVideo(vid);
+    setHidden(vid, true);
+    setHidden(noMedia, false);
+    noMedia.textContent = "No video mapped for this failed scenario yet.";
+  }
+}
 
     // -----------------------------
     // Tabs
