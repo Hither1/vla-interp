@@ -560,6 +560,15 @@
     // -----------------------------
     // Tabs
     // -----------------------------
+    function stopAllVideosIn(el) {
+  if (!el) return;
+  el.querySelectorAll("video").forEach(v => {
+    v.pause();
+    v.removeAttribute("src");
+    v.load();
+  });
+}
+
     function setActiveTab(tabName) {
       const tabs = [
         { name: "concepts", btn: "tab-concepts", panel: "panel-concepts", controls: "controls-concepts" },
@@ -580,7 +589,7 @@
 
       // Optional: stop videos when leaving their tab
       if (tabName !== "concepts") stopVideo(document.getElementById("concept-video"));
-      if (tabName !== "failures") stopVideo(document.getElementById("failure-video"));
+      if (tabName !== "failures") stopAllVideosIn(document.getElementById("failure-video-gallery"));
     }
 
     function initTabs() {
