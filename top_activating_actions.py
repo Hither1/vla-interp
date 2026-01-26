@@ -12,7 +12,7 @@ matplotlib.use("Agg")  # important on headless slurm nodes
 import matplotlib.pyplot as plt
 
 subset = 'spatial'
-nb_concepts = 2048
+nb_concepts = 4096
 
 def plot_actions_3d_top_assoc(
     concept_id,

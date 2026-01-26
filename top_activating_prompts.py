@@ -399,14 +399,14 @@ if __name__ == "__main__":
         encode_batch=8192,
 
         # Tune these:
-        top_m_frames_per_concept=5000,   # increase (or None) for better prompt rankings
-        top_prompts_per_concept=10,
+        top_m_frames_per_concept=500,   # increase (or None) for better prompt rankings
+        top_prompts_per_concept=5,
         prompt_top_k_frames=10,
         frames_to_save_per_prompt=8,
         prompt_score="mean_topk",        # or "max" if you want “single strongest moment”
 
         # ---- NEW (Option A): concept-level filtering ----
-        min_hits_per_concept=300,        # example: only save concepts with >= 200 frame hits
+        min_hits_per_concept=1000,        # example: only save concepts with >= 200 frame hits
         min_max_score_per_concept=0.0,   # optional: e.g. 0.5 to require strong max activation
 
         strict=True,

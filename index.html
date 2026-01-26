@@ -218,7 +218,9 @@
       { id: "none", label: "None", category: "General" },
 
       { id: "Object_proximity", label: "Concept: Object-Proximity", category: "Geometry / Spatial",
-        figure: "assets/figures/.png",
+        figures: ["assets/figures/.png",
+            ""
+        ],
         video:  "assets/videos/.mp4"
       },
       { id: "Height_offset", label: "Concept: Height-Offset", category: "Geometry / Spatial",
@@ -248,6 +250,8 @@
       { id: "approach_phase", label: "Concept: Approach-Phase", category: "Functional / Task Phase",
         figures: [
           "assets/figures/actions_3d_topassoc_spatial_c474.png",
+          "concept_mining_out_act/nb_512_concept_0474/"
+
         ],
         video: "assets/videos/approach_phase.mp4"
       },
@@ -280,21 +284,33 @@
         figure: "assets/figures/.png",
         video:  "assets/videos/.mp4"
       },
+
       { id: "stopping_event", label: "Concept: Stopping-Event", category: "Dynamic Control",
         figure: "assets/figures/.png",
         video:  "assets/videos/.mp4"
       },
     ];
 
-    // Add your failed scenarios here.
-    // You can support a single video with `video`, or multiple with `videos: [...]` if you want later.
+    
     const FAILED_SCENARIOS = [
       { id: "none", label: "None" },
 
       // Examples (replace with your real paths)
       { id: "fail_pick_place_001", label: "Fail #001: Missed grasp", video: "assets/videos/rollout_close_the_bottom_drawer_of_the_cabinet_and_open_the_top_drawer_trial0_failure.mp4" },
       { id: "fail_navigation_014", label: "Fail #014: Collided during approach", video: "assets/videos/rollout_close_the_top_drawer_of_the_cabinet_and_put_the_black_bowl_on_top_of_it_trial0_failure.mp4" },
-    //   { id: "fail_tool_use_027", label: "Fail #027: Wrong tool interaction", video: "data/libero/90/videos/.mp4" },
+       
+      { id: "fail_tool_use_027", label: "Fail: put_the_wine_bottle_in_the_bottom_drawer_of_the_cabinet", 
+        videos: ["assets/videos/rollout_put_the_wine_bottle_in_the_bottom_drawer_of_the_cabinet_trial0_failure.mp4",
+                 "assets/videos/rollout_put_the_wine_bottle_in_the_bottom_drawer_of_the_cabinet_trial1_failure.mp4",
+                 "assets/videos/rollout_put_the_wine_bottle_in_the_bottom_drawer_of_the_cabinet_trial2_success.mp4",
+                 "assets/videos/rollout_put_the_wine_bottle_in_the_bottom_drawer_of_the_cabinet_trial13_success.mp4",
+        ] },
+
+
+       { id: "", label: "Fail: Wrong tool interaction", 
+        videos: ["assets/videos/.mp4",
+                 "assets/videos/.mp4"
+        ] },
     ];
 
     // -----------------------------
