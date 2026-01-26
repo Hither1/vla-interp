@@ -442,44 +442,7 @@
     // -----------------------------
     // Failures rendering
     // -----------------------------
-    function updateFailureView() {
-        const sel = document.getElementById("failure-selector");
-        const id = sel.value;
-        const scenario = FAILED_SCENARIOS.find(s => s.id === id);
-
-        const title = document.getElementById("failure-media-title");
-        const vid = document.getElementById("failure-video");
-        const noMedia = document.getElementById("failure-no-media");
-
-        if (!scenario || scenario.id === "none") {
-            title.textContent = "None selected";
-            stopVideo(vid);
-            setHidden(vid, true);
-            setHidden(noMedia, false);
-            noMedia.textContent = "Select a failed scenario to view its video.";
-            return;
-        }
-
-        title.textContent = scenario.label;
-
-        const videoSrc =
-            scenario.video ??
-            (Array.isArray(scenario.videos) && scenario.videos.length ? scenario.videos[0] : null);
-
-        if (videoSrc) {
-            vid.pause();
-            vid.src = videoSrc;
-            vid.load();
-            setHidden(vid, false);
-            setHidden(noMedia, true);
-        } else {
-            stopVideo(vid);
-            setHidden(vid, true);
-            setHidden(noMedia, false);
-            noMedia.textContent = "No video mapped for this failed scenario yet.";
-        }
-        }
-        function inferOutcomeFromPath(path) {
+    function inferOutcomeFromPath(path) {
             const p = String(path || "").toLowerCase();
             if (p.includes("success")) return "Success";
             if (p.includes("failure")) return "Failure";
@@ -490,6 +453,66 @@
             const m = String(path || "").match(/trial(\d+)/i);
             return m ? `Trial ${m[1]}` : null;
             }
+            
+
+    function updateFailureView() {
+        const sel = document.getElementById("failure-selector");
+        const id = sel.value;
+        const scenario = FAILED_SCENARIOS.find(s => s.id === id);
+
+        const title = document.getElementById("failure-media-title");
+        const vid = document.getElementById("failure-video");
+        const cap = document.getElementById("failure-video-caption");
+        const noMedia = document.getElementById("failure-no-media");
+
+        // helper to set caption
+        function setCaptionFor(src) {
+            if (!src) {
+            cap.textContent = "";
+            setHidden(cap, true);
+            return;
+            }
+            const outcome = inferOutcomeFromPath(src);
+            const trial = inferTrialFromPath(src);
+            cap.textContent = trial ? `${outcome} — ${trial}` : outcome;
+            setHidden(cap, false);
+        }
+
+        if (!scenario || scenario.id === "none") {
+            title.textContent = "None selected";
+            stopVideo(vid);
+            setHidden(vid, true);
+            setHidden(noMedia, false);
+            noMedia.textContent = "Select a failed scenario to view its video.";
+            setCaptionFor(null);
+            return;
+        }
+
+        title.textContent = scenario.label;
+
+        // support: scenario.video (string) OR scenario.videos (array)
+        const videoSrc =
+            scenario.video ??
+            (Array.isArray(scenario.videos) && scenario.videos.length ? scenario.videos[0] : null);
+
+        if (videoSrc) {
+            vid.pause();
+            vid.src = videoSrc;
+            vid.load();
+            setHidden(vid, false);
+            setHidden(noMedia, true);
+            setCaptionFor(videoSrc);
+        } else {
+            stopVideo(vid);
+            setHidden(vid, true);
+            setHidden(noMedia, false);
+            noMedia.textContent = "No video mapped for this failed scenario yet.";
+            setCaptionFor(null);
+        }
+        }
+
+
+    
 
     // -----------------------------
     // Tabs
