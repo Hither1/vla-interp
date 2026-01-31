@@ -326,18 +326,21 @@
 
       // Example of new nested structure:
       // Each scenario can have multiple items with their own labels, descriptions, and videos
-      { id: "scenario_id",
+      { id: "fail_pick_place",
         items: [
-          { label: "Label 1", description: "Description 1", videos: ["video1.mp4"], postSteeringVideos: [] },
-          { label: "Label 2", description: "Description 2", videos: ["video2.mp4"], postSteeringVideos: [] }
+          { label: "Prompt: close the bottom drawer of the cabinet and open the_top_drawer", description: "Description 1", 
+            videos: ["assets/videos/rollout_close_the_bottom_drawer_of_the_cabinet_and_open_the_top_drawer_trial0_failure.mp4"], postSteeringVideos: [] },
+          { label: "Label 2", description: "Description 2", videos: [".mp4"], postSteeringVideos: [] }
         ]
       },
 
       // Backward compatible: single-label format (will be auto-converted)
-      { id: "fail_pick_place_001", label: "Prompt: close the bottom drawer of the cabinet and open the_top_drawer",
-        description: "",
-        video: "assets/videos/rollout_close_the_bottom_drawer_of_the_cabinet_and_open_the_top_drawer_trial0_failure.mp4",
-        postSteeringVideos: []
+      { id: "",
+        items: [
+          { label: "", description: "", 
+            videos: ["assets/videos/.mp4"], postSteeringVideos: [] },
+          { label: "Label 2", description: "", videos: [".mp4"], postSteeringVideos: [] }
+        ]
       },
 
       { id: "fail_navigation_014", label: "Prompt: close the top drawer of the cabinet and put the black bowl on top of it",
@@ -389,45 +392,80 @@
         postSteeringVideos: []
       },
 
-      { id: "bottom_drawer_close_top_drawer_open", label: "Prompt: close the bottom drawer of the cabinet and open the top drawer", 
-        description: "",
-        videos: ["assets/videos/rollout_close_the_bottom_drawer_of_the_cabinet_and_open_the_top_drawer_trial0_failure.mp4",
-                 "assets/videos/"
-        ],
-        postSteeringVideos: []
+      // { id: "bottom_drawer_close_top_drawer_open", label: "Prompt: close the bottom drawer of the cabinet and open the top drawer", 
+      //   description: "",
+      //   videos: ["assets/videos/rollout_close_the_bottom_drawer_of_the_cabinet_and_open_the_top_drawer_trial0_failure.mp4",
+      //            "assets/videos/"
+      //   ],
+      //   postSteeringVideos: []
+      // },
+      { id: "",
+        items: [
+          { label: "", description: "", 
+            videos: ["assets/videos/.mp4"], postSteeringVideos: [] },
+          { label: "Label 2", description: "", videos: [".mp4"], postSteeringVideos: [] }
+        ]
       },
 
-      { id: "butter_back_top_drawer_close", label: "Prompt: put the butter at the back in the_top_drawer of the cabinet and close it", 
-        description: "",
-        videos: ["assets/videos/rollout_put_the_butter_at_the_back_in_the_top_drawer_of_the_cabinet_and_close_it_trial0_failure.mp4",
-                 "assets/videos/"
-        ],
-        postSteeringVideos: []
+      // { id: "butter_back_top_drawer_close", label: "Prompt: put the butter at the back in the_top_drawer of the cabinet and close it", 
+      //   description: "",
+      //   videos: ["assets/videos/rollout_put_the_butter_at_the_back_in_the_top_drawer_of_the_cabinet_and_close_it_trial0_failure.mp4",
+      //            "assets/videos/"
+      //   ],
+      //   postSteeringVideos: []
+      // },
+      { id: "",
+        items: [
+          { label: "", description: "", 
+            videos: ["assets/videos/.mp4"], postSteeringVideos: [] },
+          { label: "Label 2", description: "", videos: [".mp4"], postSteeringVideos: [] }
+        ]
       },
 
-      { id: "", label: "Prompt: stack the middle black bowl on the back black bowl", 
-        description: "",
-        videos: ["assets/videos/rollout_stack_the_middle_black_bowl_on_the_back_black_bowl_trial0_failure.mp4",
-                 "assets/videos/"
-        ],
-        postSteeringVideos: []
+      // { id: "", label: "Prompt: stack the middle black bowl on the back black bowl", 
+      //   description: "",
+      //   videos: ["assets/videos/rollout_stack_the_middle_black_bowl_on_the_back_black_bowl_trial0_failure.mp4",
+      //            "assets/videos/"
+      //   ],
+      //   postSteeringVideos: []
+      // },
+      { id: "",
+        items: [
+          { label: "", description: "", 
+            videos: ["assets/videos/.mp4"], postSteeringVideos: [] },
+          { label: "Label 2", description: "", videos: [".mp4"], postSteeringVideos: [] }
+        ]
       },
 
-
-      { id: "", label: "Prompt: put_the_black_bowl_in_the_top_drawer_of_the_cabinet", 
-        description: "",
-        videos: ["assets/videos/.mp4",
-                 "assets/videos/"
-        ],
-        postSteeringVideos: []
+      // { id: "", label: "Prompt: put_the_black_bowl_in_the_top_drawer_of_the_cabinet", 
+      //   description: "",
+      //   videos: ["assets/videos/.mp4",
+      //            "assets/videos/"
+      //   ],
+      //   postSteeringVideos: []
+      // },
+      { id: "",
+        items: [
+          { label: "", description: "", 
+            videos: ["assets/videos/.mp4"], postSteeringVideos: [] },
+          { label: "Label 2", description: "", videos: [".mp4"], postSteeringVideos: [] }
+        ]
       },
 
-      { id: "", label: "Prompt: put_the_black_bowl_in_the_top_drawer_of_the_cabinet", 
-        description: "",
-        videos: ["assets/videos/rollout_put_the_black_bowl_at_the_back_on_the_plate_trial0_failure.mp4",
-                 "assets/videos/rollout_put_the_black_bowl_at_the_back_on_the_plate_trial2_failure.mp4"
-        ],
-        postSteeringVideos: []
+      // { id: "", label: "Prompt: put_the_black_bowl_in_the_top_drawer_of_the_cabinet", 
+      //   description: "",
+      //   videos: ["assets/videos/rollout_put_the_black_bowl_at_the_back_on_the_plate_trial0_failure.mp4",
+      //            "assets/videos/rollout_put_the_black_bowl_at_the_back_on_the_plate_trial2_failure.mp4"
+      //   ],
+      //   postSteeringVideos: []
+      // },
+
+      { id: "",
+        items: [
+          { label: "", description: "", 
+            videos: ["assets/videos/.mp4"], postSteeringVideos: [] },
+          { label: "Label 2", description: "", videos: [".mp4"], postSteeringVideos: [] }
+        ]
       },
     ];
 

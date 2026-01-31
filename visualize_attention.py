@@ -142,6 +142,9 @@ def create_attention_heatmap(
     # Reshape to spatial grid
     heatmap = attention_weights.reshape(num_patches_h, num_patches_w)
 
+    # Convert to float32 for OpenCV compatibility (handles bfloat16 from JAX)
+    heatmap = np.asarray(heatmap, dtype=np.float32)
+
     # Upsample to match image resolution
     heatmap = cv2.resize(heatmap, (width, height), interpolation=cv2.INTER_LINEAR)
 

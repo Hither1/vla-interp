@@ -21,6 +21,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 from openpi.models import gemma
 from openpi.models import tokenizer as tok_module
 
+# Global tokenizer instance for decoding
+_global_tokenizer = None
+
 
 def extract_text_attention(
     attention_weights: np.ndarray,
@@ -61,25 +64,37 @@ def extract_text_attention(
     return np.array(text_attn)
 
 
-def decode_tokens(token_ids: List[int]) -> List[str]:
+def decode_tokens(token_ids: List[int], max_token_len: int = 256) -> List[str]:
     """
     Decode token IDs to words/subwords.
 
     Args:
         token_ids: List of token IDs
+        max_token_len: Maximum token length for the tokenizer
 
     Returns:
         List of decoded tokens (strings)
     """
-    tokenizer = tok_module.get_tokenizer()
+    global _global_tokenizer
+
+    # Create tokenizer instance if not already created
+    if _global_tokenizer is None:
+        _global_tokenizer = tok_module.PaligemmaTokenizer(max_len=max_token_len)
+
+    # Use the internal sentencepiece tokenizer to decode
+    sp_tokenizer = _global_tokenizer._tokenizer
 
     # Decode each token individually to see subword boundaries
     tokens = []
     for tid in token_ids:
         try:
-            # Decode single token
-            decoded = tokenizer.decode([tid])
-            tokens.append(decoded)
+            # Skip padding tokens (False = 0)
+            if tid == 0 or tid is False:
+                tokens.append("<pad>")
+            else:
+                # Decode single token
+                decoded = sp_tokenizer.decode([tid])
+                tokens.append(decoded)
         except:
             tokens.append(f"<{tid}>")
 
@@ -162,6 +177,9 @@ def visualize_text_attention_heatmap(
     # Stack attention weights from all layers
     layers = sorted(attention_weights_per_layer.keys())
     attn_matrix = np.stack([attention_weights_per_layer[l] for l in layers])
+
+    # Convert to standard numpy float32 for compatibility
+    attn_matrix = np.asarray(attn_matrix, dtype=np.float32)
 
     # Create figure
     fig, ax = plt.subplots(figsize=figsize)
@@ -285,6 +303,9 @@ def visualize_text_attention_summary(
     representative_layer = max(attention_weights_per_layer.keys())
     rep_weights = attention_weights_per_layer[representative_layer]
 
+    # Convert to standard numpy float32 for compatibility with formatting
+    rep_weights = np.asarray(rep_weights, dtype=np.float32)
+
     # Create figure with subplots
     fig = plt.figure(figsize=(16, 10))
     gs = fig.add_gridspec(3, 2, hspace=0.3, wspace=0.3)
@@ -309,6 +330,7 @@ def visualize_text_attention_summary(
     ax2 = fig.add_subplot(gs[1, :])
     layers = sorted(attention_weights_per_layer.keys())
     attn_matrix = np.stack([attention_weights_per_layer[l] for l in layers])
+    attn_matrix = np.asarray(attn_matrix, dtype=np.float32)  # Convert to float32
     im = ax2.imshow(attn_matrix, aspect='auto', cmap='RdYlBu_r', interpolation='nearest')
     ax2.set_xticks(np.arange(len(tokens)))
     ax2.set_xticklabels(tokens, rotation=45, ha='right', fontsize=9)

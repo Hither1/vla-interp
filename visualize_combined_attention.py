@@ -81,6 +81,8 @@ def visualize_combined_attention(
         query_token_idx,
         head_idx=None
     )
+    # Convert to float32 for matplotlib and formatting compatibility
+    image_attn = np.asarray(image_attn, dtype=np.float32)
 
     # Extract text attention
     text_attn = extract_text_attention(
@@ -90,6 +92,8 @@ def visualize_combined_attention(
         query_token_idx,
         head_idx=None
     )
+    # Convert to float32 for matplotlib and formatting compatibility
+    text_attn = np.asarray(text_attn, dtype=np.float32)
 
     # Create heatmap for image
     height, width = frame_rgb.shape[:2]
@@ -135,12 +139,13 @@ def visualize_combined_attention(
     ax4.axis('off')
 
     # Calculate statistics
-    total_image_attn = image_attn.sum()
-    total_text_attn = text_attn.sum()
+    total_image_attn = float(image_attn.sum())
+    total_text_attn = float(text_attn.sum())
     total_attn = total_image_attn + total_text_attn
 
     # Get full attention distribution
     full_attn = attn.reshape(-1, attn.shape[-2], attn.shape[-1]).mean(axis=0)[query_token_idx]
+    full_attn = np.asarray(full_attn, dtype=np.float32)
 
     stats_text = f"""
     Combined Attention Analysis - Layer {layer_idx}
@@ -235,8 +240,9 @@ def visualize_multimodal_attention_evolution(
             attn, text_token_start, text_token_end, query_token_idx, head_idx=None
         )
 
-        visual_attn_per_layer.append(image_attn.sum())
-        linguistic_attn_per_layer.append(text_attn.sum())
+        # Convert to float32 and sum
+        visual_attn_per_layer.append(float(np.asarray(image_attn, dtype=np.float32).sum()))
+        linguistic_attn_per_layer.append(float(np.asarray(text_attn, dtype=np.float32).sum()))
         layer_indices.append(layer_idx)
 
     # Create figure
@@ -244,8 +250,8 @@ def visualize_multimodal_attention_evolution(
 
     # 1. Stacked area plot
     ax1 = axes[0]
-    visual_arr = np.array(visual_attn_per_layer)
-    linguistic_arr = np.array(linguistic_attn_per_layer)
+    visual_arr = np.array(visual_attn_per_layer, dtype=np.float32)
+    linguistic_arr = np.array(linguistic_attn_per_layer, dtype=np.float32)
 
     ax1.fill_between(layer_indices, 0, visual_arr, alpha=0.6, color='steelblue', label='Visual Attention')
     ax1.fill_between(layer_indices, visual_arr, visual_arr + linguistic_arr,

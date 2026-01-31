@@ -33,7 +33,7 @@ class Args:
     # LIBERO environment-specific parameters
     #################################################################################################################
     task_suite_name: str = (
-        "libero_90_test"  # Task suite. Options: libero_spatial, libero_object, libero_goal, libero_10, libero_90
+        "libero_90"  # Task suite. Options: libero_spatial, libero_object, libero_goal, libero_10, libero_90
     )
     num_steps_wait: int = 10  # Number of steps to wait for objects to stabilize i n sim
     num_trials_per_task: int = 20  # Number of rollouts per task
@@ -78,8 +78,6 @@ def eval_libero(args: Args) -> None:
         max_steps = 520  # longest training demo has 505 steps
     elif args.task_suite_name == "libero_90":
         max_steps = 400  # longest training demo has 373 steps
-    elif args.task_suite_name == "libero_90_test":
-        max_steps = 400  
     else:
         raise ValueError(f"Unknown task suite: {args.task_suite_name}")
 
