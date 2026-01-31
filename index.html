@@ -323,16 +323,15 @@
 
     
     const FAILED_SCENARIOS = [
-      { id: "none", label: "None" },
 
       // Example of new nested structure:
       // Each scenario can have multiple items with their own labels, descriptions, and videos
-      // { id: "scenario_id",
-      //   items: [
-      //     { label: "Label 1", description: "Description 1", videos: ["video1.mp4"], postSteeringVideos: [] },
-      //     { label: "Label 2", description: "Description 2", videos: ["video2.mp4"], postSteeringVideos: [] }
-      //   ]
-      // },
+      { id: "scenario_id",
+        items: [
+          { label: "Label 1", description: "Description 1", videos: ["video1.mp4"], postSteeringVideos: [] },
+          { label: "Label 2", description: "Description 2", videos: ["video2.mp4"], postSteeringVideos: [] }
+        ]
+      },
 
       // Backward compatible: single-label format (will be auto-converted)
       { id: "fail_pick_place_001", label: "Prompt: close the bottom drawer of the cabinet and open the_top_drawer",
