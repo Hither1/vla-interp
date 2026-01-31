@@ -325,16 +325,23 @@
     const FAILED_SCENARIOS = [
       { id: "none", label: "None" },
 
-      // missed grasp
-      // Collided during approach
-      // 
-      { id: "fail_pick_place_001", label: "Prompt: close the bottom drawer of the cabinet and open the_top_drawer", 
+      // Example of new nested structure:
+      // Each scenario can have multiple items with their own labels, descriptions, and videos
+      // { id: "scenario_id",
+      //   items: [
+      //     { label: "Label 1", description: "Description 1", videos: ["video1.mp4"], postSteeringVideos: [] },
+      //     { label: "Label 2", description: "Description 2", videos: ["video2.mp4"], postSteeringVideos: [] }
+      //   ]
+      // },
+
+      // Backward compatible: single-label format (will be auto-converted)
+      { id: "fail_pick_place_001", label: "Prompt: close the bottom drawer of the cabinet and open the_top_drawer",
         description: "",
-        video: "assets/videos/rollout_close_the_bottom_drawer_of_the_cabinet_and_open_the_top_drawer_trial0_failure.mp4", 
+        video: "assets/videos/rollout_close_the_bottom_drawer_of_the_cabinet_and_open_the_top_drawer_trial0_failure.mp4",
         postSteeringVideos: []
       },
 
-      { id: "fail_navigation_014", label: "Prompt: close the top drawer of the cabinet and put the black bowl on top of it", 
+      { id: "fail_navigation_014", label: "Prompt: close the top drawer of the cabinet and put the black bowl on top of it",
         description: "",
         video: "assets/videos/rollout_close_the_top_drawer_of_the_cabinet_and_put_the_black_bowl_on_top_of_it_trial0_failure.mp4",
         postSteeringVideos: []
@@ -481,10 +488,28 @@
       sel.innerHTML = "";
 
       for (const s of FAILED_SCENARIOS) {
-        const opt = document.createElement("option");
-        opt.value = s.id;
-        opt.textContent = s.label;
-        sel.appendChild(opt);
+        // Check if this scenario has nested items
+        if (s.items && Array.isArray(s.items)) {
+          // Create an optgroup for scenarios with multiple items
+          const group = document.createElement("optgroup");
+          group.label = s.id || "Scenario Group";
+
+          for (let i = 0; i < s.items.length; i++) {
+            const item = s.items[i];
+            const opt = document.createElement("option");
+            // Use format "scenarioId:itemIndex" to identify the item
+            opt.value = `${s.id}:${i}`;
+            opt.textContent = item.label;
+            group.appendChild(opt);
+          }
+          sel.appendChild(group);
+        } else {
+          // Single-label scenario (backward compatible)
+          const opt = document.createElement("option");
+          opt.value = s.id;
+          opt.textContent = s.label;
+          sel.appendChild(opt);
+        }
       }
 
       sel.addEventListener("change", updateFailureView);
@@ -580,8 +605,7 @@
 
     function updateFailureView() {
         const sel = document.getElementById("failure-selector");
-        const id = sel.value;
-        const scenario = FAILED_SCENARIOS.find(s => s.id === id);
+        const value = sel.value;
 
         const title = document.getElementById("failure-media-title");
         const gallery = document.getElementById("failure-video-gallery");
@@ -591,19 +615,63 @@
         gallery.innerHTML = "";
         setHidden(gallery, true);
 
-        if (!scenario || scenario.id === "none") {
+        // Handle "none" selection
+        if (!value || value === "none") {
             title.textContent = "None selected";
             setHidden(noMedia, false);
             noMedia.textContent = "Select a failed scenario to view its video.";
             return;
         }
 
-        title.textContent = scenario.label;
+        let itemData = null;
+        let scenario = null;
+
+        // Check if value is in "scenarioId:itemIndex" format (nested items)
+        if (value.includes(":")) {
+            const [scenarioId, itemIndexStr] = value.split(":");
+            const itemIndex = parseInt(itemIndexStr, 10);
+            scenario = FAILED_SCENARIOS.find(s => s.id === scenarioId);
+
+            if (scenario && scenario.items && scenario.items[itemIndex]) {
+                itemData = scenario.items[itemIndex];
+            }
+        } else {
+            // Old format: single-label scenario
+            scenario = FAILED_SCENARIOS.find(s => s.id === value);
+            if (scenario && !scenario.items) {
+                // Convert old format to itemData format for consistency
+                itemData = {
+                    label: scenario.label,
+                    description: scenario.description,
+                    videos: scenario.videos,
+                    video: scenario.video,
+                    postSteeringVideos: scenario.postSteeringVideos
+                };
+            }
+        }
+
+        if (!itemData) {
+            title.textContent = "Error: Item not found";
+            setHidden(noMedia, false);
+            noMedia.textContent = "The selected item could not be found.";
+            return;
+        }
+
+        title.textContent = itemData.label;
+
+        // Display description if available
+        if (itemData.description) {
+            const descEl = document.getElementById("failure-description");
+            if (descEl) {
+                descEl.textContent = itemData.description;
+                setHidden(descEl, false);
+            }
+        }
 
         // Normalize into an array of src strings
         const srcs =
-            Array.isArray(scenario.videos) ? scenario.videos.filter(Boolean) :
-            (scenario.video ? [scenario.video] : []);
+            Array.isArray(itemData.videos) ? itemData.videos.filter(Boolean) :
+            (itemData.video ? [itemData.video] : []);
 
         if (srcs.length === 0) {
             setHidden(noMedia, false);

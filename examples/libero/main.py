@@ -78,6 +78,8 @@ def eval_libero(args: Args) -> None:
         max_steps = 520  # longest training demo has 505 steps
     elif args.task_suite_name == "libero_90":
         max_steps = 400  # longest training demo has 373 steps
+    elif args.task_suite_name == "libero_90_test":
+        max_steps = 400  
     else:
         raise ValueError(f"Unknown task suite: {args.task_suite_name}")
 
