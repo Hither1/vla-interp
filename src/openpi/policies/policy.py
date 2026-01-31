@@ -21,24 +21,24 @@ from openpi.shared import nnx_utils
 import openpi.models.gemma as gemma
 from overcomplete.sae import TopKSAE, BatchTopKSAE
 
-ckpt = torch.load("checkpoints/BatchTopKSAE/sae_libero_all_layer11_k16_c512.pt", map_location="cpu", weights_only=False)
-sae = BatchTopKSAE(
-    ckpt["d"],
-    nb_concepts=ckpt["nb_concepts"],
-    top_k=ckpt["top_k"],
-    device="cpu",
-    )
-sae.load_state_dict(ckpt["model_state_dict"])
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-sae.eval().to(device)
-gemma.SAE_MODEL = sae   # torch SAE
-gemma.SAE_INTERVENTION.update({
-    "enabled": True,
-    "mode": "ablate",          # or "steer"
-    "feature_idx": 42,         # e.g. grasp-readiness
-    "strength": 2.0,           # steering only
-    "layer_idx": 11,           # planning layer
-})
+# ckpt = torch.load("checkpoints/BatchTopKSAE/sae_libero_all_layer11_k16_c512.pt", map_location="cpu", weights_only=False)
+# sae = BatchTopKSAE(
+#     ckpt["d"],
+#     nb_concepts=ckpt["nb_concepts"],
+#     top_k=ckpt["top_k"],
+#     device="cpu",
+#     )
+# sae.load_state_dict(ckpt["model_state_dict"])
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# sae.eval().to(device)
+# gemma.SAE_MODEL = sae   # torch SAE
+# gemma.SAE_INTERVENTION.update({
+#     "enabled": True,
+#     "mode": "ablate",          # or "steer"
+#     "feature_idx": 42,         # e.g. grasp-readiness
+#     "strength": 2.0,           # steering only
+#     "layer_idx": 11,           # planning layer
+# })
 
 
 BasePolicy: TypeAlias = _base_policy.BasePolicy

@@ -3,6 +3,8 @@ import http
 import logging
 import time
 import traceback
+import gc
+import psutil
 
 import numpy as np
 
@@ -73,13 +75,19 @@ class WebsocketPolicyServer:
         episode_activations = []  # list of (num_layers, B, T, D), one per env step
 
         task_suite_name: str = (
-            "libero_spatial"  # Task suite. Options: libero_spatial, libero_object, libero_goal, libero_10, libero_90
+            "libero_90"  # Task suite. Options: libero_spatial, libero_object, libero_goal, libero_10, libero_90
         )
 
         def flush_episode(episode_id, acts_list):
             """Save all timesteps of one episode into a single file."""
             if not acts_list or episode_id is None:
                 return
+
+            # Log memory before flush
+            process = psutil.Process()
+            mem_before = process.memory_info().rss / 1024 / 1024  # MB
+            logger.info(f"Memory before flush: {mem_before:.1f} MB")
+
             ep_array = np.stack(acts_list, axis=0)  # (time_steps, L, B, T, D)
             save_path = os.path.join(
                 ACT_SAVE_DIR,
@@ -93,6 +101,13 @@ class WebsocketPolicyServer:
                 ep_array.shape,
             )
 
+            # Explicitly delete large array and force garbage collection
+            del ep_array
+            gc.collect()
+
+            mem_after = process.memory_info().rss / 1024 / 1024  # MB
+            logger.info(f"Memory after flush: {mem_after:.1f} MB (freed: {mem_before - mem_after:.1f} MB)")
+
         while True:
             try:
                 start_time = time.monotonic()
@@ -100,19 +115,40 @@ class WebsocketPolicyServer:
                 episode_id = obs.get("episode_id", "unknown_episode")
 
                 if episode_id != current_episode_id:
+                    logger.info(f"Episode change: {current_episode_id} -> {episode_id}")
                     flush_episode(current_episode_id, episode_activations)
                     current_episode_id = episode_id
                     episode_activations = []
 
+                    # Clear JAX compilation cache after episode change (can accumulate memory)
+                    import jax
+                    jax.clear_caches()
+                    logger.info("Cleared JAX compilation caches")
+
+                    # Force garbage collection after episode change
+                    gc.collect()
+
                 from openpi.models import gemma
                 gemma.ACTION_EXPERT_ACTS.clear()
                 gemma._layer_counter.clear()
-                
+
 
                 infer_time = time.monotonic()
+                print('Before infer')
                 action = self._policy.infer(obs)
+                print('After infer')
                 infer_time = time.monotonic() - infer_time
 
+                # Validate action for NaN/Inf
+                if "actions" in action:
+                    actions_array = action["actions"]
+                    has_nan = np.isnan(actions_array).any()
+                    has_inf = np.isinf(actions_array).any()
+                    logger.info(f"Episode {episode_id}: Actions shape={actions_array.shape}, "
+                              f"dtype={actions_array.dtype}, has_nan={has_nan}, has_inf={has_inf}, "
+                              f"min={np.min(actions_array):.4f}, max={np.max(actions_array):.4f}")
+                    if has_nan or has_inf:
+                        logger.error(f"Episode {episode_id}: INVALID ACTION DATA - NaN or Inf detected!")
 
                 ###
                 acts = gemma.ACTION_EXPERT_ACTS
@@ -124,9 +160,10 @@ class WebsocketPolicyServer:
                         [np.asarray(x, dtype=np.float32) for x in post_ffn_list],
                         axis=0,
                     )
-                    print(post_ffn_array)
+                    # print(post_ffn_array)
 
                     NUM_LAYERS = 18  # e.g., gemma_300m / gemma_f needed
+                    print(post_ffn_array.shape[0])
 
                     assert post_ffn_array.shape[0] % NUM_LAYERS == 0, (
                         "Mismatch between number of recorded activations "
@@ -162,7 +199,13 @@ class WebsocketPolicyServer:
                     # We can only record the last total time since we also want to include the send time.
                     action["server_timing"]["prev_total_ms"] = prev_total_time * 1000
 
+                # Log before sending response
+                process = psutil.Process()
+                mem_current = process.memory_info().rss / 1024 / 1024  # MB
+                logger.info(f"Episode {episode_id}: Sending response. Memory: {mem_current:.1f} MB")
+
                 await websocket.send(packer.pack(action))
+                logger.info(f"Episode {episode_id}: Response sent successfully")
                 prev_total_time = time.monotonic() - start_time
 
             except websockets.ConnectionClosed:
