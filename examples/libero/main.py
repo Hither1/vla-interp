@@ -45,6 +45,31 @@ class Args:
 
     seed: int = 7  # Random Seed (for reproducibility)
 
+    # Prompt perturbation options
+    prompt_mode: str = "original"  # original, random, shuffle, wrong_task, empty, custom
+    custom_prompt: str = ""  # Used when prompt_mode="custom"
+
+
+def perturb_prompt(original: str, mode: str, custom: str = "", all_tasks: list = None) -> str:
+    if mode == "original":
+        return original
+    elif mode == "empty":
+        return ""
+    elif mode == "shuffle":
+        words = original.split()
+        np.random.shuffle(words)
+        return " ".join(words)
+    elif mode == "random":
+        # Use a random task's prompt
+        return np.random.choice(all_tasks)
+    elif mode == "wrong_task":
+        # Pick a different task's prompt
+        others = [t for t in all_tasks if t != original]
+        return np.random.choice(others) if others else original
+    elif mode == "custom":
+        return custom
+    return original
+
 
 def _json_default(o):
     # numpy scalars -> python scalars
