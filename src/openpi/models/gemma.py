@@ -32,6 +32,20 @@ import openpi.training.sharding as sharding
 PALIGEMMA_VOCAB_SIZE = 257_152
 
 
+import os
+
+def _load_sae_intervention_from_env():
+    if os.environ.get("SAE_ENABLED", "0") != "1":
+        return
+
+    SAE_INTERVENTION.update({
+        "enabled": True,
+        "mode": os.environ["SAE_MODE"],              # ablate | steer
+        "feature_idx": int(os.environ["SAE_FEATURE"]),
+        "layer_idx": int(os.environ["SAE_LAYER"]),
+        "strength": float(os.environ.get("SAE_STRENGTH", "1.0")),
+    })
+
 # ===== SAE INTERVENTION CONFIG =====
 SAE_INTERVENTION = {
     "enabled": False,
@@ -277,6 +291,20 @@ class Attention(nn.Module):
 
         probs = jax.nn.softmax(masked_logits, axis=-1).astype(dtype)
 
+        # Record attention weights if enabled
+        if SAVE_ATTENTION_WEIGHTS:
+            # Get layer index from the scope if available
+            layer_idx = None
+            if hasattr(self, 'scope') and self.scope is not None:
+                path = self.scope.path if hasattr(self.scope, 'path') else []
+                for i, item in enumerate(path):
+                    if isinstance(item, int):
+                        layer_idx = item
+                        break
+            if layer_idx is None:
+                layer_idx = 0  # Default to 0 if we can't determine the layer
+            _record_attention_weights(layer_idx, probs)
+
         encoded = jnp.einsum("BKGTS,BSKH->BTKGH", probs, v)
         encoded = einops.rearrange(encoded, "B T K G H -> B T (K G) H")
 
@@ -332,12 +360,15 @@ class FeedForward(nn.Module):
 
 # Global store for debugging (you can make this more structured if you like)
 ACTION_EXPERT_ACTS = {}
+ATTENTION_WEIGHTS = {}  # Store attention weights for visualization
 ACT_SAVE_DIR = "/n/netscratch/sham_lab/Lab/chloe00/pi0_activations"   # <<< change this to where you want files stored
 
 os.makedirs(ACT_SAVE_DIR, exist_ok=True)
 
 _request_counter = 0  # increments each inference call (optionally reset in server)
 _layer_counter = {}   # tracks number of activations saved per tag per request
+SAVE_ATTENTION_WEIGHTS = False  # Global flag to enable/disable attention weight saving
+_attention_layer_counter = 0  # Counter for tracking layer index during attention recording
 
 def _record_action_activation(tag, x):
     """Host-side recorder for action expert activations.
@@ -356,12 +387,37 @@ def _record_action_activation(tag, x):
 
 
         _layer_counter[tag] += 1
-    
+
         ACTION_EXPERT_ACTS.setdefault(tag, []).append(x_np[:, 0])
 
-        
+
 
     jax_debug.callback(_cb, x)
+
+
+def _record_attention_weights(layer_idx_hint, attn_probs):
+    """Host-side recorder for attention weights.
+
+    Note: layer_idx_hint is ignored because nn.scan doesn't pass layer indices
+    through scope.path reliably. Instead, we use a global counter that tracks
+    the call order, which corresponds to layer order.
+
+    `attn_probs` is the attention probability tensor of shape (B, K, G, T, S)
+    where B=batch, K=num_kv_heads, G=num_heads_per_kv, T=query_len, S=key_len
+    """
+    def _cb(attn_np, *, result=None):
+        global ATTENTION_WEIGHTS, _attention_layer_counter
+
+        # Use counter-based layer index since nn.scan doesn't provide layer in path
+        layer_idx = _attention_layer_counter
+        _attention_layer_counter += 1
+
+        # Store attention weights for this layer
+        # We store the full attention matrix for later visualization
+        ATTENTION_WEIGHTS.setdefault(f'layer_{layer_idx}', []).append(attn_np)
+
+    if SAVE_ATTENTION_WEIGHTS:
+        jax_debug.callback(_cb, attn_probs)
 
 
 @at.typecheck
@@ -456,6 +512,9 @@ class Module(nn.Module):
     adarms: bool = False
 
     def setup(self):
+        # e.g. inside Module.setup() or first __call__
+        _load_sae_intervention_from_env()
+
         # all experts must have the same depth
         assert all(config.depth == self.configs[0].depth for config in self.configs)
 

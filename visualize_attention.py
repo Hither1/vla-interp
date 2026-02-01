@@ -51,6 +51,7 @@ def enable_attention_recording():
     """Enable attention weight recording in the gemma module."""
     gemma.SAVE_ATTENTION_WEIGHTS = True
     gemma.ATTENTION_WEIGHTS.clear()
+    gemma._attention_layer_counter = 0  # Reset layer counter for new recording
 
 
 def disable_attention_recording():

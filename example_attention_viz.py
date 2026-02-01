@@ -27,6 +27,7 @@ import numpy as np
 import jax
 import jax.numpy as jnp
 from PIL import Image
+import matplotlib.pyplot as plt
 
 # Add src to path (your repo layout)
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
@@ -256,6 +257,11 @@ def visualize_video_frame_attention(
     pi05: bool = True,
     num_image_tokens: int = 256,  # used for text/combined parsing; adjust if needed
 ):
+    # Create output directory if it doesn't exist
+    output_dir = os.path.dirname(output_path)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+
     print(f"Loading frame {frame_idx} from {video_path}...")
     frame_rgb = get_frame_opencv(video_path, frame_idx)
 
@@ -339,16 +345,26 @@ def visualize_video_frame_attention(
         print("\n🔄 Generating combined attention visualization...")
         token_ids = observation.tokenized_prompt[0].tolist()
 
-        visualize_combined_attention(
-            frame_rgb=frame_rgb,
-            prompt_text=prompt,
-            token_ids=token_ids,
-            attention_dict=attention_dict,
-            num_image_tokens=num_image_tokens,
-            layer_idx=layers[-1],
-            output_path=f"{base_path}_combined.{ext}" if viz_type == "all" else output_path,
-        )
-        print("  ✓ Saved combined attention visualization")
+        # Generate separate combined visualization for each layer
+        for layer_idx in layers:
+            layer_key = f'layer_{layer_idx}'
+            if layer_key not in attention_dict:
+                print(f"  Warning: Layer {layer_idx} not found in attention_dict, skipping")
+                continue
+
+            layer_output_path = f"{base_path}_combined_layer{layer_idx}.{ext}"
+            fig = visualize_combined_attention(
+                frame_rgb=frame_rgb,
+                prompt_text=prompt,
+                token_ids=token_ids,
+                attention_dict=attention_dict,
+                num_image_tokens=num_image_tokens,
+                layer_idx=layer_idx,
+                output_path=layer_output_path,
+            )
+            if fig is not None:
+                plt.close(fig)
+            print(f"  ✓ Saved combined attention for layer {layer_idx}")
 
         print("\n📈 Generating attention evolution visualization...")
         visualize_multimodal_attention_evolution(
@@ -360,7 +376,9 @@ def visualize_video_frame_attention(
             layers_to_viz=layers,
             output_path=f"{base_path}_evolution.{ext}",
         )
-        print("  ✓ Saved attention evolution visualization")
+        # if fig is not None:
+        #     plt.close(fig)
+        # print("  ✓ Saved attention evolution visualization")
 
     print("\n✓ Done.")
     print(f"  Base path: {base_path}")
@@ -456,7 +474,7 @@ def main():
     parser.add_argument("--video", type=str, help="Path to video file (single mode)")
     parser.add_argument("--frame-idx", type=int, default=0, help="Frame index (single mode)")
     parser.add_argument("--prompt", type=str, default="pick up the bowl", help="Text prompt (single mode)")
-    parser.add_argument("--output", type=str, default="attention_viz.png", help="Output path (single mode)")
+    parser.add_argument("--output", type=str, default="outputs_attention/attention_viz.png", help="Output path (single mode)")
 
     # Episode mode
     parser.add_argument("--data-root", type=str, default="data/libero", help="Data root directory (episode mode)")
@@ -467,7 +485,7 @@ def main():
     parser.add_argument("--episode-idx", type=int, default=0, help="Episode index (episode mode)")
     parser.add_argument("--frames", type=int, nargs="+", default=[0, 10, 20, 30],
                         help="Frame indices to visualize (episode mode)")
-    parser.add_argument("--output-dir", type=str, default="attention_viz_output",
+    parser.add_argument("--output-dir", type=str, default="outputs_attention",
                         help="Output directory (episode mode)")
 
     # Model/config knobs
@@ -481,7 +499,7 @@ def main():
     parser.add_argument("--no-pi05", action="store_true", help="Disable pi05 variant behavior")
 
     # Visualization knobs
-    parser.add_argument("--layers", type=int, nargs="+", default=[0, 8, 17], help="Layers to visualize")
+    parser.add_argument("--layers", type=int, nargs="+", default=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17], help="Layers to visualize")
     parser.add_argument("--viz-type", type=str, choices=["image", "text", "combined", "all"], default="all",
                         help="Type of visualization")
     parser.add_argument("--num-image-tokens", type=int, default=256,

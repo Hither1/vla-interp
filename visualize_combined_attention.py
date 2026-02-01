@@ -100,8 +100,11 @@ def visualize_combined_attention(
     heatmap = create_attention_heatmap(image_attn, (height, width), patch_size=patch_size)
     frame_with_attn = overlay_heatmap_on_image(frame_rgb, heatmap, colormap='jet', alpha=0.5)
 
-    # Decode tokens
+    # Decode tokens and filter out padding tokens (token_id == 0)
     tokens = decode_tokens(token_ids)
+    non_pad_mask = np.array([tid != 0 and tid is not False for tid in token_ids])
+    filtered_tokens = [t for t, m in zip(tokens, non_pad_mask) if m]
+    filtered_text_attn = text_attn[non_pad_mask]
 
     # Create figure
     fig = plt.figure(figsize=(16, 10))
@@ -119,17 +122,17 @@ def visualize_combined_attention(
     ax2.set_title(f'Visual Attention (Layer {layer_idx})', fontsize=14, fontweight='bold')
     ax2.axis('off')
 
-    # 3. Text attention bar chart
+    # 3. Text attention bar chart (excluding padding tokens)
     ax3 = fig.add_subplot(gs[1, :])
-    x = np.arange(len(tokens))
-    if text_attn.max() > 0:
-        norm_weights = text_attn / text_attn.max()
+    x = np.arange(len(filtered_tokens))
+    if len(filtered_text_attn) > 0 and filtered_text_attn.max() > 0:
+        norm_weights = filtered_text_attn / filtered_text_attn.max()
     else:
-        norm_weights = text_attn
-    colors = plt.cm.RdYlBu_r(norm_weights)
-    ax3.bar(x, text_attn, color=colors, alpha=0.8, edgecolor='black', linewidth=1)
+        norm_weights = filtered_text_attn if len(filtered_text_attn) > 0 else np.array([])
+    colors = plt.cm.RdYlBu_r(norm_weights) if len(norm_weights) > 0 else []
+    ax3.bar(x, filtered_text_attn, color=colors, alpha=0.8, edgecolor='black', linewidth=1)
     ax3.set_xticks(x)
-    ax3.set_xticklabels(tokens, rotation=45, ha='right', fontsize=10)
+    ax3.set_xticklabels(filtered_tokens, rotation=45, ha='right', fontsize=10)
     ax3.set_ylabel('Attention Weight', fontsize=12)
     ax3.set_title(f'Linguistic Attention (Layer {layer_idx})', fontsize=14, fontweight='bold')
     ax3.grid(axis='y', alpha=0.3, linestyle='--')
@@ -138,14 +141,29 @@ def visualize_combined_attention(
     ax4 = fig.add_subplot(gs[2, :])
     ax4.axis('off')
 
-    # Calculate statistics
+    # Calculate statistics (using filtered text attention, excluding padding)
     total_image_attn = float(image_attn.sum())
-    total_text_attn = float(text_attn.sum())
+    total_text_attn = float(filtered_text_attn.sum()) if len(filtered_text_attn) > 0 else 0.0
     total_attn = total_image_attn + total_text_attn
 
     # Get full attention distribution
     full_attn = attn.reshape(-1, attn.shape[-2], attn.shape[-1]).mean(axis=0)[query_token_idx]
     full_attn = np.asarray(full_attn, dtype=np.float32)
+
+    # Get top linguistic tokens (from filtered, non-padding tokens)
+    if len(filtered_tokens) >= 3:
+        top_indices = np.argsort(filtered_text_attn)[-3:][::-1]
+        top1_token, top1_weight = filtered_tokens[top_indices[0]], filtered_text_attn[top_indices[0]]
+        top2_token, top2_weight = filtered_tokens[top_indices[1]], filtered_text_attn[top_indices[1]]
+        top3_token, top3_weight = filtered_tokens[top_indices[2]], filtered_text_attn[top_indices[2]]
+    elif len(filtered_tokens) > 0:
+        top_indices = np.argsort(filtered_text_attn)[::-1]
+        top1_token, top1_weight = filtered_tokens[top_indices[0]], filtered_text_attn[top_indices[0]]
+        top2_token = top3_token = "N/A"
+        top2_weight = top3_weight = 0.0
+    else:
+        top1_token = top2_token = top3_token = "N/A"
+        top1_weight = top2_weight = top3_weight = 0.0
 
     stats_text = f"""
     Combined Attention Analysis - Layer {layer_idx}
@@ -161,14 +179,14 @@ def visualize_combined_attention(
     Top Visual Regions:
     - Highest attention patch: {image_attn.max():.4f} (position {np.argmax(image_attn)})
 
-    Top Linguistic Tokens:
-    - Most attended: "{tokens[np.argmax(text_attn)]}" ({text_attn.max():.4f})
-    - 2nd most:      "{tokens[np.argsort(text_attn)[-2]]}" ({text_attn[np.argsort(text_attn)[-2]]:.4f})
-    - 3rd most:      "{tokens[np.argsort(text_attn)[-3]]}" ({text_attn[np.argsort(text_attn)[-3]]:.4f})
+    Top Linguistic Tokens (excluding padding):
+    - Most attended: "{top1_token}" ({top1_weight:.4f})
+    - 2nd most:      "{top2_token}" ({top2_weight:.4f})
+    - 3rd most:      "{top3_token}" ({top3_weight:.4f})
 
     Interpretation:
     {"- Model focuses MORE on visual input" if total_image_attn > total_text_attn else "- Model focuses MORE on linguistic input"}
-    - The model is {"highly" if text_attn.max() > 2*text_attn.mean() else "moderately"} selective in text attention
+    - The model is {"highly" if len(filtered_text_attn) > 0 and filtered_text_attn.max() > 2*filtered_text_attn.mean() else "moderately"} selective in text attention
     - The model is {"highly" if image_attn.max() > 2*image_attn.mean() else "moderately"} selective in visual attention
     """
 

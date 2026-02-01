@@ -46,28 +46,96 @@ class Args:
     seed: int = 7  # Random Seed (for reproducibility)
 
     # Prompt perturbation options
-    prompt_mode: str = "original"  # original, random, shuffle, wrong_task, empty, custom
+    prompt_mode: str = "original"  # original, empty, shuffle, random, wrong_task, synonym, opposite, custom
     custom_prompt: str = ""  # Used when prompt_mode="custom"
+
+
+# Synonym mappings for common LIBERO action verbs
+SYNONYM_MAP = {
+    "pick": ["grab", "grasp", "take", "lift"],
+    "place": ["put", "set", "position", "lay"],
+    "open": ["unlock", "unfasten", "unseal"],
+    "close": ["shut", "seal", "fasten"],
+    "push": ["shove", "press", "move"],
+    "pull": ["drag", "draw", "tug"],
+    "turn": ["rotate", "twist", "spin"],
+    "put": ["place", "set", "position"],
+    "move": ["shift", "transfer", "relocate"],
+    "take": ["grab", "pick", "grasp"],
+    "lift": ["raise", "pick up", "elevate"],
+}
+
+# Opposite action mappings
+OPPOSITE_MAP = {
+    "open": "close",
+    "close": "open",
+    "pick": "place",
+    "place": "pick",
+    "pick up": "put down",
+    "put down": "pick up",
+    "push": "pull",
+    "pull": "push",
+    "turn on": "turn off",
+    "turn off": "turn on",
+    "lift": "lower",
+    "lower": "lift",
+    "left": "right",
+    "right": "left",
+    "top": "bottom",
+    "bottom": "top",
+    "front": "back",
+    "back": "front",
+    "into": "out of",
+    "out of": "into",
+    "on": "off",
+    "off": "on",
+}
 
 
 def perturb_prompt(original: str, mode: str, custom: str = "", all_tasks: list = None) -> str:
     if mode == "original":
         return original
+
     elif mode == "empty":
         return ""
+
     elif mode == "shuffle":
         words = original.split()
         np.random.shuffle(words)
         return " ".join(words)
+
     elif mode == "random":
         # Use a random task's prompt
         return np.random.choice(all_tasks)
+
     elif mode == "wrong_task":
         # Pick a different task's prompt
         others = [t for t in all_tasks if t != original]
         return np.random.choice(others) if others else original
+
+    elif mode == "synonym":
+        # Replace action verbs with synonyms
+        result = original.lower()
+        for word, synonyms in SYNONYM_MAP.items():
+            if word in result:
+                replacement = np.random.choice(synonyms)
+                result = result.replace(word, replacement, 1)
+                break  # Only replace one word to keep prompt mostly intact
+        return result
+
+    elif mode == "opposite":
+        # Replace actions/directions with opposites
+        result = original.lower()
+        # Sort by length (descending) to match longer phrases first
+        for phrase in sorted(OPPOSITE_MAP.keys(), key=len, reverse=True):
+            if phrase in result:
+                result = result.replace(phrase, OPPOSITE_MAP[phrase], 1)
+                break  # Only replace one phrase
+        return result
+
     elif mode == "custom":
         return custom
+
     return original
 
 
@@ -174,7 +242,8 @@ def eval_libero(args: Args) -> None:
                                     obs["robot0_gripper_qpos"],
                                 )
                             ),
-                            "prompt": str(task_description),
+                            # "prompt": str(task_description),
+                            "prompt": perturb_prompt(str(task_description), args.prompt_mode, args.custom_prompt, all_task_descriptions),
                             "episode_id": f"task{task_id}_ep{episode_idx}", 
                         }
 
