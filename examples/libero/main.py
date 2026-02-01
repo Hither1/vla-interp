@@ -33,7 +33,7 @@ class Args:
     # LIBERO environment-specific parameters
     #################################################################################################################
     task_suite_name: str = (
-        "libero_90"  # Task suite. Options: libero_spatial, libero_object, libero_goal, libero_10, libero_90
+        "libero_object"  # Task suite. Options: libero_spatial, libero_object, libero_goal, libero_10, libero_90
     )
     num_steps_wait: int = 10  # Number of steps to wait for objects to stabilize i n sim
     num_trials_per_task: int = 20  # Number of rollouts per task
@@ -46,7 +46,7 @@ class Args:
     seed: int = 7  # Random Seed (for reproducibility)
 
     # Prompt perturbation options
-    prompt_mode: str = "original"  # original, empty, shuffle, random, wrong_task, synonym, opposite, custom
+    prompt_mode: str = "empty"  # original, empty, shuffle, random, synonym, opposite, custom
     custom_prompt: str = ""  # Used when prompt_mode="custom"
 
 
@@ -92,7 +92,7 @@ OPPOSITE_MAP = {
 }
 
 
-def perturb_prompt(original: str, mode: str, custom: str = "", all_tasks: list = None) -> str:
+def perturb_prompt(original: str, mode: str = "opposite", all_tasks: list = None) -> str:
     if mode == "original":
         return original
 
@@ -105,11 +105,8 @@ def perturb_prompt(original: str, mode: str, custom: str = "", all_tasks: list =
         return " ".join(words)
 
     elif mode == "random":
-        # Use a random task's prompt
-        return np.random.choice(all_tasks)
-
-    elif mode == "wrong_task":
-        # Pick a different task's prompt
+        # Use a random (different) task's prompt
+        # return np.random.choice(all_tasks)
         others = [t for t in all_tasks if t != original]
         return np.random.choice(others) if others else original
 
@@ -131,10 +128,8 @@ def perturb_prompt(original: str, mode: str, custom: str = "", all_tasks: list =
             if phrase in result:
                 result = result.replace(phrase, OPPOSITE_MAP[phrase], 1)
                 break  # Only replace one phrase
+        print("Modified prompt:", result)
         return result
-
-    elif mode == "custom":
-        return custom
 
     return original
 
@@ -243,7 +238,7 @@ def eval_libero(args: Args) -> None:
                                 )
                             ),
                             # "prompt": str(task_description),
-                            "prompt": perturb_prompt(str(task_description), args.prompt_mode, args.custom_prompt, all_task_descriptions),
+                            "prompt": perturb_prompt(str(task_description), args.prompt_mode), # 'all_task_descriptions'
                             "episode_id": f"task{task_id}_ep{episode_idx}", 
                         }
 

@@ -414,9 +414,9 @@
       //   ],
       //   postSteeringVideos: []
       // },
-      { id: "",
+      { id: "butter_back_top_drawer_close",
         items: [
-          { label: "", description: "", 
+          { label: "Prompt: put the butter at the back in the_top_drawer of the cabinet and close it", description: "", 
             videos: ["assets/videos/.mp4"], postSteeringVideos: [] },
           { label: "Label 2", description: "", videos: [".mp4"], postSteeringVideos: [] }
         ]
@@ -431,7 +431,7 @@
       // },
       { id: "",
         items: [
-          { label: "", description: "", 
+          { label: "Prompt: stack the middle black bowl on the back black bowl", description: "", 
             videos: ["assets/videos/.mp4"], postSteeringVideos: [] },
           { label: "Label 2", description: "", videos: [".mp4"], postSteeringVideos: [] }
         ]
@@ -444,7 +444,7 @@
       //   ],
       //   postSteeringVideos: []
       // },
-      { id: "",
+      { id: "bowl_top_drawer",
         items: [
           { label: "KITCHEN SCENE 5", description: "put_the_black_bowl_in_the_top_drawer_of_the_cabinet", 
             videos: ["assets/videos/KITCHEN_SCENE5_put_the_black_bowl_in_the_top_drawer_of_the_cabinet/rollout_put_the_black_bowl_in_the_top_drawer_of_the_cabinet_trial0_failure.mp4",
@@ -545,6 +545,12 @@
     function buildFailureSelector() {
       const sel = document.getElementById("failure-selector");
       sel.innerHTML = "";
+
+      // Add "none" option at the start
+      const noneOpt = document.createElement("option");
+      noneOpt.value = "none";
+      noneOpt.textContent = "— Select a scenario —";
+      sel.appendChild(noneOpt);
 
       for (const s of FAILED_SCENARIOS) {
         // Check if this scenario has nested items

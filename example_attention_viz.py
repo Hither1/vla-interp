@@ -17,7 +17,7 @@ Usage examples:
   python example_attention_viz.py --mode episode \
     --checkpoint ~/.cache/openpi/openpi-assets/checkpoints/pi05_libero \
     --data-root data/libero --activations-root /path/to/pi0_activations \
-    --group 90 --episode-idx 0 --frames 0 10 20 30 --output-dir attention_viz_output
+    --group 90 --episode-idx 0 --frames 0 10 20 30 --output-dir outputs_attention
 """
 
 import os
