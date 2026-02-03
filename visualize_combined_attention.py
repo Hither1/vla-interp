@@ -243,6 +243,9 @@ def visualize_multimodal_attention_evolution(
     linguistic_attn_per_layer = []
     layer_indices = []
 
+    # Create mask to filter out padding tokens (token_id == 0)
+    non_pad_mask = np.array([tid != 0 and tid is not False for tid in token_ids])
+
     for layer_idx in layers_to_viz:
         layer_key = f'layer_{layer_idx}'
         if layer_key not in attention_dict:
@@ -258,9 +261,16 @@ def visualize_multimodal_attention_evolution(
             attn, text_token_start, text_token_end, query_token_idx, head_idx=None
         )
 
-        # Convert to float32 and sum
-        visual_attn_per_layer.append(float(np.asarray(image_attn, dtype=np.float32).sum()))
-        linguistic_attn_per_layer.append(float(np.asarray(text_attn, dtype=np.float32).sum()))
+        # Convert to float32
+        image_attn = np.asarray(image_attn, dtype=np.float32)
+        text_attn = np.asarray(text_attn, dtype=np.float32)
+
+        # Filter out padding tokens from text attention before summing
+        filtered_text_attn = text_attn[non_pad_mask] if len(text_attn) == len(non_pad_mask) else text_attn
+
+        # Sum attention (excluding padding for text)
+        visual_attn_per_layer.append(float(image_attn.sum()))
+        linguistic_attn_per_layer.append(float(filtered_text_attn.sum()))
         layer_indices.append(layer_idx)
 
     # Create figure
@@ -308,6 +318,196 @@ def visualize_multimodal_attention_evolution(
     if output_path:
         plt.savefig(output_path, dpi=150, bbox_inches='tight')
         print(f"Saved attention evolution visualization to {output_path}")
+
+    return fig
+
+
+def compute_frame_attention_stats(
+    attention_dict: Dict[str, np.ndarray],
+    token_ids: List[int],
+    num_image_tokens: int,
+    layers_to_analyze: List[int],
+    query_token_idx: Optional[int] = None,
+) -> Dict[str, Dict[int, float]]:
+    """
+    Compute visual and linguistic attention statistics for a single frame across layers.
+
+    Args:
+        attention_dict: Recorded attention weights for this frame
+        token_ids: Tokenized prompt
+        num_image_tokens: Number of image tokens
+        layers_to_analyze: Which layers to analyze
+        query_token_idx: Which token to use as query
+
+    Returns:
+        Dictionary with 'visual' and 'linguistic' keys, each mapping layer_idx to attention sum
+    """
+    text_token_start = num_image_tokens
+    text_token_end = num_image_tokens + len(token_ids)
+    image_token_start = 0
+    image_token_end = num_image_tokens
+
+    if query_token_idx is None:
+        query_token_idx = text_token_end
+
+    # Create mask to filter out padding tokens (token_id == 0)
+    non_pad_mask = np.array([tid != 0 and tid is not False for tid in token_ids])
+
+    visual_by_layer = {}
+    linguistic_by_layer = {}
+
+    for layer_idx in layers_to_analyze:
+        layer_key = f'layer_{layer_idx}'
+        if layer_key not in attention_dict:
+            continue
+
+        attn = attention_dict[layer_key][0]
+
+        image_attn = extract_image_attention(
+            attn, image_token_start, image_token_end, query_token_idx, head_idx=None
+        )
+        text_attn = extract_text_attention(
+            attn, text_token_start, text_token_end, query_token_idx, head_idx=None
+        )
+
+        # Convert to float32
+        image_attn = np.asarray(image_attn, dtype=np.float32)
+        text_attn = np.asarray(text_attn, dtype=np.float32)
+
+        # Filter out padding tokens from text attention before summing
+        filtered_text_attn = text_attn[non_pad_mask] if len(text_attn) == len(non_pad_mask) else text_attn
+
+        visual_by_layer[layer_idx] = float(image_attn.sum())
+        linguistic_by_layer[layer_idx] = float(filtered_text_attn.sum())
+
+    return {'visual': visual_by_layer, 'linguistic': linguistic_by_layer}
+
+
+def visualize_episode_attention_evolution(
+    frame_attention_stats: List[Dict[str, Dict[int, float]]],
+    frame_indices: List[int],
+    prompt_text: str,
+    layers_to_viz: List[int],
+    output_path: Optional[str] = None,
+    mode: str = "across_layers",  # "across_layers" or "across_frames"
+) -> plt.Figure:
+    """
+    Visualize how visual/linguistic attention evolves across an episode.
+
+    Args:
+        frame_attention_stats: List of attention stats per frame (from compute_frame_attention_stats)
+        frame_indices: Frame indices corresponding to each stats entry
+        prompt_text: The prompt text
+        layers_to_viz: Layers to visualize
+        output_path: Where to save the figure
+        mode: "across_layers" shows layer evolution averaged over frames,
+              "across_frames" shows frame evolution for selected layers
+
+    Returns:
+        Matplotlib figure
+    """
+    if mode == "across_frames":
+        # Show how attention evolves across frames for each layer (stacked visual + linguistic)
+        num_layers = len(layers_to_viz)
+        fig, axes = plt.subplots(num_layers, 1, figsize=(14, 4 * num_layers))
+        if num_layers == 1:
+            axes = [axes]
+
+        for ax_idx, layer_idx in enumerate(layers_to_viz):
+            visual_per_frame = []
+            linguistic_per_frame = []
+            valid_frame_indices = []
+
+            for i, stats in enumerate(frame_attention_stats):
+                if layer_idx in stats['visual']:
+                    visual_per_frame.append(stats['visual'][layer_idx])
+                    linguistic_per_frame.append(stats['linguistic'][layer_idx])
+                    valid_frame_indices.append(frame_indices[i])
+
+            if visual_per_frame:
+                visual_arr = np.array(visual_per_frame, dtype=np.float32)
+                linguistic_arr = np.array(linguistic_per_frame, dtype=np.float32)
+
+                # Stacked area plot: visual on bottom, linguistic on top
+                axes[ax_idx].fill_between(valid_frame_indices, 0, visual_arr,
+                                         alpha=0.6, color='steelblue', label='Visual Attention')
+                axes[ax_idx].fill_between(valid_frame_indices, visual_arr, visual_arr + linguistic_arr,
+                                         alpha=0.6, color='coral', label='Linguistic Attention')
+                axes[ax_idx].plot(valid_frame_indices, visual_arr + linguistic_arr,
+                                 color='darkred', linewidth=1, alpha=0.5)
+
+            axes[ax_idx].set_xlabel('Frame Index', fontsize=12)
+            axes[ax_idx].set_ylabel('Total Attention Weight', fontsize=12)
+            axes[ax_idx].set_title(f'Layer {layer_idx}: Visual vs. Linguistic Attention', fontsize=13, fontweight='bold')
+            axes[ax_idx].legend(loc='upper right', fontsize=10)
+            axes[ax_idx].grid(alpha=0.3, linestyle='--')
+
+        plt.suptitle(f'Attention Evolution Across Episode (Stacked)\nPrompt: "{prompt_text}"',
+                    fontsize=14, fontweight='bold')
+        plt.tight_layout()
+
+    else:  # across_layers - show layer evolution with stacked visual + linguistic
+        fig, axes = plt.subplots(2, 1, figsize=(12, 8))
+
+        # Compute mean across all frames for each layer
+        all_layers = sorted(set(l for stats in frame_attention_stats for l in stats['visual'].keys()))
+
+        visual_mean = []
+        linguistic_mean = []
+
+        for layer in all_layers:
+            v_vals = [s['visual'].get(layer, np.nan) for s in frame_attention_stats]
+            l_vals = [s['linguistic'].get(layer, np.nan) for s in frame_attention_stats]
+            v_vals = [v for v in v_vals if not np.isnan(v)]
+            l_vals = [v for v in l_vals if not np.isnan(v)]
+
+            visual_mean.append(np.mean(v_vals) if v_vals else 0)
+            linguistic_mean.append(np.mean(l_vals) if l_vals else 0)
+
+        visual_mean = np.array(visual_mean, dtype=np.float32)
+        linguistic_mean = np.array(linguistic_mean, dtype=np.float32)
+
+        # 1. Stacked area plot
+        ax1 = axes[0]
+        ax1.fill_between(all_layers, 0, visual_mean, alpha=0.6, color='steelblue', label='Visual Attention')
+        ax1.fill_between(all_layers, visual_mean, visual_mean + linguistic_mean,
+                        alpha=0.6, color='coral', label='Linguistic Attention')
+        ax1.set_xlabel('Layer', fontsize=12)
+        ax1.set_ylabel('Total Attention Weight', fontsize=12)
+        ax1.set_title('Visual vs. Linguistic Attention Evolution', fontsize=14, fontweight='bold')
+        ax1.legend(loc='upper right', fontsize=11)
+        ax1.grid(alpha=0.3, linestyle='--')
+        ax1.set_xticks(all_layers)
+
+        # 2. Percentage distribution (stacked bar)
+        ax2 = axes[1]
+        total_attn = visual_mean + linguistic_mean
+        # Avoid division by zero
+        total_attn_safe = np.where(total_attn == 0, 1, total_attn)
+        visual_pct = (visual_mean / total_attn_safe) * 100
+        linguistic_pct = (linguistic_mean / total_attn_safe) * 100
+
+        width = 0.8
+        x = np.arange(len(all_layers))
+        ax2.bar(x, visual_pct, width, label='Visual %', color='steelblue', alpha=0.7)
+        ax2.bar(x, linguistic_pct, width, bottom=visual_pct, label='Linguistic %', color='coral', alpha=0.7)
+
+        ax2.set_xlabel('Layer', fontsize=12)
+        ax2.set_ylabel('Attention Percentage', fontsize=12)
+        ax2.set_title('Relative Attention Distribution', fontsize=14, fontweight='bold')
+        ax2.set_xticks(x)
+        ax2.set_xticklabels([f'L{l}' for l in all_layers])
+        ax2.legend(loc='upper right', fontsize=11)
+        ax2.grid(axis='y', alpha=0.3, linestyle='--')
+        ax2.set_ylim([0, 100])
+
+        plt.suptitle(f'Attention Evolution Analysis (Episode Mean)\nPrompt: "{prompt_text}" ({len(frame_attention_stats)} frames)',
+                    fontsize=14, fontweight='bold')
+        plt.tight_layout()
+
+    if output_path:
+        plt.savefig(output_path, dpi=150, bbox_inches='tight')
+        print(f"Saved episode attention evolution to {output_path}")
 
     return fig
 

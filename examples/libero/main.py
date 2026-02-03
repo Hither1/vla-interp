@@ -33,7 +33,7 @@ class Args:
     # LIBERO environment-specific parameters
     #################################################################################################################
     task_suite_name: str = (
-        "libero_object"  # Task suite. Options: libero_spatial, libero_object, libero_goal, libero_10, libero_90
+        "libero_spatial"  # Task suite. Options: libero_spatial, libero_object, libero_goal, libero_10, libero_90
     )
     num_steps_wait: int = 10  # Number of steps to wait for objects to stabilize i n sim
     num_trials_per_task: int = 20  # Number of rollouts per task
@@ -46,7 +46,7 @@ class Args:
     seed: int = 7  # Random Seed (for reproducibility)
 
     # Prompt perturbation options
-    prompt_mode: str = "empty"  # original, empty, shuffle, random, synonym, opposite, custom
+    prompt_mode: str = "original"  # original, empty, shuffle, random, synonym, opposite, custom
     custom_prompt: str = ""  # Used when prompt_mode="custom"
 
 
@@ -72,7 +72,7 @@ OPPOSITE_MAP = {
     "pick": "place",
     "place": "pick",
     "pick up": "put down",
-    "put down": "pick up",
+    "put": "pick up",
     "push": "pull",
     "pull": "push",
     "turn on": "turn off",
@@ -92,7 +92,7 @@ OPPOSITE_MAP = {
 }
 
 
-def perturb_prompt(original: str, mode: str = "opposite", all_tasks: list = None) -> str:
+def perturb_prompt(original: str, mode: str = "original", all_tasks: list = None) -> str:
     if mode == "original":
         return original
 
@@ -102,13 +102,19 @@ def perturb_prompt(original: str, mode: str = "opposite", all_tasks: list = None
     elif mode == "shuffle":
         words = original.split()
         np.random.shuffle(words)
-        return " ".join(words)
+
+        result = " ".join(words)
+        print("Modified prompt:", result)
+        return result
 
     elif mode == "random":
         # Use a random (different) task's prompt
         # return np.random.choice(all_tasks)
         others = [t for t in all_tasks if t != original]
-        return np.random.choice(others) if others else original
+        result = np.random.choice(others) if others else original
+
+        print("Modified prompt:", result)
+        return result
 
     elif mode == "synonym":
         # Replace action verbs with synonyms
@@ -118,6 +124,7 @@ def perturb_prompt(original: str, mode: str = "opposite", all_tasks: list = None
                 replacement = np.random.choice(synonyms)
                 result = result.replace(word, replacement, 1)
                 break  # Only replace one word to keep prompt mostly intact
+        print("Modified prompt:", result)
         return result
 
     elif mode == "opposite":
@@ -152,6 +159,31 @@ def eval_libero(args: Args) -> None:
     benchmark_dict = benchmark.get_benchmark_dict()
     task_suite = benchmark_dict[args.task_suite_name]()
     num_tasks_in_suite = task_suite.n_tasks
+    
+    logging.info(f"Task suite: {args.task_suite_name}")
+
+    # -------------------------------------------------------------------------
+    # Prepare all_task_descriptions (used by prompt_mode="random")
+    # -------------------------------------------------------------------------
+    all_task_descriptions = []
+    for i in range(num_tasks_in_suite):
+        try:
+            t = task_suite.get_task(i)
+            # Usually the natural language instruction is stored here
+            desc = getattr(t, "language", None)
+            if desc is None:
+                desc = getattr(t, "task_description", None)
+            if desc is None:
+                desc = str(t)
+            all_task_descriptions.append(str(desc))
+        except Exception as e:
+            logging.warning(f"Failed to get task description for task {i}: {e}")
+            all_task_descriptions.append(f"task_{i}")
+
+    # Optional: ensure uniqueness to avoid choosing the same string a lot
+    all_task_descriptions = list(dict.fromkeys(all_task_descriptions))
+
+
     logging.info(f"Task suite: {args.task_suite_name}")
 
     pathlib.Path(args.video_out_path).mkdir(parents=True, exist_ok=True)
@@ -238,7 +270,7 @@ def eval_libero(args: Args) -> None:
                                 )
                             ),
                             # "prompt": str(task_description),
-                            "prompt": perturb_prompt(str(task_description), args.prompt_mode), # 'all_task_descriptions'
+                            "prompt": perturb_prompt(str(task_description), args.prompt_mode, all_task_descriptions),
                             "episode_id": f"task{task_id}_ep{episode_idx}", 
                         }
 

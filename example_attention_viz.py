@@ -16,8 +16,20 @@ Usage examples:
 
   python example_attention_viz.py --mode episode \
     --checkpoint ~/.cache/openpi/openpi-assets/checkpoints/pi05_libero \
-    --data-root data/libero --activations-root /path/to/pi0_activations \
-    --group 90 --episode-idx 0 --frames 0 10 20 30 --output-dir outputs_attention
+    --data-root /n/netscratch/sham_lab/Lab/chloe00/data/libero --activations-root /n/netscratch/sham_lab/Lab/chloe00/pi0_activations \
+    --group 90 --episode-idx 0 --output-dir outputs_attention
+
+  # Episode mode with custom frame step (every 5 frames) and video FPS:
+  python example_attention_viz.py --mode episode \
+    --checkpoint ~/.cache/openpi/openpi-assets/checkpoints/pi05_libero \
+    --data-root /n/netscratch/sham_lab/Lab/chloe00/data/libero --activations-root /n/netscratch/sham_lab/Lab/chloe00/pi0_activations \
+    --group 90 --episode-idx 0 --frame-step 5 --output-dir outputs_attention --fps 4
+
+  # Episode mode with individual PNGs instead of video:
+  python example_attention_viz.py --mode episode \
+    --checkpoint ~/.cache/openpi/openpi-assets/checkpoints/pi05_libero \
+    --data-root /n/netscratch/sham_lab/Lab/chloe00/data/libero --activations-root /n/netscratch/sham_lab/Lab/chloe00/pi0_activations \
+    --group 90 --episode-idx 0 --frame-step 10 --output-dir outputs_attention --no-video
 """
 
 import os
@@ -28,6 +40,7 @@ import jax
 import jax.numpy as jnp
 from PIL import Image
 import matplotlib.pyplot as plt
+import cv2
 
 # Add src to path (your repo layout)
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
@@ -50,7 +63,56 @@ from visualize_text_attention import analyze_text_attention_from_recorded
 from visualize_combined_attention import (
     visualize_combined_attention,
     visualize_multimodal_attention_evolution,
+    compute_frame_attention_stats,
+    visualize_episode_attention_evolution,
 )
+
+
+# -------------------------
+# Video utilities
+# -------------------------
+
+def get_video_frame_count(video_path: str) -> int:
+    """Get total number of frames in a video."""
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise RuntimeError(f"Could not open video: {video_path}")
+    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    cap.release()
+    return frame_count
+
+
+def create_video_from_frames(
+    frames: list,
+    output_path: str,
+    fps: int = 2,
+):
+    """
+    Create an MP4 video from a list of RGB image frames.
+
+    Args:
+        frames: List of RGB numpy arrays (H, W, 3)
+        output_path: Path to save the output video
+        fps: Frames per second for the output video
+    """
+    import imageio
+
+    if not frames:
+        print("Warning: No frames provided for video creation")
+        return
+
+    # Ensure all frames are uint8
+    processed_frames = []
+    for frame in frames:
+        if frame.dtype != np.uint8:
+            if frame.max() <= 1.0:
+                frame = (frame * 255).astype(np.uint8)
+            else:
+                frame = frame.astype(np.uint8)
+        processed_frames.append(frame)
+
+    imageio.mimwrite(output_path, processed_frames, fps=fps)
+    print(f"  Created video: {output_path} ({len(frames)} frames @ {fps} fps)")
 
 
 # -------------------------
@@ -256,6 +318,7 @@ def visualize_video_frame_attention(
     max_token_len: int = 256,
     pi05: bool = True,
     num_image_tokens: int = 256,  # used for text/combined parsing; adjust if needed
+    save_image_png: bool = True,  # whether to save image attention as PNG (set False for video mode)
 ):
     # Create output directory if it doesn't exist
     output_dir = os.path.dirname(output_path)
@@ -305,12 +368,13 @@ def visualize_video_frame_attention(
 
     if not attention_dict:
         print("⚠ No attention weights were recorded! Check that attention hooks are installed correctly.")
-        return
+        return None
 
     base_path = output_path.rsplit(".", 1)[0]
     ext = output_path.rsplit(".", 1)[1] if "." in output_path else "png"
 
     layers = list(layers)
+    image_visualizations = None
 
     if viz_type in ["image", "all"]:
         print("\n📊 Generating image attention visualization...")
@@ -319,15 +383,19 @@ def visualize_video_frame_attention(
             colormap="jet",
             overlay_alpha=0.5,
         )
-        _ = visualize_attention_on_frame(
+        image_output_path = None
+        if save_image_png:
+            image_output_path = f"{base_path}_image.{ext}" if viz_type == "all" else output_path
+        image_visualizations = visualize_attention_on_frame(
             model,
             observation,
             frame_rgb,
             config,
-            output_path=f"{base_path}_image.{ext}" if viz_type == "all" else output_path,
+            output_path=image_output_path,
             query_token_type="action",
         )
-        print("  ✓ Saved image attention visualization")
+        if save_image_png:
+            print("  ✓ Saved image attention visualization")
 
     if viz_type in ["text", "all"]:
         print("\n📝 Generating text attention visualization...")
@@ -385,6 +453,14 @@ def visualize_video_frame_attention(
     print(f"  Layers: {layers}")
     print(f"  action_dim: {cfg.action_dim}, action_horizon: {cfg.action_horizon}, max_token_len: {cfg.max_token_len}")
 
+    # Return image visualizations and attention data for episode-level analysis
+    token_ids = observation.tokenized_prompt[0].tolist()
+    return {
+        'image_visualizations': image_visualizations,
+        'attention_dict': attention_dict,
+        'token_ids': token_ids,
+    }
+
 
 def visualize_episode_attention(
     data_root: str,
@@ -392,7 +468,7 @@ def visualize_episode_attention(
     checkpoint_path: str,
     group: str = "90",
     episode_idx: int = 0,
-    frame_indices: list = (0, 10, 20, 30),
+    frame_step: int = 10,
     output_dir: str = "attention_viz_output",
     viz_type: str = "all",
     paligemma_variant: str = "gemma_2b",
@@ -402,6 +478,8 @@ def visualize_episode_attention(
     pi05: bool = True,
     num_image_tokens: int = 256,
     layers: list = (0, 8, 17),
+    save_video: bool = True,  # save image attention as MP4 video instead of separate PNGs
+    fps: int = 2,  # frames per second for video output
 ):
     print("Indexing dataset...")
     episodes = index_libero_dataset(
@@ -421,7 +499,19 @@ def visualize_episode_attention(
     print(f"  Prompt: {episode.prompt}")
     print(f"  Video: {episode.video_path}")
 
+    # Auto-generate frame indices: every frame_step frames until end of video
+    total_frames = get_video_frame_count(episode.video_path)
+    frame_indices = list(range(0, total_frames, frame_step))
+    print(f"  Total frames: {total_frames}, visualizing {len(frame_indices)} frames (every {frame_step} frames)")
+
     os.makedirs(output_dir, exist_ok=True)
+
+    # Collect image attention frames for video creation (keyed by layer index)
+    video_frames_by_layer = {layer_idx: [] for layer_idx in layers}
+
+    # Collect attention stats for episode-level evolution visualization
+    episode_attention_stats = []
+    processed_frame_indices = []
 
     for frame_idx in frame_indices:
         print(f"\n{'=' * 60}")
@@ -433,8 +523,12 @@ def visualize_episode_attention(
             f"{episode.group}_{episode.episode_id}_frame{frame_idx:03d}.png",
         )
 
+        # When save_video=True, skip saving individual image attention PNGs
+        # (text and combined visualizations will still be saved as PNGs)
+        save_image_png = not save_video
+
         try:
-            visualize_video_frame_attention(
+            result = visualize_video_frame_attention(
                 video_path=episode.video_path,
                 frame_idx=frame_idx,
                 prompt=episode.prompt,
@@ -448,11 +542,88 @@ def visualize_episode_attention(
                 max_token_len=max_token_len,
                 pi05=pi05,
                 num_image_tokens=num_image_tokens,
+                save_image_png=save_image_png,
             )
+
+            if result is not None:
+                image_visualizations = result.get('image_visualizations')
+                attention_dict = result.get('attention_dict')
+                token_ids = result.get('token_ids')
+
+                # Collect frames for video if image visualizations were generated
+                if save_video and image_visualizations:
+                    for layer_idx, vis_frame in image_visualizations.items():
+                        if layer_idx in video_frames_by_layer:
+                            video_frames_by_layer[layer_idx].append(vis_frame)
+
+                # Compute and collect attention stats for episode-level analysis
+                if attention_dict and token_ids:
+                    frame_stats = compute_frame_attention_stats(
+                        attention_dict=attention_dict,
+                        token_ids=token_ids,
+                        num_image_tokens=num_image_tokens,
+                        layers_to_analyze=list(layers),
+                    )
+                    episode_attention_stats.append(frame_stats)
+                    processed_frame_indices.append(frame_idx)
+
         except Exception as e:
             print(f"  ✗ Error processing frame {frame_idx}: {e}")
             import traceback
             traceback.print_exc()
+
+    # Create MP4 videos for each layer
+    if save_video and viz_type in ["image", "all"]:
+        print(f"\n{'=' * 60}")
+        print("Creating MP4 videos for image attention...")
+        print(f"{'=' * 60}")
+        for layer_idx, frames in video_frames_by_layer.items():
+            if frames:
+                video_path = os.path.join(
+                    output_dir,
+                    f"{episode.group}_{episode.episode_id}_image_attention_layer{layer_idx}.mp4",
+                )
+                create_video_from_frames(frames, video_path, fps=fps)
+
+    # Generate episode-level attention evolution visualizations
+    if episode_attention_stats:
+        print(f"\n{'=' * 60}")
+        print("Creating episode-level attention evolution visualizations...")
+        print(f"{'=' * 60}")
+
+        # Evolution across frames (how attention changes throughout the episode)
+        evolution_across_frames_path = os.path.join(
+            output_dir,
+            f"{episode.group}_{episode.episode_id}_attention_evolution_across_frames.png",
+        )
+        fig = visualize_episode_attention_evolution(
+            frame_attention_stats=episode_attention_stats,
+            frame_indices=processed_frame_indices,
+            prompt_text=episode.prompt,
+            layers_to_viz=list(layers),
+            output_path=evolution_across_frames_path,
+            mode="across_frames",
+        )
+        if fig is not None:
+            plt.close(fig)
+        print(f"  ✓ Saved attention evolution across frames")
+
+        # Evolution across layers (how attention changes through the network)
+        evolution_across_layers_path = os.path.join(
+            output_dir,
+            f"{episode.group}_{episode.episode_id}_attention_evolution_across_layers.png",
+        )
+        fig = visualize_episode_attention_evolution(
+            frame_attention_stats=episode_attention_stats,
+            frame_indices=processed_frame_indices,
+            prompt_text=episode.prompt,
+            layers_to_viz=list(layers),
+            output_path=evolution_across_layers_path,
+            mode="across_layers",
+        )
+        if fig is not None:
+            plt.close(fig)
+        print(f"  ✓ Saved attention evolution across layers")
 
     print(f"\n{'=' * 60}")
     print(f"✓ All visualizations saved to {output_dir}/")
@@ -477,16 +648,22 @@ def main():
     parser.add_argument("--output", type=str, default="outputs_attention/attention_viz.png", help="Output path (single mode)")
 
     # Episode mode
-    parser.add_argument("--data-root", type=str, default="data/libero", help="Data root directory (episode mode)")
+    parser.add_argument("--data-root", type=str, default="/n/netscratch/sham_lab/Lab/chloe00/data/libero", help="Data root directory (episode mode)")
+    # parser.add_argument("--data-root", type=str, default="/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero", help="Data root directory (episode mode)")
+
     parser.add_argument("--activations-root", type=str,
                         default="/n/netscratch/sham_lab/Lab/chloe00/pi0_activations",
                         help="Activations root directory (episode mode)")
     parser.add_argument("--group", type=str, default="90", help="Libero group (episode mode)")
     parser.add_argument("--episode-idx", type=int, default=0, help="Episode index (episode mode)")
-    parser.add_argument("--frames", type=int, nargs="+", default=[0, 10, 20, 30],
-                        help="Frame indices to visualize (episode mode)")
+    parser.add_argument("--frame-step", type=int, default=10,
+                        help="Visualize every N frames (episode mode, default: 10)")
     parser.add_argument("--output-dir", type=str, default="outputs_attention",
                         help="Output directory (episode mode)")
+    parser.add_argument("--fps", type=int, default=2,
+                        help="Frames per second for video output (episode mode, default: 2)")
+    parser.add_argument("--no-video", action="store_true",
+                        help="Disable video output and save individual PNGs instead (episode mode)")
 
     # Model/config knobs
     parser.add_argument("--paligemma-variant", type=str, default="gemma_2b",
@@ -539,7 +716,7 @@ def main():
             checkpoint_path=args.checkpoint,
             group=args.group,
             episode_idx=args.episode_idx,
-            frame_indices=args.frames,
+            frame_step=args.frame_step,
             output_dir=args.output_dir,
             viz_type=args.viz_type,
             paligemma_variant=args.paligemma_variant,
@@ -549,6 +726,8 @@ def main():
             pi05=pi05,
             num_image_tokens=args.num_image_tokens,
             layers=args.layers,
+            save_video=not args.no_video,
+            fps=args.fps,
         )
 
 
