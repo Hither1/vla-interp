@@ -30,6 +30,30 @@ Usage:
     # Extract hidden states:
     python run_paligemma_standalone.py --mode hidden_states \
         --video rollout_put_the_bowl_on_the_stove_trial16_success.mp4 --output hidden_states.npz
+
+    # Extract attention maps (no generation):
+    python run_paligemma_standalone.py --mode attention \
+        --video rollout_put_the_bowl_on_the_stove_trial16_success.mp4 --output attention.npz
+
+    # Visualize attention (simple 3-panel: image | heatmap | overlay):
+    python run_paligemma_standalone.py --mode attention --visualize \
+        --video rollout_put_the_bowl_on_the_stove_trial16_success.mp4
+
+    # Visualize specific layer:
+    python run_paligemma_standalone.py --mode attention --visualize \
+        --layers 11 --video rollout_task_trial1_success.mp4
+
+    # Visualize attention from last text token (instead of all text tokens):
+    python run_paligemma_standalone.py --mode attention --visualize \
+        --query-tokens last --video rollout_task_trial1_success.mp4
+
+    # Show full attention matrix heatmap:
+    python run_paligemma_standalone.py --mode attention --show-matrix \
+        --layers 0 8 17 --video rollout_task_trial1_success.mp4
+
+    # Save visualization to file:
+    python run_paligemma_standalone.py --mode attention --visualize \
+        --save-fig attention_viz.png --video rollout_task_trial1_success.mp4
 """
 
 import os
@@ -40,6 +64,8 @@ import jax
 import jax.numpy as jnp
 from PIL import Image
 import argparse
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
@@ -52,6 +78,374 @@ import sentencepiece
 import re
 
 from utils import get_frame_opencv
+
+
+def enable_attention_saving():
+    """Enable attention weight saving in the Gemma model."""
+    _gemma.SAVE_ATTENTION_WEIGHTS = True
+    _gemma.ATTENTION_WEIGHTS.clear()
+    _gemma._attention_layer_counter = 0
+
+
+def disable_attention_saving():
+    """Disable attention weight saving."""
+    _gemma.SAVE_ATTENTION_WEIGHTS = False
+
+
+def get_attention_weights():
+    """Get the captured attention weights and reset the counter."""
+    weights = dict(_gemma.ATTENTION_WEIGHTS)
+    _gemma.ATTENTION_WEIGHTS.clear()
+    _gemma._attention_layer_counter = 0
+    return weights
+
+
+def visualize_attention(
+    attention_results: dict,
+    image_rgb: np.ndarray = None,
+    layers: list[int] | None = None,
+    heads: list[int] | None = None,
+    query_tokens: str | list[int] | None = None,
+    show_image_attention: bool = True,
+    show_text_attention: bool = True,
+    save_path: str | None = None,
+):
+    """
+    Visualize attention maps from PaliGemma.
+
+    Args:
+        attention_results: Output from extract_paligemma_attention()
+        image_rgb: Original image (optional, for overlay)
+        layers: Which layers to visualize (None = all)
+        heads: Which attention heads to visualize (None = average across heads)
+        query_tokens: Which query tokens to visualize attention FROM:
+            - "text": attention from text tokens to image
+            - "image": attention from image tokens to text
+            - list of ints: specific token indices
+            - None: last text token (default)
+        show_image_attention: Show attention over image patches
+        show_text_attention: Show attention over text tokens
+        save_path: Path to save figure (None = display)
+    """
+    attn_weights = attention_results["attention_weights"]
+    token_info = attention_results["token_info"]
+    num_img_tokens = token_info["total_image_tokens"]
+    num_text_tokens = token_info["num_text_tokens"]
+    total_tokens = token_info["total_tokens"]
+    decoded_tokens = token_info.get("decoded_text_tokens", [])
+
+    # Determine which layers to show
+    available_layers = sorted(attn_weights.keys())
+    if layers is None:
+        # Show first, middle, and last layer by default
+        if len(available_layers) >= 3:
+            layers = [available_layers[0], available_layers[len(available_layers)//2], available_layers[-1]]
+        else:
+            layers = available_layers
+    layers = [l for l in layers if l in available_layers]
+
+    # Determine query token indices
+    if query_tokens is None or query_tokens == "last":
+        # Default: last text token
+        query_indices = [total_tokens - 1]
+        query_label = "last text token"
+    elif query_tokens == "text":
+        # All text tokens
+        query_indices = list(range(num_img_tokens, total_tokens))
+        query_label = "all text tokens (averaged)"
+    elif query_tokens == "image":
+        # All image tokens (attention FROM image TO text)
+        query_indices = list(range(num_img_tokens))
+        query_label = "all image tokens (averaged)"
+    elif isinstance(query_tokens, list):
+        query_indices = query_tokens
+        query_label = f"tokens {query_tokens}"
+    else:
+        query_indices = [int(query_tokens)]
+        query_label = f"token {query_tokens}"
+
+    n_layers = len(layers)
+    n_cols = 2 if (show_image_attention and show_text_attention) else 1
+
+    fig = plt.figure(figsize=(6 * n_cols, 5 * n_layers))
+    gs = gridspec.GridSpec(n_layers, n_cols, figure=fig, hspace=0.3, wspace=0.2)
+
+    for row, layer_idx in enumerate(layers):
+        attn = attn_weights[layer_idx]  # Shape: [B, K, G, T, S] or [K, G, T, S]
+
+        # Handle batch dimension
+        if attn.ndim == 5:
+            attn = attn[0]  # Remove batch dim -> [K, G, T, S]
+
+        # Average over heads if not specified
+        if heads is None:
+            # attn is [K, G, T, S], average over K and G -> [T, S]
+            attn = attn.mean(axis=(0, 1))
+        else:
+            # Select specific heads and average
+            attn = attn[:, heads, :, :].mean(axis=(0, 1))
+
+        # Get attention FROM query tokens
+        query_attn = attn[query_indices, :].mean(axis=0)  # [S]
+
+        col = 0
+
+        # Image attention visualization
+        if show_image_attention:
+            ax = fig.add_subplot(gs[row, col])
+
+            # Get attention to image tokens
+            img_attn = query_attn[:num_img_tokens]
+
+            # Reshape to image grid (assuming 16x16 patches per view)
+            patches_per_side = 16
+            num_views = token_info["num_views"]
+
+            if num_views == 1:
+                img_attn_2d = img_attn.reshape(patches_per_side, patches_per_side)
+            else:
+                # Multiple views - show them side by side
+                img_attn_2d = img_attn.reshape(num_views, patches_per_side, patches_per_side)
+                img_attn_2d = img_attn_2d.mean(axis=0)  # Average across views
+
+            # Normalize attention to [0, 1]
+            img_attn_2d = img_attn_2d - img_attn_2d.min()
+            if img_attn_2d.max() > 0:
+                img_attn_2d = img_attn_2d / img_attn_2d.max()
+
+            # Plot heatmap
+            if image_rgb is not None:
+                # Resize image to display size
+                display_size = (224, 224)
+                img_resized = np.array(Image.fromarray(image_rgb).resize(display_size))
+
+                # Upsample attention to image size using bilinear interpolation
+                attn_upsampled = np.array(Image.fromarray(
+                    (img_attn_2d * 255).astype(np.uint8)).resize(
+                    display_size, Image.BILINEAR)) / 255.0
+
+                # Create heatmap overlay
+                cmap = plt.cm.jet
+                heatmap = cmap(attn_upsampled)[:, :, :3]  # Get RGB, drop alpha
+
+                # Blend: image * (1 - alpha * attn) + heatmap * (alpha * attn)
+                alpha = 0.6
+                blended = img_resized / 255.0 * (1 - alpha * attn_upsampled[:, :, None]) + \
+                          heatmap * (alpha * attn_upsampled[:, :, None])
+                blended = np.clip(blended, 0, 1)
+
+                ax.imshow(blended)
+                # Add colorbar for reference
+                sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(0, 1))
+                plt.colorbar(sm, ax=ax, fraction=0.046, pad=0.04, label='Attention')
+            else:
+                im = ax.imshow(img_attn_2d, cmap='jet', aspect='equal')
+                plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+
+            ax.set_title(f"Layer {layer_idx}: Image Attention\n(from {query_label})")
+            ax.axis('off')
+            col += 1
+
+        # Text attention visualization
+        if show_text_attention:
+            ax = fig.add_subplot(gs[row, col])
+
+            # Get attention to text tokens
+            text_attn = query_attn[num_img_tokens:]
+
+            # Bar plot for text tokens
+            x = np.arange(len(text_attn))
+            bars = ax.bar(x, text_attn, color='steelblue', alpha=0.8)
+
+            # Add token labels
+            if decoded_tokens and len(decoded_tokens) <= 30:
+                ax.set_xticks(x)
+                ax.set_xticklabels(decoded_tokens[:len(text_attn)], rotation=45, ha='right', fontsize=8)
+            else:
+                ax.set_xlabel("Text Token Index")
+
+            ax.set_ylabel("Attention Weight")
+            ax.set_title(f"Layer {layer_idx}: Text Attention\n(from {query_label})")
+
+    plt.suptitle(f"Attention Visualization\nPrompt: \"{attention_results['prompt'][:50]}...\"",
+                 fontsize=12, y=1.02)
+
+
+    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+    print(f"Saved visualization to: {save_path}")
+  
+
+
+
+def visualize_image_attention(
+    attention_results: dict,
+    layer: int = None,
+    head: int | None = None,
+    query_tokens: str | list[int] | None = "text",
+    save_path: str | None = None,
+):
+    """
+    Simple visualization showing attention overlaid on the image.
+
+    Args:
+        attention_results: Output from extract_paligemma_attention()
+        layer: Which layer to visualize (None = last layer)
+        head: Which head (None = average)
+        query_tokens: Which tokens to visualize attention FROM
+        save_path: Path to save figure
+    """
+    attn_weights = attention_results["attention_weights"]
+    token_info = attention_results["token_info"]
+    image_rgb = attention_results.get("image_rgb")
+    num_img_tokens = token_info["total_image_tokens"]
+    total_tokens = token_info["total_tokens"]
+    num_views = token_info["num_views"]
+    patches_per_side = 16
+
+    # Select layer
+    available_layers = sorted(attn_weights.keys())
+    if layer is None:
+        layer = available_layers[-1]  # Default to last layer
+    if layer not in available_layers:
+        print(f"Layer {layer} not found. Available: {available_layers}")
+        return
+
+    # Get attention and process
+    attn = attn_weights[layer]
+    if attn.ndim == 5:
+        attn = attn[0]
+    if head is None:
+        attn = attn.mean(axis=(0, 1))
+    else:
+        attn = attn[:, head, :, :].mean(axis=0)
+
+    # Determine query indices
+    if query_tokens is None or query_tokens == "last":
+        query_indices = [total_tokens - 1]
+        query_label = "last text token"
+    elif query_tokens == "text":
+        query_indices = list(range(num_img_tokens, total_tokens))
+        query_label = "text tokens"
+    elif query_tokens == "image":
+        query_indices = list(range(num_img_tokens))
+        query_label = "image tokens"
+    elif isinstance(query_tokens, list):
+        query_indices = query_tokens
+        query_label = f"tokens {query_tokens}"
+    else:
+        query_indices = [int(query_tokens)]
+        query_label = f"token {query_tokens}"
+
+    # Get attention to image
+    query_attn = attn[query_indices, :num_img_tokens].mean(axis=0)
+
+    # Reshape to 2D
+    if num_views == 1:
+        img_attn_2d = query_attn.reshape(patches_per_side, patches_per_side)
+    else:
+        img_attn_2d = query_attn.reshape(num_views, patches_per_side, patches_per_side)
+        img_attn_2d = img_attn_2d.mean(axis=0)
+
+    # Normalize
+    img_attn_2d = img_attn_2d - img_attn_2d.min()
+    if img_attn_2d.max() > 0:
+        img_attn_2d = img_attn_2d / img_attn_2d.max()
+
+    # Create figure - just the overlay
+    fig, ax = plt.subplots(figsize=(8, 8))
+
+    if image_rgb is not None:
+        # Upsample attention to image size
+        h, w = image_rgb.shape[:2]
+        attn_upsampled = np.array(Image.fromarray(
+            (img_attn_2d * 255).astype(np.uint8)).resize(
+            (w, h), Image.BILINEAR)) / 255.0
+
+        # Create heatmap overlay
+        cmap = plt.cm.jet
+        heatmap = cmap(attn_upsampled)[:, :, :3]
+        alpha = 0.5
+        blended = image_rgb / 255.0 * (1 - alpha) + heatmap * alpha
+        blended = np.clip(blended, 0, 1)
+
+        ax.imshow(blended)
+    else:
+        im = ax.imshow(img_attn_2d, cmap='jet', aspect='equal')
+        plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+
+    ax.set_title(f"Layer {layer} | From: {query_label}\n\"{attention_results['prompt'][:50]}...\"", fontsize=10)
+    ax.axis('off')
+    plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        print(f"Saved to: {save_path}")
+    else:
+        plt.show()
+
+    plt.close()
+
+
+def visualize_attention_matrix(
+    attention_results: dict,
+    layer: int,
+    head: int | None = None,
+    save_path: str | None = None,
+):
+    """
+    Visualize the full attention matrix for a specific layer.
+
+    Args:
+        attention_results: Output from extract_paligemma_attention()
+        layer: Which layer to visualize
+        head: Which head to show (None = average)
+        save_path: Path to save figure
+    """
+    attn_weights = attention_results["attention_weights"]
+    token_info = attention_results["token_info"]
+    num_img_tokens = token_info["total_image_tokens"]
+
+    if layer not in attn_weights:
+        print(f"Layer {layer} not found. Available: {list(attn_weights.keys())}")
+        return
+
+    attn = attn_weights[layer]
+    if attn.ndim == 5:
+        attn = attn[0]  # Remove batch
+
+    if head is None:
+        attn = attn.mean(axis=(0, 1))  # Average over K, G -> [T, S]
+        head_label = "averaged"
+    else:
+        attn = attn[:, head, :, :].mean(axis=0)  # [T, S]
+        head_label = f"head {head}"
+
+    fig, ax = plt.subplots(figsize=(12, 10))
+
+    im = ax.imshow(attn, cmap='viridis', aspect='auto')
+    plt.colorbar(im, ax=ax, label='Attention Weight')
+
+    # Add separators for image/text boundaries
+    ax.axhline(y=num_img_tokens - 0.5, color='red', linestyle='--', linewidth=2, label='Image/Text boundary')
+    ax.axvline(x=num_img_tokens - 0.5, color='red', linestyle='--', linewidth=2)
+
+    ax.set_xlabel("Key Position (attending TO)")
+    ax.set_ylabel("Query Position (attending FROM)")
+    ax.set_title(f"Layer {layer} Attention Matrix ({head_label})\n"
+                 f"Image tokens: 0-{num_img_tokens-1}, Text tokens: {num_img_tokens}-{attn.shape[0]-1}")
+
+    # Add region labels
+    ax.text(num_img_tokens // 2, -0.02 * attn.shape[0], 'Image', ha='center', fontsize=10, color='red')
+    ax.text(num_img_tokens + (attn.shape[1] - num_img_tokens) // 2, -0.02 * attn.shape[0],
+            'Text', ha='center', fontsize=10, color='blue')
+
+    if save_path:
+        plt.savefig(save_path, dpi=150, bbox_inches='tight')
+        print(f"Saved attention matrix to: {save_path}")
+    else:
+        plt.show()
+
+    plt.close()
 
 
 def extract_task_from_filename(filename: str) -> str:
@@ -619,6 +1013,188 @@ def extract_paligemma_hidden_states(
     }
 
 
+def extract_paligemma_attention(
+    checkpoint_path: str,
+    image_source: str | np.ndarray,
+    prompt: str,
+    video_frame_idx: int = 0,
+    paligemma_variant: str = "gemma_2b",
+    action_expert_variant: str = "gemma_300m",
+    max_token_len: int = 256,
+    pi05: bool = True,
+    layers: list[int] | None = None,
+):
+    """
+    Extract attention maps from PaliGemma without generating text.
+
+    This runs a single forward pass and captures attention weights from all
+    transformer layers. Useful for visualizing what the model attends to.
+
+    Args:
+        checkpoint_path: Path to model checkpoint
+        image_source: Image path, video path, or numpy array
+        prompt: Text prompt
+        video_frame_idx: Frame index if video
+        paligemma_variant: Model variant
+        action_expert_variant: Action expert variant
+        max_token_len: Maximum token length
+        pi05: Whether using pi0.5 mode
+        layers: Which layers to return (None = all layers)
+
+    Returns:
+        dict with:
+            - attention_weights: dict mapping layer_idx -> attention tensor
+              Each tensor has shape [B, K, G, T, S] where:
+                B = batch size
+                K = num_kv_heads
+                G = num_heads_per_kv_head
+                T = query sequence length
+                S = key/value sequence length
+            - num_image_tokens: Number of image tokens (per view)
+            - num_text_tokens: Number of text tokens
+            - num_views: Number of image views
+            - prompt: The input prompt
+            - token_info: Dict with token position info
+    """
+    print("=" * 60)
+    print("Extracting PaliGemma Attention Maps")
+    print("=" * 60)
+
+    # Load image
+    print("\n1. Loading image...")
+    if isinstance(image_source, str) and image_source.endswith(('.mp4', '.avi', '.mov')):
+        image_rgb = get_frame_opencv(image_source, video_frame_idx)
+    elif isinstance(image_source, str):
+        image_rgb = np.array(Image.open(image_source).convert("RGB"))
+    else:
+        image_rgb = image_source
+
+    image_tensor = preprocess_image(image_rgb)
+
+    # Load model
+    print("\n2. Loading Pi0 model...")
+    model, config = load_pi0_model(
+        checkpoint_path=checkpoint_path,
+        paligemma_variant=paligemma_variant,
+        action_expert_variant=action_expert_variant,
+        max_token_len=max_token_len,
+        pi05=pi05,
+    )
+
+    # Load tokenizer
+    tokenizer = load_tokenizer()
+
+    # Create observation
+    print("\n3. Creating observation...")
+    observation = create_observation_for_paligemma(
+        image=image_tensor,
+        prompt=prompt,
+        tokenizer=tokenizer,
+        max_token_len=max_token_len,
+        state_dim=config.action_dim,
+        pi05=pi05,
+    )
+
+    # Preprocess observation
+    observation = _model.preprocess_observation(None, observation, train=False)
+    prefix_tokens, prefix_mask, prefix_ar_mask = model.embed_prefix(observation)
+
+    # Count token types
+    num_image_tokens_per_view = 256  # 16x16 patches for 224x224 image with patch size 14
+    num_views = sum(1 for k in observation.images if observation.image_masks[k].any())
+    total_image_tokens = num_views * num_image_tokens_per_view
+    total_tokens = prefix_tokens.shape[1]
+    num_text_tokens = total_tokens - total_image_tokens
+
+    print(f"  Total tokens: {total_tokens}")
+    print(f"  Image tokens: {total_image_tokens} ({num_views} views x {num_image_tokens_per_view})")
+    print(f"  Text tokens: {num_text_tokens}")
+
+    # Enable attention saving
+    print("\n4. Running forward pass with attention capture...")
+    enable_attention_saving()
+
+    try:
+        # Build attention mask
+        def make_attn_mask(input_mask, ar_mask):
+            ar_mask = jnp.broadcast_to(ar_mask, input_mask.shape)
+            cumsum = jnp.cumsum(ar_mask, axis=1)
+            attn_mask = cumsum[:, None, :] <= cumsum[:, :, None]
+            valid_mask = input_mask[:, None, :] * input_mask[:, :, None]
+            return jnp.logical_and(attn_mask, valid_mask)
+
+        attn_mask = make_attn_mask(prefix_mask, prefix_ar_mask)
+        positions = jnp.cumsum(prefix_mask, axis=1) - 1
+
+        # Forward pass (this captures attention weights)
+        outputs, kv_cache = model.PaliGemma.llm(
+            [prefix_tokens, None],
+            mask=attn_mask,
+            positions=positions,
+            adarms_cond=[None, None],
+        )
+
+        # Get captured attention weights
+        attention_weights = get_attention_weights()
+
+    finally:
+        disable_attention_saving()
+
+    # Process attention weights
+    processed_weights = {}
+    num_layers = len(attention_weights)
+    print(f"\n5. Processing attention from {num_layers} layers...")
+
+    for layer_key, attn_list in attention_weights.items():
+        layer_idx = int(layer_key.split('_')[1])
+
+        # Filter layers if specified
+        if layers is not None and layer_idx not in layers:
+            continue
+
+        # Stack attention from this layer (usually just one entry per layer)
+        attn = np.stack([np.array(a) for a in attn_list], axis=0)
+        if attn.shape[0] == 1:
+            attn = attn[0]  # Remove extra dimension
+
+        processed_weights[layer_idx] = attn
+        print(f"  Layer {layer_idx}: shape {attn.shape}")
+
+    # Decode tokens for reference
+    tokenized = np.array(observation.tokenized_prompt[0])
+    valid_tokens = tokenized[tokenized != 0]
+    decoded_tokens = [tokenizer.id_to_piece(int(t)) for t in valid_tokens]
+
+    # Create token info
+    token_info = {
+        "total_tokens": total_tokens,
+        "num_image_tokens_per_view": num_image_tokens_per_view,
+        "num_views": num_views,
+        "total_image_tokens": total_image_tokens,
+        "num_text_tokens": num_text_tokens,
+        "image_token_range": (0, total_image_tokens),
+        "text_token_range": (total_image_tokens, total_tokens),
+        "decoded_text_tokens": decoded_tokens,
+    }
+
+    print(f"\n  Token breakdown:")
+    print(f"    Image tokens [0:{total_image_tokens}]")
+    print(f"    Text tokens [{total_image_tokens}:{total_tokens}]")
+    print(f"    Decoded text: {' '.join(decoded_tokens[:20])}{'...' if len(decoded_tokens) > 20 else ''}")
+
+    return {
+        "attention_weights": processed_weights,
+        "num_image_tokens": total_image_tokens,
+        "num_text_tokens": num_text_tokens,
+        "num_views": num_views,
+        "prompt": prompt,
+        "image_shape": image_rgb.shape,
+        "token_info": token_info,
+        "prefix_mask": np.array(prefix_mask),
+        "image_rgb": image_rgb,  # Include for visualization
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Run PaliGemma VLM backbone standalone on images/videos"
@@ -653,10 +1229,24 @@ def main():
                         help="Sampling temperature (0 for greedy)")
 
     # Mode
-    parser.add_argument("--mode", type=str, choices=["generate", "hidden_states"],
+    parser.add_argument("--mode", type=str, choices=["generate", "hidden_states", "attention"],
                         default="generate",
-                        help="Mode: 'generate' for text generation, 'hidden_states' for extracting representations")
-    parser.add_argument("--output", type=str, help="Output path for hidden states (numpy format)")
+                        help="Mode: 'generate' for text generation, 'hidden_states' for extracting representations, 'attention' for attention maps")
+    parser.add_argument("--output", type=str, help="Output path for hidden states or attention (numpy format)")
+    parser.add_argument("--layers", type=int, nargs='+', default=None,
+                        help="Which layers to extract attention from (default: all)")
+
+    # Visualization options (for attention mode)
+    parser.add_argument("--visualize", action="store_true",
+                        help="Visualize attention maps (for --mode attention)")
+    parser.add_argument("--show-matrix", action="store_true",
+                        help="Show full attention matrix heatmap")
+    parser.add_argument("--simple-viz", action="store_true",
+                        help="Show simple 3-panel view: image | attention | overlay")
+    parser.add_argument("--query-tokens", type=str, default="text",
+                        help="Which tokens to visualize attention FROM: 'last', 'text', 'image', or comma-separated indices")
+    parser.add_argument("--save-fig", type=str, default=None,
+                        help="Save visualization to file instead of displaying")
 
     args = parser.parse_args()
 
@@ -728,7 +1318,86 @@ def main():
                     "prompt": prompt,
                     "generated_text": generated_text,
                 })
-            else:
+            elif args.mode == "attention":
+                results = extract_paligemma_attention(
+                    checkpoint_path=args.checkpoint,
+                    image_source=video_path if video_path else image_source,
+                    prompt=prompt,
+                    video_frame_idx=frame_idx,
+                    paligemma_variant=args.paligemma_variant,
+                    action_expert_variant=args.action_expert_variant,
+                    max_token_len=args.max_token_len,
+                    pi05=pi05,
+                    layers=args.layers,
+                )
+
+                print(f"\n  ATTENTION SUMMARY:")
+                print(f"    Number of layers: {len(results['attention_weights'])}")
+                print(f"    Number of image tokens: {results['num_image_tokens']}")
+                print(f"    Number of text tokens: {results['num_text_tokens']}")
+                if results['attention_weights']:
+                    sample_layer = list(results['attention_weights'].keys())[0]
+                    print(f"    Attention shape (layer {sample_layer}): {results['attention_weights'][sample_layer].shape}")
+
+                # Visualize if requested
+                if args.visualize or args.show_matrix or args.simple_viz:
+                    # Parse query tokens
+                    if args.query_tokens in ["last", "text", "image"]:
+                        query_tokens = args.query_tokens
+                    else:
+                        try:
+                            query_tokens = [int(x) for x in args.query_tokens.split(",")]
+                        except ValueError:
+                            query_tokens = "text"
+
+                    # Simple 3-panel visualization (default if --simple-viz or just --visualize)
+                    if args.simple_viz or (args.visualize and not args.show_matrix):
+                        viz_layers = args.layers if args.layers else [sorted(results["attention_weights"].keys())[-1]]
+                        for layer in viz_layers:
+                            save_path = args.save_fig
+                            if save_path:
+                                base, ext = os.path.splitext(save_path)
+                                if len(image_sources) > 1:
+                                    save_path = f"{base}_{img_idx}_layer{layer}{ext}"
+                                elif len(viz_layers) > 1:
+                                    save_path = f"{base}_layer{layer}{ext}"
+
+                            visualize_image_attention(
+                                results,
+                                layer=layer,
+                                query_tokens=query_tokens,
+                                save_path=save_path,
+                            )
+
+                    # Full multi-layer visualization
+                    elif args.visualize:
+                        save_path = args.save_fig
+                        if save_path and len(image_sources) > 1:
+                            base, ext = os.path.splitext(save_path)
+                            save_path = f"{base}_{img_idx}{ext}"
+
+                        visualize_attention(
+                            results,
+                            image_rgb=results["image_rgb"],
+                            layers=args.layers,
+                            query_tokens=query_tokens,
+                            save_path=save_path,
+                        )
+
+                    if args.show_matrix:
+                        # Show attention matrix for each requested layer
+                        viz_layers = args.layers if args.layers else [0, 8, 17]
+                        for layer in viz_layers:
+                            if layer in results["attention_weights"]:
+                                matrix_save_path = None
+                                if args.save_fig:
+                                    base, ext = os.path.splitext(args.save_fig)
+                                    matrix_save_path = f"{base}_matrix_layer{layer}{ext}"
+                                visualize_attention_matrix(results, layer=layer, save_path=matrix_save_path)
+
+                results["image_name"] = img_name
+                all_results.append(results)
+            else:  # hidden_states
                 results = extract_paligemma_hidden_states(
                     checkpoint_path=args.checkpoint,
                     image_source=video_path if video_path else image_source,
@@ -758,7 +1427,55 @@ def main():
             print(f"\n[Image: {r['image']}]")
             print(f"[Prompt: {r['prompt']}]")
             print(f"Generated: {r['generated_text']}")
-    else:
+    elif args.mode == "attention":
+        print(f"\n{'=' * 60}")
+        print("ATTENTION EXTRACTION COMPLETE")
+        print(f"{'=' * 60}")
+        for r in all_results:
+            print(f"\n[Image: {r['image_name']}]")
+            print(f"[Prompt: {r['prompt']}]")
+            print(f"Layers captured: {sorted(r['attention_weights'].keys())}")
+            print(f"Token info: {r['num_image_tokens']} image + {r['num_text_tokens']} text tokens")
+
+        # Only save npz if --output is provided (and not just visualizing)
+        if args.output and not (args.visualize or args.show_matrix):
+            output_path = Path(args.output)
+            if len(all_results) == 1:
+                # For attention, we need to handle the nested dict structure
+                results = all_results[0]
+                save_dict = {
+                    "prompt": results["prompt"],
+                    "num_image_tokens": results["num_image_tokens"],
+                    "num_text_tokens": results["num_text_tokens"],
+                    "num_views": results["num_views"],
+                    "image_shape": results["image_shape"],
+                    "prefix_mask": results["prefix_mask"],
+                }
+                # Add attention weights with layer prefix
+                for layer_idx, attn in results["attention_weights"].items():
+                    save_dict[f"attn_layer_{layer_idx}"] = attn
+                # Add token info
+                for k, v in results["token_info"].items():
+                    if isinstance(v, (list, np.ndarray)):
+                        save_dict[f"token_info_{k}"] = np.array(v) if isinstance(v, list) else v
+                    else:
+                        save_dict[f"token_info_{k}"] = v
+
+                np.savez(args.output, **save_dict)
+                print(f"\nSaved attention maps to: {args.output}")
+            else:
+                for i, results in enumerate(all_results):
+                    out_file = output_path.parent / f"{output_path.stem}_{i}{output_path.suffix}"
+                    save_dict = {
+                        "prompt": results["prompt"],
+                        "num_image_tokens": results["num_image_tokens"],
+                        "num_text_tokens": results["num_text_tokens"],
+                    }
+                    for layer_idx, attn in results["attention_weights"].items():
+                        save_dict[f"attn_layer_{layer_idx}"] = attn
+                    np.savez(str(out_file), **save_dict)
+                    print(f"Saved: {out_file}")
+    else:  # hidden_states
         if args.output:
             # Save all results
             output_path = Path(args.output)
