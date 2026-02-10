@@ -33,7 +33,7 @@ class Args:
     # LIBERO environment-specific parameters
     #################################################################################################################
     task_suite_name: str = (
-        "libero_spatial"  # Task suite. Options: libero_spatial, libero_object, libero_goal, libero_10, libero_90
+        "libero_10"  # Task suite. Options: libero_spatial, libero_object, libero_goal, libero_10, libero_90
     )
     num_steps_wait: int = 10  # Number of steps to wait for objects to stabilize i n sim
     num_trials_per_task: int = 20  # Number of rollouts per task
@@ -48,6 +48,14 @@ class Args:
     # Prompt perturbation options
     prompt_mode: str = "original"  # original, empty, shuffle, random, synonym, opposite, custom
     custom_prompt: str = ""  # Used when prompt_mode="custom"
+
+    # Log likelihood tracking
+    track_log_likelihood: bool = True  # Enable flow-matching log likelihood tracking
+    log_likelihood_num_samples: int = 4  # Number of noise samples for LL estimation
+
+    # MMD (Maximum Mean Discrepancy) tracking
+    track_mmd: bool = True  # Enable multi-sample MMD (policy uncertainty)
+    mmd_num_samples: int = 8  # Number of diffusion samples for MMD estimation
 
 
 # Synonym mappings for common LIBERO action verbs
@@ -151,6 +159,155 @@ def _json_default(o):
     raise TypeError(f"Object of type {type(o).__name__} is not JSON serializable")
 
 
+def compute_smoothness_metrics(action_log):
+    """Compute action smoothness and boundary metrics from an episode's action log.
+
+    Annotates each action_log entry in-place with per-step smoothness fields, and
+    returns an episode-level summary dict.
+
+    Per-step fields added to action_log entries:
+        action_delta_norm   - L2 norm of action change (position+rotation, excludes gripper)
+        pos_delta_norm      - L2 norm of position (xyz) change
+        rot_delta_norm      - L2 norm of rotation (axis-angle) change
+        gripper_delta       - absolute change in gripper action
+        action_accel_norm   - L2 norm of acceleration (2nd derivative)
+        direction_consistency - cosine similarity between consecutive action deltas
+
+    LIBERO actions are [x, y, z, rx, ry, rz, gripper] (7D).
+    """
+    actions = np.array([entry["action"] for entry in action_log])
+    if len(actions) < 2:
+        return {}
+
+    # --- 1st derivative: action velocity ---
+    deltas = np.diff(actions, axis=0)  # (T-1, 7)
+    delta_norms = np.linalg.norm(deltas[:, :6], axis=1)  # exclude gripper for L2
+    pos_delta_norms = np.linalg.norm(deltas[:, :3], axis=1)
+    rot_delta_norms = np.linalg.norm(deltas[:, 3:6], axis=1)
+    gripper_deltas = np.abs(deltas[:, 6])
+
+    # --- 2nd derivative: action acceleration ---
+    accels = np.diff(deltas, axis=0)  # (T-2, 7)
+    accel_norms = np.linalg.norm(accels[:, :6], axis=1)
+
+    # --- Direction consistency (cosine similarity between consecutive deltas) ---
+    cosine_sims = []
+    for i in range(len(deltas) - 1):
+        d1, d2 = deltas[i, :6], deltas[i + 1, :6]
+        n1, n2 = np.linalg.norm(d1), np.linalg.norm(d2)
+        if n1 > 1e-8 and n2 > 1e-8:
+            cosine_sims.append(float(np.dot(d1, d2) / (n1 * n2)))
+        else:
+            cosine_sims.append(1.0)  # no motion = perfectly consistent
+
+    # --- Gripper state transitions (task-phase boundaries) ---
+    gripper_actions = actions[:, 6]
+    gripper_signs = np.sign(gripper_actions)
+    gripper_transitions = []
+    for i in range(1, len(gripper_signs)):
+        if gripper_signs[i] != gripper_signs[i - 1] and gripper_signs[i] != 0:
+            gripper_transitions.append({
+                "t": action_log[i]["t"],
+                "step_idx": i,
+                "from": "open" if gripper_signs[i - 1] > 0 else "close",
+                "to": "open" if gripper_signs[i] > 0 else "close",
+            })
+
+    # --- Chunk-boundary discontinuity analysis ---
+    chunk_start_set = {
+        i for i, entry in enumerate(action_log) if entry.get("is_chunk_start", False)
+    }
+    boundary_deltas = []
+    within_deltas = []
+    for i in range(len(delta_norms)):
+        # delta[i] = action_log[i+1] - action_log[i]
+        # If action_log[i+1] is a chunk start, this delta crosses a re-plan boundary.
+        if (i + 1) in chunk_start_set:
+            boundary_deltas.append(delta_norms[i])
+        else:
+            within_deltas.append(delta_norms[i])
+
+    chunk_boundary_stats = {}
+    if boundary_deltas:
+        mean_within = float(np.mean(within_deltas)) if within_deltas else 0.0
+        mean_boundary = float(np.mean(boundary_deltas))
+        chunk_boundary_stats = {
+            "mean_boundary_delta": mean_boundary,
+            "mean_within_chunk_delta": mean_within,
+            "boundary_ratio": (
+                mean_boundary / mean_within if mean_within > 1e-8 else float("inf")
+            ),
+            "num_chunk_boundaries": len(boundary_deltas),
+        }
+
+    # --- Annotate per-step metrics into action_log entries ---
+    for i, entry in enumerate(action_log):
+        if i < len(delta_norms):
+            entry["action_delta_norm"] = float(delta_norms[i])
+            entry["pos_delta_norm"] = float(pos_delta_norms[i])
+            entry["rot_delta_norm"] = float(rot_delta_norms[i])
+            entry["gripper_delta"] = float(gripper_deltas[i])
+        if i < len(accel_norms):
+            entry["action_accel_norm"] = float(accel_norms[i])
+        if i < len(cosine_sims):
+            entry["direction_consistency"] = float(cosine_sims[i])
+
+    # --- Episode-level summary ---
+    summary = {
+        "mean_action_delta": float(np.mean(delta_norms)),
+        "max_action_delta": float(np.max(delta_norms)),
+        "std_action_delta": float(np.std(delta_norms)),
+        "mean_action_accel": float(np.mean(accel_norms)) if len(accel_norms) > 0 else 0.0,
+        "max_action_accel": float(np.max(accel_norms)) if len(accel_norms) > 0 else 0.0,
+        "mean_pos_delta": float(np.mean(pos_delta_norms)),
+        "mean_rot_delta": float(np.mean(rot_delta_norms)),
+        "mean_direction_consistency": float(np.mean(cosine_sims)) if cosine_sims else 1.0,
+        "num_gripper_transitions": len(gripper_transitions),
+        "gripper_transitions": gripper_transitions,
+        **chunk_boundary_stats,
+    }
+    return summary
+
+
+def compute_replan_consistency(action_log, replan_steps):
+    """Measure how much the policy's predicted future changes between re-plans.
+
+    Consecutive action chunks overlap: chunk_i predicts [t..t+H-1], chunk_{i+1}
+    predicts [t+R..t+R+H-1], where R = replan_steps, H = action_horizon.  The
+    overlap is chunk_i[R:] vs chunk_{i+1}[:H-R].  A large L2 in this overlap
+    means the policy substantially revised its plan.
+
+    Requires ``full_action_chunk`` to have been stored in action_log entries at
+    chunk starts.
+    """
+    chunk_entries = [
+        e for e in action_log
+        if e.get("is_chunk_start") and "full_action_chunk" in e
+    ]
+    if len(chunk_entries) < 2:
+        return {}
+
+    replan_l2s = []
+    for i in range(len(chunk_entries) - 1):
+        old_chunk = np.array(chunk_entries[i]["full_action_chunk"])
+        new_chunk = np.array(chunk_entries[i + 1]["full_action_chunk"])
+        overlap_old = old_chunk[replan_steps:]
+        overlap_new = new_chunk[: len(overlap_old)]
+        n = min(len(overlap_old), len(overlap_new))
+        if n > 0:
+            replan_l2s.append(float(np.linalg.norm(overlap_old[:n] - overlap_new[:n])))
+
+    if not replan_l2s:
+        return {}
+
+    return {
+        "mean_replan_l2": float(np.mean(replan_l2s)),
+        "max_replan_l2": float(np.max(replan_l2s)),
+        "std_replan_l2": float(np.std(replan_l2s)),
+        "num_replans": len(replan_l2s),
+    }
+
+
 def eval_libero(args: Args) -> None:
     # Set random seed
     np.random.seed(args.seed)
@@ -231,6 +388,12 @@ def eval_libero(args: Args) -> None:
             # Setup
             t = 0
             replay_images = []
+            chunk_log_likelihood = None
+            chunk_loss_per_timestep = None
+            chunk_mmd_score = None
+            chunk_action_sample_std = None
+            chunk_action_std_per_ts = None
+            is_new_chunk = False
 
             logging.info(f"Starting episode {task_episodes+1}...")
             while t < max_steps + args.num_steps_wait:
@@ -256,7 +419,8 @@ def eval_libero(args: Args) -> None:
                     # Save preprocessed image for replay video
                     replay_images.append(img)
 
-                    if not action_plan:
+                    is_new_chunk = not action_plan
+                    if is_new_chunk:
                         # Finished executing previous action chunk -- compute new chunk
                         # Prepare observations dict
                         element = {
@@ -271,11 +435,27 @@ def eval_libero(args: Args) -> None:
                             ),
                             # "prompt": str(task_description),
                             "prompt": perturb_prompt(str(task_description), args.prompt_mode, all_task_descriptions),
-                            "episode_id": f"task{task_id}_ep{episode_idx}", 
+                            "episode_id": f"task{task_id}_ep{episode_idx}",
                         }
+                        if args.track_log_likelihood:
+                            element["compute_log_likelihood"] = True
+                            element["log_likelihood_num_samples"] = args.log_likelihood_num_samples
+                        if args.track_mmd:
+                            element["compute_mmd"] = True
+                            element["mmd_num_samples"] = args.mmd_num_samples
 
                         # Query model to get action
-                        action_chunk = client.infer(element)["actions"]
+                        result = client.infer(element)
+                        action_chunk = result["actions"]
+                        chunk_log_likelihood = result.get("log_likelihood")
+                        chunk_loss_per_timestep = result.get("loss_per_timestep")
+                        chunk_mmd_score = result.get("mmd_score")
+                        chunk_action_sample_std = result.get("action_sample_std")
+                        chunk_action_std_per_ts = result.get("action_std_per_timestep")
+                        if chunk_log_likelihood is not None:
+                            logging.info(f"  Log likelihood: {chunk_log_likelihood:.4f}")
+                        if chunk_mmd_score is not None:
+                            logging.info(f"  MMD: {chunk_mmd_score:.6f}, sample_std: {chunk_action_sample_std:.4f}")
                         assert (
                             len(action_chunk) >= args.replan_steps
                         ), f"We want to replan every {args.replan_steps} steps, but policy only predicts {len(action_chunk)} steps."
@@ -285,13 +465,28 @@ def eval_libero(args: Args) -> None:
 
                     # Execute action in environment
                     obs, reward, done, info = env.step(action.tolist())
-                    action_log.append({
+                    log_entry = {
                         "t": t,
                         "kind": "policy",
                         "action": np.asarray(action, dtype=np.float32).tolist(),
-                        "reward": reward,   # fill after step if you want
+                        "reward": reward,
                         "done": done,
-                    })
+                        "is_chunk_start": is_new_chunk,
+                    }
+                    # Only attach per-chunk data on the first step of each new chunk
+                    if is_new_chunk:
+                        # Save full predicted chunk for replan consistency analysis
+                        log_entry["full_action_chunk"] = np.asarray(
+                            action_chunk, dtype=np.float32
+                        ).tolist()
+                        if chunk_log_likelihood is not None:
+                            log_entry["log_likelihood"] = chunk_log_likelihood
+                            log_entry["loss_per_timestep"] = chunk_loss_per_timestep
+                        if chunk_mmd_score is not None:
+                            log_entry["mmd_score"] = chunk_mmd_score
+                            log_entry["action_sample_std"] = chunk_action_sample_std
+                            log_entry["action_std_per_timestep"] = chunk_action_std_per_ts
+                    action_log.append(log_entry)
 
                     if done:
                         task_successes += 1
@@ -319,6 +514,76 @@ def eval_libero(args: Args) -> None:
                 pathlib.Path(args.video_out_path)
                 / f"actions_{task_segment}_trial{episode_idx}_{suffix}.json"
             )
+            # Compute per-episode log likelihood summary
+            episode_lls = [
+                entry["log_likelihood"]
+                for entry in action_log
+                if "log_likelihood" in entry
+            ]
+            ll_summary = {}
+            if episode_lls:
+                ll_summary = {
+                    "mean_log_likelihood": float(np.mean(episode_lls)),
+                    "min_log_likelihood": float(np.min(episode_lls)),
+                    "max_log_likelihood": float(np.max(episode_lls)),
+                    "std_log_likelihood": float(np.std(episode_lls)),
+                    "num_chunks": len(episode_lls),
+                }
+                logging.info(
+                    f"Episode LL: mean={ll_summary['mean_log_likelihood']:.4f}, "
+                    f"min={ll_summary['min_log_likelihood']:.4f}, "
+                    f"max={ll_summary['max_log_likelihood']:.4f}"
+                )
+
+            # Compute smoothness & boundary metrics (also annotates action_log in-place)
+            smoothness_summary = compute_smoothness_metrics(action_log)
+            if smoothness_summary:
+                logging.info(
+                    f"Smoothness: mean_delta={smoothness_summary['mean_action_delta']:.4f}, "
+                    f"max_delta={smoothness_summary['max_action_delta']:.4f}, "
+                    f"mean_accel={smoothness_summary['mean_action_accel']:.4f}, "
+                    f"gripper_transitions={smoothness_summary['num_gripper_transitions']}"
+                )
+                if "boundary_ratio" in smoothness_summary:
+                    logging.info(
+                        f"Chunk boundaries: ratio={smoothness_summary['boundary_ratio']:.2f} "
+                        f"(boundary={smoothness_summary['mean_boundary_delta']:.4f} vs "
+                        f"within={smoothness_summary['mean_within_chunk_delta']:.4f})"
+                    )
+
+            # Per-episode MMD summary
+            episode_mmds = [
+                entry["mmd_score"]
+                for entry in action_log
+                if "mmd_score" in entry
+            ]
+            mmd_summary = {}
+            if episode_mmds:
+                mmd_summary = {
+                    "mean_mmd": float(np.mean(episode_mmds)),
+                    "max_mmd": float(np.max(episode_mmds)),
+                    "std_mmd": float(np.std(episode_mmds)),
+                }
+                episode_stds = [
+                    entry["action_sample_std"]
+                    for entry in action_log
+                    if "action_sample_std" in entry
+                ]
+                if episode_stds:
+                    mmd_summary["mean_action_sample_std"] = float(np.mean(episode_stds))
+                logging.info(
+                    f"Episode MMD: mean={mmd_summary['mean_mmd']:.6f}, "
+                    f"max={mmd_summary['max_mmd']:.6f}"
+                )
+
+            # Replan consistency: how much predicted future changes between chunks
+            replan_summary = compute_replan_consistency(action_log, args.replan_steps)
+            if replan_summary:
+                logging.info(
+                    f"Replan consistency: mean_L2={replan_summary['mean_replan_l2']:.4f}, "
+                    f"max_L2={replan_summary['max_replan_l2']:.4f}"
+                )
+
             with open(actions_path, "w") as f:
                 json.dump(
                     {
@@ -328,6 +593,10 @@ def eval_libero(args: Args) -> None:
                         "task_description": str(task_description),
                         "success": bool(done),
                         "actions": action_log,
+                        **ll_summary,
+                        "smoothness": smoothness_summary,
+                        "mmd": mmd_summary,
+                        "replan_consistency": replan_summary,
                     },
                     f,
                     indent=2,

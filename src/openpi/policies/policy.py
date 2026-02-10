@@ -44,6 +44,39 @@ from overcomplete.sae import TopKSAE, BatchTopKSAE
 BasePolicy: TypeAlias = _base_policy.BasePolicy
 
 
+def _compute_mmd_rbf(X: np.ndarray, Y: np.ndarray, bandwidth: float | None = None) -> float:
+    """Compute MMD² between two sample sets using a Gaussian RBF kernel.
+
+    Args:
+        X: (n, d) samples from distribution P.
+        Y: (m, d) samples from distribution Q.
+        bandwidth: RBF kernel bandwidth σ.  If None, uses median heuristic.
+
+    Returns:
+        Non-negative MMD² estimate.
+    """
+    def _sq_dists(A, B):
+        # ||a-b||² = ||a||² + ||b||² - 2 a·b
+        return np.maximum(
+            np.sum(A**2, axis=1, keepdims=True) + np.sum(B**2, axis=1, keepdims=True).T - 2 * A @ B.T,
+            0.0,
+        )
+
+    if bandwidth is None:
+        all_pts = np.vstack([X, Y])
+        dists = _sq_dists(all_pts, all_pts)
+        med = np.median(dists[dists > 0])
+        bandwidth = float(np.sqrt(med)) if med > 0 else 1.0
+
+    gamma = 1.0 / (2.0 * bandwidth**2)
+    mmd2 = (
+        np.exp(-gamma * _sq_dists(X, X)).mean()
+        + np.exp(-gamma * _sq_dists(Y, Y)).mean()
+        - 2.0 * np.exp(-gamma * _sq_dists(X, Y)).mean()
+    )
+    return float(max(0.0, mmd2))
+
+
 class Policy(BasePolicy):
     def __init__(
         self,
@@ -85,12 +118,20 @@ class Policy(BasePolicy):
         else:
             # JAX model setup
             self._sample_actions = nnx_utils.module_jit(model.sample_actions)
+            self._jit_compute_loss = nnx_utils.module_jit(model.compute_loss, static_argnames=("train",))
             self._rng = rng or jax.random.key(0)
 
     @override
     def infer(self, obs: dict, *, noise: np.ndarray | None = None) -> dict:  # type: ignore[misc]
         # Make a copy since transformations may modify the inputs in place.
         inputs = jax.tree.map(lambda x: x, obs)
+
+        # Extract analysis flags before transforms strip them.
+        compute_ll = bool(inputs.pop("compute_log_likelihood", False))
+        ll_num_samples = int(inputs.pop("log_likelihood_num_samples", 4))
+        compute_mmd = bool(inputs.pop("compute_mmd", False))
+        mmd_num_samples = int(inputs.pop("mmd_num_samples", 8))
+
         inputs = self._input_transform(inputs)
         if not self._is_pytorch_model:
             # Make a batch and convert to jax.Array.
@@ -112,9 +153,56 @@ class Policy(BasePolicy):
 
         observation = _model.Observation.from_dict(inputs)
         start_time = time.monotonic()
+        actions = self._sample_actions(sample_rng_or_pytorch_device, observation, **sample_kwargs)
+
+        # Compute log likelihood (flow matching loss proxy) if requested.
+        # Uses the model's compute_loss: averages MSE between predicted and true
+        # velocity over multiple random (noise, timestep) pairs. The negative mean
+        # loss serves as a log-likelihood proxy (higher = more confident).
+        ll_data = {}
+        if compute_ll and not self._is_pytorch_model:
+            ll_start = time.monotonic()
+            # actions shape: (1, action_horizon, action_dim)
+            total_loss = jnp.zeros(actions.shape[:-1])  # (1, action_horizon)
+            for _ in range(ll_num_samples):
+                self._rng, ll_rng = jax.random.split(self._rng)
+                loss = self._jit_compute_loss(ll_rng, observation, actions, train=False)
+                total_loss = total_loss + loss
+            mean_loss = total_loss / ll_num_samples  # (1, action_horizon)
+            mean_loss_np = np.asarray(mean_loss[0])  # remove batch dim -> (action_horizon,)
+            ll_data["log_likelihood"] = float(-np.mean(mean_loss_np))
+            ll_data["loss_per_timestep"] = mean_loss_np.tolist()
+            ll_data["log_likelihood_timing_ms"] = (time.monotonic() - ll_start) * 1000
+
+        # Multi-sample MMD: draw additional diffusion samples from the same
+        # observation, then compute split-sample kernel MMD to measure how
+        # spread / multimodal the action distribution is.
+        mmd_data = {}
+        if compute_mmd and not self._is_pytorch_model:
+            mmd_start = time.monotonic()
+            all_samples = [np.asarray(actions[0])]  # first sample, shape (ah, ad)
+            for _ in range(mmd_num_samples - 1):
+                self._rng, s_rng = jax.random.split(self._rng)
+                s = self._sample_actions(s_rng, observation, **sample_kwargs)
+                all_samples.append(np.asarray(s[0]))
+            samples_np = np.stack(all_samples)  # (N, ah, ad)
+
+            # Flatten action chunks for kernel MMD: (N, ah*ad)
+            flat = samples_np.reshape(mmd_num_samples, -1)
+            half = mmd_num_samples // 2
+            mmd_score = _compute_mmd_rbf(flat[:half], flat[half : 2 * half])
+
+            # Per-timestep std across samples (first 7 dims = real LIBERO actions)
+            per_step_std = np.std(samples_np[:, :, :7], axis=0)  # (ah, 7)
+
+            mmd_data["mmd_score"] = mmd_score
+            mmd_data["action_sample_std"] = float(np.mean(per_step_std))
+            mmd_data["action_std_per_timestep"] = np.mean(per_step_std, axis=-1).tolist()
+            mmd_data["mmd_timing_ms"] = (time.monotonic() - mmd_start) * 1000
+
         outputs = {
             "state": inputs["state"],
-            "actions": self._sample_actions(sample_rng_or_pytorch_device, observation, **sample_kwargs),
+            "actions": actions,
         }
         model_time = time.monotonic() - start_time
         if self._is_pytorch_model:
@@ -123,6 +211,8 @@ class Policy(BasePolicy):
             outputs = jax.tree.map(lambda x: np.asarray(x[0, ...]), outputs)
 
         outputs = self._output_transform(outputs)
+        outputs.update(ll_data)
+        outputs.update(mmd_data)
         outputs["policy_timing"] = {
             "infer_ms": model_time * 1000,
         }

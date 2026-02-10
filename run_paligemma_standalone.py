@@ -54,6 +54,16 @@ Usage:
     # Save visualization to file:
     python run_paligemma_standalone.py --mode attention --visualize \
         --save-fig attention_viz.png --video rollout_task_trial1_success.mp4
+
+    # Process every 10 frames and create attention video:
+    python run_paligemma_standalone.py --mode attention --visualize \
+        --frame-step 10 --output-video attention_video.mp4 \
+        --video rollout_put_the_bowl_on_the_stove_trial16_success.mp4
+
+    # Process every 5 frames with specific layer:
+    python run_paligemma_standalone.py --mode attention --visualize \
+        --frame-step 5 --layers 17 --output-video attention_layer17.mp4 \
+        --video rollout_task_trial1_success.mp4
 """
 
 import os
@@ -66,6 +76,8 @@ from PIL import Image
 import argparse
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import tempfile
+import cv2
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
@@ -78,6 +90,64 @@ import sentencepiece
 import re
 
 from utils import get_frame_opencv
+
+
+def get_video_frame_count(video_path: str) -> int:
+    """Get the total number of frames in a video."""
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise ValueError(f"Could not open video: {video_path}")
+    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    cap.release()
+    return frame_count
+
+
+def get_video_fps(video_path: str) -> float:
+    """Get the FPS of a video."""
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise ValueError(f"Could not open video: {video_path}")
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    cap.release()
+    return fps
+
+
+def create_video_from_images(image_paths: list, output_path: str, fps: float = 10.0):
+    """
+    Create a video from a list of image paths.
+
+    Args:
+        image_paths: List of paths to images (in order)
+        output_path: Output video path
+        fps: Frames per second for output video
+    """
+    if not image_paths:
+        print("No images to create video from")
+        return
+
+    # Read first image to get dimensions
+    first_img = cv2.imread(image_paths[0])
+    if first_img is None:
+        raise ValueError(f"Could not read image: {image_paths[0]}")
+
+    height, width = first_img.shape[:2]
+
+    # Create video writer
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+
+    for img_path in image_paths:
+        img = cv2.imread(img_path)
+        if img is None:
+            print(f"Warning: Could not read {img_path}, skipping")
+            continue
+        # Resize if needed
+        if img.shape[:2] != (height, width):
+            img = cv2.resize(img, (width, height))
+        out.write(img)
+
+    out.release()
+    print(f"Created video: {output_path} ({len(image_paths)} frames at {fps} fps)")
 
 
 def enable_attention_saving():
@@ -439,13 +509,11 @@ def visualize_attention_matrix(
     ax.text(num_img_tokens + (attn.shape[1] - num_img_tokens) // 2, -0.02 * attn.shape[0],
             'Text', ha='center', fontsize=10, color='blue')
 
-    if save_path:
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')
-        print(f"Saved attention matrix to: {save_path}")
-    else:
-        plt.show()
 
-    plt.close()
+    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+    print(f"Saved attention matrix to: {save_path}")
+
+
 
 
 def extract_task_from_filename(filename: str) -> str:
@@ -1056,9 +1124,7 @@ def extract_paligemma_attention(
             - prompt: The input prompt
             - token_info: Dict with token position info
     """
-    print("=" * 60)
     print("Extracting PaliGemma Attention Maps")
-    print("=" * 60)
 
     # Load image
     print("\n1. Loading image...")
@@ -1203,7 +1269,11 @@ def main():
     # Input source (supports multiple images and/or prompts)
     parser.add_argument("--image", type=str, nargs='+', help="Path(s) to input image(s)")
     parser.add_argument("--video", type=str, help="Path to input video")
-    parser.add_argument("--frame-idx", type=int, nargs='+', default=[0], help="Frame index(es) for video input")
+    parser.add_argument("--frame-idx", type=int, nargs='+', default=None, help="Frame index(es) for video input")
+    parser.add_argument("--frame-step", type=int, default=None,
+                        help="Process every N frames from video (e.g., --frame-step 10 for every 10 frames)")
+    parser.add_argument("--output-video", type=str, default=None,
+                        help="Output video path when using --frame-step (concatenates visualizations)")
 
     # Model
     parser.add_argument("--checkpoint", type=str,
@@ -1265,8 +1335,19 @@ def main():
         else:
             auto_prompts = args.prompt
     elif args.video:
+        # Determine frame indices to process
+        if args.frame_step is not None:
+            # Process every N frames
+            total_frames = get_video_frame_count(args.video)
+            frame_indices = list(range(0, total_frames, args.frame_step))
+            print(f"Video has {total_frames} frames, processing every {args.frame_step} frames ({len(frame_indices)} frames total)")
+        elif args.frame_idx is not None:
+            frame_indices = args.frame_idx
+        else:
+            frame_indices = [0]  # Default to first frame
+
         # For video, create (video_path, frame_idx) tuples
-        for frame_idx in args.frame_idx:
+        for frame_idx in frame_indices:
             image_sources.append((args.video, frame_idx))
         # Auto-extract task from video filename if no prompt provided
         if args.prompt is None:
@@ -1280,6 +1361,13 @@ def main():
 
     # Get prompts list
     prompts = auto_prompts
+
+    # Setup temp directory for video output if needed
+    temp_dir = None
+    video_frame_paths = []
+    if args.output_video and args.frame_step is not None:
+        temp_dir = tempfile.mkdtemp(prefix="paligemma_viz_")
+        print(f"Saving intermediate frames to: {temp_dir}")
 
     # Run for all combinations of images and prompts
     all_results = []
@@ -1354,13 +1442,20 @@ def main():
                     if args.simple_viz or (args.visualize and not args.show_matrix):
                         viz_layers = args.layers if args.layers else [sorted(results["attention_weights"].keys())[-1]]
                         for layer in viz_layers:
-                            save_path = args.save_fig
-                            if save_path:
+                            # Determine save path
+                            if temp_dir:
+                                # Save to temp dir for video creation
+                                save_path = os.path.join(temp_dir, f"frame_{img_idx:06d}_layer{layer}.png")
+                                video_frame_paths.append(save_path)
+                            elif args.save_fig:
+                                save_path = args.save_fig
                                 base, ext = os.path.splitext(save_path)
                                 if len(image_sources) > 1:
                                     save_path = f"{base}_{img_idx}_layer{layer}{ext}"
                                 elif len(viz_layers) > 1:
                                     save_path = f"{base}_layer{layer}{ext}"
+                            else:
+                                save_path = None
 
                             visualize_image_attention(
                                 results,
@@ -1371,10 +1466,17 @@ def main():
 
                     # Full multi-layer visualization
                     elif args.visualize:
-                        save_path = args.save_fig
-                        if save_path and len(image_sources) > 1:
-                            base, ext = os.path.splitext(save_path)
-                            save_path = f"{base}_{img_idx}{ext}"
+                        # Determine save path
+                        if temp_dir:
+                            save_path = os.path.join(temp_dir, f"frame_{img_idx:06d}.png")
+                            video_frame_paths.append(save_path)
+                        elif args.save_fig:
+                            save_path = args.save_fig
+                            if len(image_sources) > 1:
+                                base, ext = os.path.splitext(save_path)
+                                save_path = f"{base}_{img_idx}{ext}"
+                        else:
+                            save_path = None
 
                         visualize_attention(
                             results,
@@ -1428,6 +1530,25 @@ def main():
             print(f"[Prompt: {r['prompt']}]")
             print(f"Generated: {r['generated_text']}")
     elif args.mode == "attention":
+        # Create video from saved frames if requested
+        if args.output_video and video_frame_paths:
+            # Sort frames by name to ensure correct order
+            video_frame_paths = sorted(video_frame_paths)
+            # Get original video fps or use default
+            if args.video:
+                original_fps = get_video_fps(args.video)
+                # Output fps based on frame step (e.g., if step=10 and original=30fps, output=3fps)
+                output_fps = original_fps / args.frame_step if args.frame_step else 10.0
+            else:
+                output_fps = 10.0
+            create_video_from_images(video_frame_paths, args.output_video, fps=output_fps)
+
+            # Clean up temp directory
+            if temp_dir:
+                import shutil
+                shutil.rmtree(temp_dir)
+                print(f"Cleaned up temp directory: {temp_dir}")
+
         print(f"\n{'=' * 60}")
         print("ATTENTION EXTRACTION COMPLETE")
         print(f"{'=' * 60}")
