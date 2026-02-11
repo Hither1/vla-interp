@@ -118,7 +118,6 @@ class Policy(BasePolicy):
         else:
             # JAX model setup
             self._sample_actions = nnx_utils.module_jit(model.sample_actions)
-            self._jit_compute_loss = nnx_utils.module_jit(model.compute_loss, static_argnames=("train",))
             self._rng = rng or jax.random.key(0)
 
     @override
@@ -127,8 +126,6 @@ class Policy(BasePolicy):
         inputs = jax.tree.map(lambda x: x, obs)
 
         # Extract analysis flags before transforms strip them.
-        compute_ll = bool(inputs.pop("compute_log_likelihood", False))
-        ll_num_samples = int(inputs.pop("log_likelihood_num_samples", 4))
         compute_mmd = bool(inputs.pop("compute_mmd", False))
         mmd_num_samples = int(inputs.pop("mmd_num_samples", 8))
 
@@ -154,25 +151,6 @@ class Policy(BasePolicy):
         observation = _model.Observation.from_dict(inputs)
         start_time = time.monotonic()
         actions = self._sample_actions(sample_rng_or_pytorch_device, observation, **sample_kwargs)
-
-        # Compute log likelihood (flow matching loss proxy) if requested.
-        # Uses the model's compute_loss: averages MSE between predicted and true
-        # velocity over multiple random (noise, timestep) pairs. The negative mean
-        # loss serves as a log-likelihood proxy (higher = more confident).
-        ll_data = {}
-        if compute_ll and not self._is_pytorch_model:
-            ll_start = time.monotonic()
-            # actions shape: (1, action_horizon, action_dim)
-            total_loss = jnp.zeros(actions.shape[:-1])  # (1, action_horizon)
-            for _ in range(ll_num_samples):
-                self._rng, ll_rng = jax.random.split(self._rng)
-                loss = self._jit_compute_loss(ll_rng, observation, actions, train=False)
-                total_loss = total_loss + loss
-            mean_loss = total_loss / ll_num_samples  # (1, action_horizon)
-            mean_loss_np = np.asarray(mean_loss[0])  # remove batch dim -> (action_horizon,)
-            ll_data["log_likelihood"] = float(-np.mean(mean_loss_np))
-            ll_data["loss_per_timestep"] = mean_loss_np.tolist()
-            ll_data["log_likelihood_timing_ms"] = (time.monotonic() - ll_start) * 1000
 
         # Multi-sample MMD: draw additional diffusion samples from the same
         # observation, then compute split-sample kernel MMD to measure how
@@ -211,7 +189,6 @@ class Policy(BasePolicy):
             outputs = jax.tree.map(lambda x: np.asarray(x[0, ...]), outputs)
 
         outputs = self._output_transform(outputs)
-        outputs.update(ll_data)
         outputs.update(mmd_data)
         outputs["policy_timing"] = {
             "infer_ms": model_time * 1000,

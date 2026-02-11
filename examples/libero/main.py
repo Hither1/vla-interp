@@ -9,6 +9,7 @@ from libero.libero import benchmark
 from libero.libero import get_libero_path
 from libero.libero.envs import OffScreenRenderEnv
 import numpy as np
+from scipy.stats import gaussian_kde
 from openpi_client import image_tools
 from openpi_client import websocket_client_policy as _websocket_client_policy
 import tqdm
@@ -48,10 +49,6 @@ class Args:
     # Prompt perturbation options
     prompt_mode: str = "original"  # original, empty, shuffle, random, synonym, opposite, custom
     custom_prompt: str = ""  # Used when prompt_mode="custom"
-
-    # Log likelihood tracking
-    track_log_likelihood: bool = True  # Enable flow-matching log likelihood tracking
-    log_likelihood_num_samples: int = 4  # Number of noise samples for LL estimation
 
     # MMD (Maximum Mean Discrepancy) tracking
     track_mmd: bool = True  # Enable multi-sample MMD (policy uncertainty)
@@ -308,6 +305,48 @@ def compute_replan_consistency(action_log, replan_steps):
     }
 
 
+def compute_action_entropy_kde(action_log, action_dim=7):
+    """Estimate entropy of the trajectory action distribution via Gaussian KDE.
+
+    Given the H×D matrix of executed actions (H = horizon, D = action_dim),
+    fit a Gaussian KDE and estimate differential entropy as:
+        H_hat = -1/N * sum_i log p(x_i)
+
+    Args:
+        action_log: List of action log entries, each with an "action" key.
+        action_dim: Number of action dimensions to use (default 7, the real
+            LIBERO action dims before padding).
+
+    Returns:
+        Dict with entropy estimate and diagnostics, or {} if estimation fails.
+    """
+    actions = np.array([entry["action"] for entry in action_log])  # (H, D_full)
+    actions = actions[:, :action_dim]  # (H, D)
+    H, D = actions.shape
+
+    if H < D + 1:
+        # Not enough samples for reliable KDE
+        return {}
+
+    try:
+        # gaussian_kde expects shape (D, H) — each column is one observation
+        kde = gaussian_kde(actions.T)  # bandwidth via Scott's rule
+        log_densities = kde.logpdf(actions.T)  # (H,)
+        entropy = -float(np.mean(log_densities))
+
+        return {
+            "action_entropy_kde": entropy,
+            "mean_log_density": float(np.mean(log_densities)),
+            "std_log_density": float(np.std(log_densities)),
+            "kde_bandwidth_factor": float(kde.factor),
+            "num_samples": H,
+            "action_dim": D,
+        }
+    except np.linalg.LinAlgError:
+        # Degenerate covariance (e.g., all actions identical)
+        return {}
+
+
 def eval_libero(args: Args) -> None:
     # Set random seed
     np.random.seed(args.seed)
@@ -388,8 +427,6 @@ def eval_libero(args: Args) -> None:
             # Setup
             t = 0
             replay_images = []
-            chunk_log_likelihood = None
-            chunk_loss_per_timestep = None
             chunk_mmd_score = None
             chunk_action_sample_std = None
             chunk_action_std_per_ts = None
@@ -437,9 +474,6 @@ def eval_libero(args: Args) -> None:
                             "prompt": perturb_prompt(str(task_description), args.prompt_mode, all_task_descriptions),
                             "episode_id": f"task{task_id}_ep{episode_idx}",
                         }
-                        if args.track_log_likelihood:
-                            element["compute_log_likelihood"] = True
-                            element["log_likelihood_num_samples"] = args.log_likelihood_num_samples
                         if args.track_mmd:
                             element["compute_mmd"] = True
                             element["mmd_num_samples"] = args.mmd_num_samples
@@ -447,13 +481,9 @@ def eval_libero(args: Args) -> None:
                         # Query model to get action
                         result = client.infer(element)
                         action_chunk = result["actions"]
-                        chunk_log_likelihood = result.get("log_likelihood")
-                        chunk_loss_per_timestep = result.get("loss_per_timestep")
                         chunk_mmd_score = result.get("mmd_score")
                         chunk_action_sample_std = result.get("action_sample_std")
                         chunk_action_std_per_ts = result.get("action_std_per_timestep")
-                        if chunk_log_likelihood is not None:
-                            logging.info(f"  Log likelihood: {chunk_log_likelihood:.4f}")
                         if chunk_mmd_score is not None:
                             logging.info(f"  MMD: {chunk_mmd_score:.6f}, sample_std: {chunk_action_sample_std:.4f}")
                         assert (
@@ -479,9 +509,6 @@ def eval_libero(args: Args) -> None:
                         log_entry["full_action_chunk"] = np.asarray(
                             action_chunk, dtype=np.float32
                         ).tolist()
-                        if chunk_log_likelihood is not None:
-                            log_entry["log_likelihood"] = chunk_log_likelihood
-                            log_entry["loss_per_timestep"] = chunk_loss_per_timestep
                         if chunk_mmd_score is not None:
                             log_entry["mmd_score"] = chunk_mmd_score
                             log_entry["action_sample_std"] = chunk_action_sample_std
@@ -514,27 +541,6 @@ def eval_libero(args: Args) -> None:
                 pathlib.Path(args.video_out_path)
                 / f"actions_{task_segment}_trial{episode_idx}_{suffix}.json"
             )
-            # Compute per-episode log likelihood summary
-            episode_lls = [
-                entry["log_likelihood"]
-                for entry in action_log
-                if "log_likelihood" in entry
-            ]
-            ll_summary = {}
-            if episode_lls:
-                ll_summary = {
-                    "mean_log_likelihood": float(np.mean(episode_lls)),
-                    "min_log_likelihood": float(np.min(episode_lls)),
-                    "max_log_likelihood": float(np.max(episode_lls)),
-                    "std_log_likelihood": float(np.std(episode_lls)),
-                    "num_chunks": len(episode_lls),
-                }
-                logging.info(
-                    f"Episode LL: mean={ll_summary['mean_log_likelihood']:.4f}, "
-                    f"min={ll_summary['min_log_likelihood']:.4f}, "
-                    f"max={ll_summary['max_log_likelihood']:.4f}"
-                )
-
             # Compute smoothness & boundary metrics (also annotates action_log in-place)
             smoothness_summary = compute_smoothness_metrics(action_log)
             if smoothness_summary:
@@ -584,6 +590,15 @@ def eval_libero(args: Args) -> None:
                     f"max_L2={replan_summary['max_replan_l2']:.4f}"
                 )
 
+            # Action entropy via KDE over the trajectory
+            entropy_summary = compute_action_entropy_kde(action_log)
+            if entropy_summary:
+                logging.info(
+                    f"Action entropy (KDE): {entropy_summary['action_entropy_kde']:.4f} "
+                    f"(bw_factor={entropy_summary['kde_bandwidth_factor']:.4f}, "
+                    f"H={entropy_summary['num_samples']}, D={entropy_summary['action_dim']})"
+                )
+
             with open(actions_path, "w") as f:
                 json.dump(
                     {
@@ -593,10 +608,10 @@ def eval_libero(args: Args) -> None:
                         "task_description": str(task_description),
                         "success": bool(done),
                         "actions": action_log,
-                        **ll_summary,
                         "smoothness": smoothness_summary,
                         "mmd": mmd_summary,
                         "replan_consistency": replan_summary,
+                        "action_entropy": entropy_summary,
                     },
                     f,
                     indent=2,
