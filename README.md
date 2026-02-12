@@ -90,7 +90,9 @@ pip install -v --no-build-isolation --no-cache-dir "transformer_engine_torch==2.
 ```
 
 
-flash_attn
+flash_attn_2_cuda
+
+`pip install --no-build-isolation --no-binary=:all: --no-cache-dir flash-attn==2.8.3 -v`
 
 
 ### Diffusion Policy
