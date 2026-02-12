@@ -27,6 +27,14 @@ top_activating_prompts.py
 
 
 
+
+
+# Set up Cosmos Policy on cluster
+
+
+
+
+
 # openpi
  [Physical Intelligence team](https://www.physicalintelligence.company/).
 

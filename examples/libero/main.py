@@ -34,7 +34,7 @@ class Args:
     # LIBERO environment-specific parameters
     #################################################################################################################
     task_suite_name: str = (
-        "libero_10"  # Task suite. Options: libero_spatial, libero_object, libero_goal, libero_10, libero_90
+        "libero_90"  # Task suite. Options: libero_spatial, libero_object, libero_goal, libero_10, libero_90
     )
     num_steps_wait: int = 10  # Number of steps to wait for objects to stabilize i n sim
     num_trials_per_task: int = 20  # Number of rollouts per task
@@ -305,33 +305,37 @@ def compute_replan_consistency(action_log, replan_steps):
     }
 
 
-def compute_action_entropy_kde(action_log, action_dim=7):
-    """Estimate entropy of the trajectory action distribution via Gaussian KDE.
+def compute_action_entropy_kde(action_logs, action_dim=7):
+    """Estimate entropy of the action distribution across multiple episodes via Gaussian KDE.
 
-    Given the H×D matrix of executed actions (H = horizon, D = action_dim),
-    fit a Gaussian KDE and estimate differential entropy as:
+    Pools executed actions from all episodes for a given task/scenario and fits
+    a single Gaussian KDE.  Differential entropy is estimated as:
         H_hat = -1/N * sum_i log p(x_i)
 
     Args:
-        action_log: List of action log entries, each with an "action" key.
+        action_logs: List of action logs (one per episode). Each action log is
+            a list of dicts with an "action" key.
         action_dim: Number of action dimensions to use (default 7, the real
             LIBERO action dims before padding).
 
     Returns:
         Dict with entropy estimate and diagnostics, or {} if estimation fails.
     """
-    actions = np.array([entry["action"] for entry in action_log])  # (H, D_full)
-    actions = actions[:, :action_dim]  # (H, D)
-    H, D = actions.shape
+    all_actions = []
+    for action_log in action_logs:
+        actions = np.array([entry["action"] for entry in action_log])  # (H_i, D_full)
+        all_actions.append(actions[:, :action_dim])
+    actions = np.concatenate(all_actions, axis=0)  # (N_total, D)
+    N, D = actions.shape
 
-    if H < D + 1:
+    if N < D + 1:
         # Not enough samples for reliable KDE
         return {}
 
     try:
-        # gaussian_kde expects shape (D, H) — each column is one observation
+        # gaussian_kde expects shape (D, N) — each column is one observation
         kde = gaussian_kde(actions.T)  # bandwidth via Scott's rule
-        log_densities = kde.logpdf(actions.T)  # (H,)
+        log_densities = kde.logpdf(actions.T)  # (N,)
         entropy = -float(np.mean(log_densities))
 
         return {
@@ -339,7 +343,8 @@ def compute_action_entropy_kde(action_log, action_dim=7):
             "mean_log_density": float(np.mean(log_densities)),
             "std_log_density": float(np.std(log_densities)),
             "kde_bandwidth_factor": float(kde.factor),
-            "num_samples": H,
+            "num_samples": N,
+            "num_episodes": len(action_logs),
             "action_dim": D,
         }
     except np.linalg.LinAlgError:
@@ -413,6 +418,8 @@ def eval_libero(args: Args) -> None:
 
         # Start episodes
         task_episodes, task_successes = 0, 0
+        task_episode_data = []  # deferred JSON data for all episodes in this task
+        task_action_logs = []   # action logs across episodes for task-level entropy
         for episode_idx in tqdm.tqdm(range(args.num_trials_per_task)):
             logging.info(f"\nTask: {task_description}")
              
@@ -590,38 +597,45 @@ def eval_libero(args: Args) -> None:
                     f"max_L2={replan_summary['max_replan_l2']:.4f}"
                 )
 
-            # Action entropy via KDE over the trajectory
-            entropy_summary = compute_action_entropy_kde(action_log)
-            if entropy_summary:
-                logging.info(
-                    f"Action entropy (KDE): {entropy_summary['action_entropy_kde']:.4f} "
-                    f"(bw_factor={entropy_summary['kde_bandwidth_factor']:.4f}, "
-                    f"H={entropy_summary['num_samples']}, D={entropy_summary['action_dim']})"
-                )
+            # Collect action log for task-level entropy (computed after all episodes)
+            task_action_logs.append(action_log)
 
-            with open(actions_path, "w") as f:
-                json.dump(
-                    {
-                        "task_id": int(task_id),
-                        "trial_id": int(episode_idx),
-                        "seed": int(args.seed),
-                        "task_description": str(task_description),
-                        "success": bool(done),
-                        "actions": action_log,
-                        "smoothness": smoothness_summary,
-                        "mmd": mmd_summary,
-                        "replan_consistency": replan_summary,
-                        "action_entropy": entropy_summary,
-                    },
-                    f,
-                    indent=2,
-                    default=_json_default
-                )
+            # Defer JSON writing until task-level entropy is computed
+            task_episode_data.append({
+                "actions_path": actions_path,
+                "json_data": {
+                    "task_id": int(task_id),
+                    "trial_id": int(episode_idx),
+                    "seed": int(args.seed),
+                    "task_description": str(task_description),
+                    "success": bool(done),
+                    "actions": action_log,
+                    "smoothness": smoothness_summary,
+                    "mmd": mmd_summary,
+                    "replan_consistency": replan_summary,
+                },
+            })
 
             # Log current results
             logging.info(f"Success: {done}")
             logging.info(f"# episodes completed so far: {total_episodes}")
             logging.info(f"# successes: {total_successes} ({total_successes / total_episodes * 100:.1f}%)")
+
+        # Task-level action entropy across all episodes
+        task_entropy = compute_action_entropy_kde(task_action_logs)
+        if task_entropy:
+            logging.info(
+                f"Task {task_id} action entropy (KDE, {task_entropy['num_episodes']} episodes): "
+                f"{task_entropy['action_entropy_kde']:.4f} "
+                f"(bw_factor={task_entropy['kde_bandwidth_factor']:.4f}, "
+                f"N={task_entropy['num_samples']}, D={task_entropy['action_dim']})"
+            )
+
+        # Write deferred per-episode JSONs (now including task-level entropy)
+        for ep_data in task_episode_data:
+            ep_data["json_data"]["action_entropy"] = task_entropy
+            with open(ep_data["actions_path"], "w") as f:
+                json.dump(ep_data["json_data"], f, indent=2, default=_json_default)
 
         # Log final results
         logging.info(f"Current task success rate: {float(task_successes) / float(task_episodes)}")

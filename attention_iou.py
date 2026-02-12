@@ -159,7 +159,7 @@ def compute_attention_object_iou(
         # IoU for each threshold method
         results["per_object"][obj_name] = {}
         for method, value in threshold_methods:
-            key = f"{method}_{value}"
+            key = f"{method}_{int(value) if isinstance(value, float) and value == int(value) else value}"
             binary_attn = threshold_attention(attention_heatmap, method, value)
             iou = compute_iou(binary_attn, obj_mask)
             dice = compute_dice(binary_attn, obj_mask)
@@ -180,7 +180,7 @@ def compute_attention_object_iou(
         results["attention_mass"]["_all_objects"] = 0.0
 
     for method, value in threshold_methods:
-        key = f"{method}_{value}"
+        key = f"{method}_{int(value) if isinstance(value, float) and value == int(value) else value}"
         binary_attn = threshold_attention(attention_heatmap, method, value)
         iou = compute_iou(binary_attn, combined_obj_mask)
         dice = compute_dice(binary_attn, combined_obj_mask)

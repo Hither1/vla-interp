@@ -334,10 +334,11 @@ def run_episode(
                         head_idx=None,
                     )
 
-                    # Create heatmap at env resolution
+                    # Create heatmap at model input resolution (224x224)
+                    # so patch grid (16x16=256 tokens) matches correctly
                     heatmap = create_attention_heatmap(
                         np.array(image_attn),
-                        (LIBERO_ENV_RESOLUTION, LIBERO_ENV_RESOLUTION),
+                        (MODEL_INPUT_RESOLUTION, MODEL_INPUT_RESOLUTION),
                         patch_size=14,
                     )
 
