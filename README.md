@@ -1,39 +1,103 @@
+# vla-interp
 
-conda -n vla 3.11
-pip install uv 
-then do the uv steps 
+Interpretability toolkit for Vision-Language-Action (VLA) models. Built on top of [openpi](https://github.com/Physical-Intelligence/openpi) (Physical Intelligence), this repo provides tools for understanding the internal representations and attention patterns of the Pi0 flow-matching VLA model, evaluated on the [LIBERO](https://libero-project.github.io/) benchmark.
 
+## Installation
+
+```bash
+conda create -n vla python=3.11
+conda activate vla
+pip install uv
+GIT_LFS_SKIP_SMUDGE=1 uv sync
+GIT_LFS_SKIP_SMUDGE=1 uv pip install -e .
+```
+
+Set up the LIBERO environment:
+
+```bash
 export PYTHONPATH=$PYTHONPATH:$PWD/third_party/libero
-export LIBERO_CONFIG_PATH=/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/third_party/libero
+export LIBERO_CONFIG_PATH=$PWD/third_party/libero
+```
+
+## Analysis Tools
+
+### Attention Visualization
+
+Tools for visualizing visual, linguistic, and multimodal attention patterns in Pi0. See [ATTENTION_VIZ_README.md](ATTENTION_VIZ_README.md) for full documentation.
+
+| Script | Description |
+| --- | --- |
+| `example_attention_viz.py` | Visualize attention heatmaps for single frames or full episodes |
+| `visualize_attention.py` | Visual attention heatmap library |
+| `visualize_text_attention.py` | Linguistic attention analysis (per-token attention weights) |
+| `visualize_combined_attention.py` | Combined multimodal (vision + language) attention visualization |
+| `attention_iou.py` | IoU metrics between attention heatmaps and object segmentation masks |
+| `evaluate_attention_iou.py` | Evaluate attention-segmentation alignment across episodes |
+
+### Sparse Autoencoders (SAEs)
+
+Train sparse autoencoders on Pi0 activations to discover interpretable features, then mine concepts by analyzing what maximally activates each learned feature.
+
+| Script | Description |
+| --- | --- |
+| `train_save.py` | Train TopK / BatchTopK SAEs on Pi0 activations |
+| `sae/top_activating_frames.py` | Find video frames that maximally activate each SAE feature |
+| `sae/top_activating_actions.py` | Analyze action distributions associated with each SAE feature |
+| `sae/top_activating_prompts.py` | Identify text prompts that maximally activate each SAE feature |
+| `sweep_sae_score_actions.py` | Evaluate SAE features for action prediction (MCC scoring) |
+
+### Linear Probing and Representation Geometry
+
+| Script | Description |
+| --- | --- |
+| `linear_probe.py` | Ridge regression probes and INLP for measuring linear information about actions |
+| `geometry.py` | Activation geometry analysis (stepwise distances, temporal curvature across layers) |
+| `action_pca.py` | PCA visualization of the action space |
+
+### LIBERO Evaluation
+
+```bash
+# Start the policy server
+uv run scripts/serve_policy.py policy:checkpoint --policy.config=pi05_libero --policy.dir=<checkpoint_dir>
+
+# Run evaluation
 python examples/libero/main.py --args.port 8000
+```
+
+### Cosmos Policy (Cluster Setup)
+
+```bash
+module load gcc/12.2.0-fasrc01
+module load cuda/12.4.1-fasrc01
+```
+
+If `nccl.h` is missing, locate it:
+
+```bash
+python - <<'PY'
+import glob
+candidates = []
+for root in ["/n/sw", "/usr", "/usr/local", "/opt", "/n"]:
+    candidates += glob.glob(root + "/**/nccl.h", recursive=True)
+print("\n".join(candidates[:50]))
+PY
+```
+
+Force build transformer engine from source:
+
+```bash
+pip install -v --no-build-isolation --no-cache-dir "transformer_engine_torch==2.11.0"
+```
+
+
+flash_attn
+
+
+### Diffusion Policy
 
 
 
-linear_probe.py
-
-
-geometry.py
-
-
-
-top_activating_actions.py
-
-
-top_activating_frames.py
-
-
-top_activating_prompts.py
-
-
-
-
-
-
-# Set up Cosmos Policy on cluster
-
-
-
-
+---
 
 # openpi
  [Physical Intelligence team](https://www.physicalintelligence.company/).
