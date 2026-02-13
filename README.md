@@ -15,8 +15,11 @@ GIT_LFS_SKIP_SMUDGE=1 uv pip install -e .
 Set up the LIBERO environment:
 
 ```bash
-export PYTHONPATH=$PYTHONPATH:$PWD/third_party/libero
-export LIBERO_CONFIG_PATH=$PWD/third_party/libero
+# export PYTHONPATH=$PYTHONPATH:$PWD/third_party/libero
+# export LIBERO_CONFIG_PATH=$PWD/third_party/libero
+export PYTHONPATH=$PYTHONPATH:/n/netscratch/sham_lab/Lab/chloe00/libero
+export LIBERO_CONFIG_PATH=/n/netscratch/sham_lab/Lab/chloe00/libero
+python examples/libero/main.py --args.port 8000
 ```
 
 ## Analysis Tools
@@ -92,7 +95,20 @@ pip install -v --no-build-isolation --no-cache-dir "transformer_engine_torch==2.
 
 flash_attn_2_cuda
 
+ask for `-c 24` when requesting nodes
+
+Recommended MAX_JOBS: 8 (larger will make the build slower)
+
 `pip install --no-build-isolation --no-binary=:all: --no-cache-dir flash-attn==2.8.3 -v`
+
+
+export NUMBA_CACHE_DIR="$TMPDIR/numba_cache"
+mkdir -p "$NUMBA_CACHE_DIR"
+
+
+export HF_HOME=/n/netscratch/sham_lab/Lab/chloe00/huggingface
+export TRANSFORMERS_CACHE=/n/netscratch/sham_lab/Lab/chloe00/huggingface
+
 
 
 ### Diffusion Policy

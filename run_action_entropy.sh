@@ -20,8 +20,8 @@ conda activate vla
 
 set -euo pipefail
 
-export PYTHONPATH="${PYTHONPATH:-}:$PWD/third_party/libero"
-export LIBERO_CONFIG_PATH=/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/third_party/libero
+export PYTHONPATH="${PYTHONPATH:-}:/n/netscratch/sham_lab/Lab/chloe00/libero"
+export LIBERO_CONFIG_PATH=/n/netscratch/sham_lab/Lab/chloe00/libero
 
 # Offscreen rendering for MuJoCo (no display on compute nodes)
 export MUJOCO_GL=egl
