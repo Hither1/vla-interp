@@ -640,7 +640,7 @@ def main():
         entry = {k: v for k, v in r.items() if k != "step_iou_results"}
         serializable_results.append(entry)
 
-    results_path = os.path.join(args.output_dir, "iou_results.json")
+    results_path = os.path.join(args.output_dir, f"iou_results_{args.task_suite}.json")
     with open(results_path, "w") as f:
         json.dump(serializable_results, f, indent=2, default=_json_default)
     log.info(f"\nResults saved to {results_path}")
