@@ -19,6 +19,13 @@ Set up the LIBERO environment:
 # export LIBERO_CONFIG_PATH=$PWD/third_party/libero
 export PYTHONPATH=$PYTHONPATH:/n/netscratch/sham_lab/Lab/chloe00/libero
 export LIBERO_CONFIG_PATH=/n/netscratch/sham_lab/Lab/chloe00/libero
+
+export NUMBA_CACHE_DIR="$TMPDIR/numba_cache"
+mkdir -p "$NUMBA_CACHE_DIR"
+
+export HF_HOME=/n/netscratch/sham_lab/Lab/chloe00/huggingface
+export TRANSFORMERS_CACHE=/n/netscratch/sham_lab/Lab/chloe00/huggingface
+
 python examples/libero/main.py --args.port 8000
 ```
 
@@ -102,12 +109,7 @@ Recommended MAX_JOBS: 8 (larger will make the build slower)
 `pip install --no-build-isolation --no-binary=:all: --no-cache-dir flash-attn==2.8.3 -v`
 
 
-export NUMBA_CACHE_DIR="$TMPDIR/numba_cache"
-mkdir -p "$NUMBA_CACHE_DIR"
 
-
-export HF_HOME=/n/netscratch/sham_lab/Lab/chloe00/huggingface
-export TRANSFORMERS_CACHE=/n/netscratch/sham_lab/Lab/chloe00/huggingface
 
 
 

@@ -8,7 +8,7 @@
 #SBATCH --mem=240G
 #SBATCH --time=10:30:00
 #SBATCH --account=kempner_grads
-#SBATCH --partition=kempner
+#SBATCH --partition=kempner_h100
 #SBATCH --mail-user=csu@g.harvard.edu
 #SBATCH --mail-type=END
 #SBATCH --exclusive
@@ -22,6 +22,9 @@ set -euo pipefail
 
 export PYTHONPATH="${PYTHONPATH:-}:/n/netscratch/sham_lab/Lab/chloe00/libero"
 export LIBERO_CONFIG_PATH=/n/netscratch/sham_lab/Lab/chloe00/libero
+
+export NUMBA_CACHE_DIR="$TMPDIR/numba_cache"
+mkdir -p "$NUMBA_CACHE_DIR"
 
 # Offscreen rendering for MuJoCo (no display on compute nodes)
 export MUJOCO_GL=egl

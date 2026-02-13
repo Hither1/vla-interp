@@ -1,8 +1,23 @@
+#!/usr/bin/env python3
 """
 LIBERO evaluation with attention-segmentation IoU analysis for Cosmos Policy.
 
-Uses Q-norm weighted attention saliency for pure-spatial self-attn (S is square).
+This version FIXES "weird/stripy" heatmaps when the transformer sequence contains
+multiple token types (video/state/action/value tokens).
+
+Key change:
+  - We DO NOT average over all queries anymore.
+  - We select ONLY queries from the ACTION latent-frame tokens.
+  - We produce a heatmap over KEY tokens from a chosen visual frame (default: current third-person frame),
+    then reshape ONLY that key-block into (sqrt(K), sqrt(K)).
+
+Assumptions:
+  - Cosmos-policy DiT uses state_t latent frames and concatenates them in the token axis.
+  - S = state_t * tokens_per_frame.
+  - The per-frame tokens for visual frames are a perfect square (so we can reshape to 2D).
 """
+
+from __future__ import annotations
 
 import argparse
 import collections
@@ -11,7 +26,7 @@ import logging
 import os
 import pathlib
 import sys
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple, Any
 
 import numpy as np
 
@@ -33,6 +48,7 @@ except Exception:
         def __init__(self, name):
             super().__init__(name)
             self.__path__ = []
+
         def __getattr__(self, attr):
             val = MagicMock()
             object.__setattr__(self, attr, val)
@@ -43,6 +59,7 @@ except Exception:
             if fullname == "transformer_engine" or fullname.startswith("transformer_engine."):
                 return self
             return None
+
         def load_module(self, fullname):
             if fullname in sys.modules:
                 return sys.modules[fullname]
@@ -59,6 +76,7 @@ except Exception:
     _TEFinder().load_module("transformer_engine")
 
 import torch
+import torch.nn.functional as F
 
 import matplotlib
 matplotlib.use("Agg")
@@ -81,7 +99,6 @@ from attention_iou import (
     visualize_attention_vs_segmentation,
     visualize_iou_over_episode,
     find_segmentation_key,
-    DEFAULT_THRESHOLD_METHODS,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -100,75 +117,145 @@ TASK_MAX_STEPS = {
 }
 
 
+# ==============================================================================
+# Hook-based attention recording for Cosmos DiT models
+# ==============================================================================
 
-
-
-"""
-Hook-based attention recording for Cosmos DiT models.
-
-This version addresses "stripy / weird" heatmaps when self-attn is pure spatial
-(S is a perfect square, e.g. 1764=42*42) by:
-  1) recording per-query weights from Q (qnorm)
-  2) building a query-weighted saliency map:
-        sal[k] = sum_q w[q] * attn(q->k),  where w[q] ~ ||Q_q||
-  3) using percentile clipping normalization (more stable than min-max)
-
-It supports ONLY the pure-spatial case (S is a perfect square) since your logs
-show S=1764 (42x42).
-"""
-
-from __future__ import annotations
-
-from typing import Dict, List, Optional, Tuple
-
-import numpy as np
-import torch
-import torch.nn.functional as F
-
-_RECORDED: Dict[int, Dict[str, np.ndarray]] = {}
+_RECORDED: Dict[Any, Any] = {}
 _HOOKS: List[torch.utils.hooks.RemovableHandle] = []
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Hooks
-# ─────────────────────────────────────────────────────────────────────────────
+def _find_dit(model) -> Optional[torch.nn.Module]:
+    # Try common attribute paths
+    for attr_path in ["net", "model.net", "model"]:
+        obj = model
+        try:
+            for part in attr_path.split("."):
+                obj = getattr(obj, part)
+            if hasattr(obj, "blocks") and hasattr(obj, "final_layer"):
+                return obj
+        except AttributeError:
+            continue
 
-def _self_attn_hook_fn(layer_idx: int):
+    # Fallback search
+    for _, mod in model.named_modules():
+        if hasattr(mod, "blocks") and hasattr(mod, "final_layer") and hasattr(mod, "t_embedder"):
+            return mod
+    return None
+
+
+def clear_recorded_attention():
+    _RECORDED.clear()
+
+
+def get_recorded_attention() -> Dict[int, Dict[str, Any]]:
+    """
+    Returns a copy of recorded attention and clears internal buffer.
+    Format per layer:
+      { layer_idx: { "calls": [ { "self_attn": (H,S,S) np, "qnorm": (S,) np, "S": int }, ... ] } }
+    Also may include "_debug": list[dict] when debug enabled.
+    """
+    out = dict(_RECORDED)
+    _RECORDED.clear()
+    return out
+
+
+def remove_attention_hooks(handles: Optional[List] = None):
+    global _HOOKS
+    for h in (handles or _HOOKS):
+        try:
+            h.remove()
+        except Exception:
+            pass
+    _HOOKS = []
+
+
+def _self_attn_hook_fn(layer_idx: int, debug_shapes: bool = False):
+    """
+    Records q,k attention weights computed from compute_qkv(x,...).
+    Avoids relying on forward() argument ordering.
+    """
     def hook(module, args, output):
+        if not args:
+            return
         x = args[0]
-        context = args[1] if len(args) > 1 else None
-        rope_emb = args[2] if len(args) > 2 else None
+        if not torch.is_tensor(x):
+            return
+
+        # Best-effort rope_emb guess (optional)
+        rope_emb = None
+        for a in args[1:]:
+            if torch.is_tensor(a) and a.dtype in (torch.float16, torch.bfloat16, torch.float32):
+                rope_emb = a
+                break
 
         with torch.no_grad():
-            q, k, v = module.compute_qkv(x, context, rope_emb=rope_emb)
-            # Expected q,k: (B, S, H, D) in Cosmos DiT blocks
+            try:
+                q, k, v = module.compute_qkv(x)
+            except TypeError:
+                try:
+                    q, k, v = module.compute_qkv(x, rope_emb=rope_emb)
+                except Exception:
+                    return
 
-            # Record qnorm weights per query token (B, S)
-            qnorm = torch.linalg.norm(q.float(), dim=-1)  # (B, S, H)
-            qnorm = qnorm.mean(dim=-1)                    # (B, S)
+            q_float = q.float()
+            if q_float.ndim != 4:
+                return
 
-            # Attention weights
-            scale = q.shape[-1] ** -0.5
-            q_f = (q.float() * scale).permute(0, 2, 1, 3)  # (B, H, S, D)
-            k_f = k.float().permute(0, 2, 1, 3)           # (B, H, S, D)
-            attn = torch.matmul(q_f, k_f.transpose(-2, -1))  # (B, H, S, S)
+            # qnorm -> (B,S)
+            qn = torch.linalg.norm(q_float, dim=-1)  # (B,S,H) or (B,H,S)
+            if qn.shape[1] == x.shape[1]:  # likely (B,S,H)
+                qnorm = qn.mean(dim=-1)      # (B,S)
+            else:
+                qnorm = qn.mean(dim=1)       # (B,S)
+
+            if q.ndim != 4 or k.ndim != 4:
+                return
+
+            # Build (B,H,S,D)
+            if q.shape[1] == qnorm.shape[1]:  # (B,S,H,D)
+                q_f = q.float().permute(0, 2, 1, 3)
+                k_f = k.float().permute(0, 2, 1, 3)
+            else:  # (B,H,S,D)
+                q_f = q.float()
+                k_f = k.float()
+
+            S = int(q_f.shape[-2])
+            scale = q_f.shape[-1] ** -0.5
+            attn = torch.matmul(q_f * scale, k_f.transpose(-2, -1))  # (B,H,S,S)
             attn = F.softmax(attn, dim=-1)
 
             _RECORDED.setdefault(layer_idx, {})
-            _RECORDED[layer_idx]["self_attn"] = attn[0].cpu().numpy()   # (H, S, S)
-            _RECORDED[layer_idx]["qnorm"] = qnorm[0].cpu().numpy()      # (S,)
+            _RECORDED[layer_idx].setdefault("calls", [])
+            _RECORDED[layer_idx]["calls"].append({
+                "self_attn": attn[0].cpu().numpy(),   # (H,S,S)
+                "qnorm": qnorm[0].cpu().numpy(),      # (S,)
+                "S": S,
+            })
+
+            if debug_shapes:
+                _RECORDED.setdefault("_debug", [])
+                _RECORDED["_debug"].append({
+                    "layer": layer_idx,
+                    "x": tuple(x.shape),
+                    "q": tuple(q.shape),
+                    "k": tuple(k.shape),
+                    "rope": None if rope_emb is None else tuple(rope_emb.shape),
+                    "S": S,
+                    "num_calls_layer": len(_RECORDED[layer_idx]["calls"]),
+                })
 
     return hook
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Public API
-# ─────────────────────────────────────────────────────────────────────────────
-
 def install_attention_hooks(
     model: torch.nn.Module,
     layers: Optional[List[int]] = None,
+    debug_shapes: bool = False,
 ) -> List[torch.utils.hooks.RemovableHandle]:
+    """
+    Installs forward hooks on DiT blocks' self_attn modules.
+    """
     global _HOOKS
     _RECORDED.clear()
 
@@ -185,141 +272,221 @@ def install_attention_hooks(
         if idx >= len(blocks):
             continue
         block = blocks[idx]
-        handles.append(block.self_attn.register_forward_hook(_self_attn_hook_fn(idx)))
+        handles.append(block.self_attn.register_forward_hook(_self_attn_hook_fn(idx, debug_shapes=debug_shapes)))
 
     _HOOKS = handles
     return handles
 
 
-def remove_attention_hooks(handles: Optional[List] = None):
-    global _HOOKS
-    for h in (handles or _HOOKS):
-        try:
-            h.remove()
-        except Exception:
-            pass
-    _HOOKS = []
-
-
-def clear_recorded_attention():
-    _RECORDED.clear()
-
-
-def get_recorded_attention() -> Dict[int, Dict[str, np.ndarray]]:
-    out = dict(_RECORDED)
-    _RECORDED.clear()
-    return out
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Heatmap construction
-# ─────────────────────────────────────────────────────────────────────────────
+# ==============================================================================
+# Heatmap construction (FRAME-SLICED)
+# ==============================================================================
 
 def _infer_square_side(S: int) -> int:
     side = int(round(S ** 0.5))
     if side * side != S:
-        raise ValueError(f"S={S} is not a perfect square; expected pure-spatial self-attn.")
+        raise ValueError(f"S={S} is not a perfect square; cannot reshape to 2D grid.")
     return side
 
 
-def _query_weighted_saliency(attn_hss: np.ndarray, qnorm_s: Optional[np.ndarray]) -> np.ndarray:
+def _frame_token_layout(model: torch.nn.Module, S: int) -> Dict[str, Any]:
     """
-    attn_hss: (H, S, S)
-    qnorm_s: (S,) or None
+    Interpret token axis as [state_t frames] x [tokens_per_frame].
+    Provides useful frame aliases for Cosmos-policy style ordering.
 
-    Returns saliency over keys: (S,)
-        sal[k] = sum_q w[q] * mean_h attn[h,q,k]
+    Returns:
+      {
+        "state_t": int,
+        "tokens_per_frame": int,
+        "frame_slices": {name: (start, end), ...},
+        "action_frame": int,
+        "curr_last_frame": int,
+        "value_frame": int,
+      }
     """
-    attn = attn_hss.mean(axis=0)  # (S, S)
+    if not hasattr(model, "config") or not hasattr(model.config, "state_t"):
+        raise ValueError("Model missing config.state_t; cannot slice frames.")
 
-    if qnorm_s is None:
-        # fallback: incoming mean (often stripy)
-        return attn.mean(axis=0)
+    state_t = int(model.config.state_t)
 
-    w = qnorm_s.astype(np.float32)
-    # robust normalize
-    w = np.maximum(w, 0.0)
-    w_sum = float(w.sum())
-    if w_sum < 1e-8:
-        return attn.mean(axis=0)
-    w = w / w_sum
-    sal = (w[:, None] * attn).sum(axis=0)  # (S,)
-    return sal
+    # Cosmos-policy uses min_num_conditional_frames; action is the next frame.
+    if not hasattr(model.config, "min_num_conditional_frames"):
+        raise ValueError("Model missing config.min_num_conditional_frames; cannot locate action frame.")
+    min_cond = int(model.config.min_num_conditional_frames)
+
+    if S % state_t != 0:
+        raise ValueError(f"S={S} not divisible by state_t={state_t}; cannot frame-slice tokens.")
+    tpf = S // state_t
+
+    action_frame = min_cond
+    curr_last_frame = min_cond - 1
+    value_frame = state_t - 1
+
+    frame_slices: Dict[str, Tuple[int, int]] = {}
+    for f in range(state_t):
+        frame_slices[f"frame{f}"] = (f * tpf, (f + 1) * tpf)
+
+    # Useful aliases
+    frame_slices["blank"] = frame_slices["frame0"]
+    frame_slices["curr_last"] = frame_slices[f"frame{curr_last_frame}"]
+    frame_slices["action"] = frame_slices[f"frame{action_frame}"]
+    frame_slices["value"] = frame_slices[f"frame{value_frame}"]
+
+    return {
+        "state_t": state_t,
+        "tokens_per_frame": tpf,
+        "frame_slices": frame_slices,
+        "action_frame": action_frame,
+        "curr_last_frame": curr_last_frame,
+        "value_frame": value_frame,
+    }
+
+
+def _slice_to_indices(slc: Tuple[int, int]) -> np.ndarray:
+    a, b = slc
+    return np.arange(a, b, dtype=np.int64)
+
+
+def _subset_saliency(
+    attn_hss: np.ndarray,
+    qnorm_s: Optional[np.ndarray],
+    q_idx: np.ndarray,
+    k_idx: np.ndarray,
+    mode: str,
+) -> np.ndarray:
+    """
+    Build a saliency vector over selected KEYS only, aggregating over selected QUERIES only.
+
+    attn_hss: (H,S,S)
+    q_idx: query indices
+    k_idx: key indices
+    returns: (len(k_idx),)
+    """
+    attn = attn_hss.mean(axis=0).astype(np.float32)  # (S,S)
+    A = attn[np.ix_(q_idx, k_idx)]                   # (Q,K)
+
+    if mode == "incoming_argmaxq":
+        if qnorm_s is None:
+            return A[0]
+        qn = qnorm_s.astype(np.float32)
+        qn_sub = qn[q_idx]
+        q_star = int(np.argmax(qn_sub))
+        return A[q_star]
+
+    if mode == "incoming_qweighted":
+        if qnorm_s is None:
+            return A.mean(axis=0)
+        qn = qnorm_s.astype(np.float32)
+        w = np.maximum(qn[q_idx], 0.0)
+        s = float(w.sum())
+        if s < 1e-8:
+            return A.mean(axis=0)
+        w = w / s
+        return (w[:, None] * A).sum(axis=0)
+
+    if mode == "outgoing_mean":
+        return A.mean(axis=0)
+
+    raise ValueError(f"Unknown saliency mode: {mode}")
+
+
+def select_layer_call(
+    layer_rec: Dict[str, Any],
+    prefer_S: Optional[int] = None,
+    prefer_call: str = "last",
+) -> Optional[Dict[str, Any]]:
+    """
+    Select which recorded call to use for a layer.
+
+    prefer_call:
+      - "last": last call regardless of S
+      - "first": first call regardless of S
+    """
+    calls = layer_rec.get("calls", [])
+    if not calls:
+        return None
+    if prefer_S is not None:
+        exact = [c for c in calls if int(c.get("S", -1)) == int(prefer_S)]
+        if exact:
+            return exact[0] if prefer_call == "first" else exact[-1]
+    return calls[0] if prefer_call == "first" else calls[-1]
 
 
 def create_cosmos_attention_heatmap(
-    recorded_layer: Dict[str, np.ndarray],
+    recorded_call: Dict[str, Any],
     target_shape: Tuple[int, int],
+    model: torch.nn.Module,
+    query_frame: str = "action",
+    key_frame: str = "curr_last",
     transpose_hw: bool = False,
+    flip_ud: bool = False,
+    flip_lr: bool = False,
     clip_percentiles: Tuple[float, float] = (5.0, 95.0),
+    saliency_mode: str = "incoming_qweighted",
     debug: bool = False,
 ) -> np.ndarray:
     """
-    Build normalized [0,1] heatmap at target_shape from one layer's recorded data.
-
-    recorded_layer should contain:
-      - "self_attn": (H, S, S)
-      - "qnorm": (S,)   (optional but recommended)
+    Build normalized [0,1] heatmap at target_shape from one call's recorded data,
+    but ONLY using:
+      - QUERY tokens from query_frame (default: action)
+      - KEY tokens from key_frame (default: curr_last visual frame)
     """
     import cv2
 
-    attn = recorded_layer.get("self_attn", None)
+    attn = recorded_call.get("self_attn", None)
     if attn is None:
-        raise ValueError("recorded_layer missing 'self_attn'")
-    qnorm = recorded_layer.get("qnorm", None)
+        raise ValueError("recorded_call missing 'self_attn'")
+    qnorm = recorded_call.get("qnorm", None)
 
     if attn.ndim != 3:
         raise ValueError(f"self_attn must be (H,S,S), got {attn.shape}")
 
-    S = attn.shape[-1]
-    side = _infer_square_side(S)  # e.g. 42
+    S = int(attn.shape[-1])
 
-    sal = _query_weighted_saliency(attn, qnorm)  # (S,)
-    if sal.size != S:
-        raise ValueError(f"saliency size mismatch: {sal.size} vs S={S}")
+    layout = _frame_token_layout(model, S)
+    fs = layout["frame_slices"]
 
-    hm = sal.reshape(side, side).astype(np.float32)
+    if query_frame not in fs:
+        raise ValueError(f"Unknown query_frame='{query_frame}'. Keys: {list(fs.keys())}")
+    if key_frame not in fs:
+        raise ValueError(f"Unknown key_frame='{key_frame}'. Keys: {list(fs.keys())}")
+
+    q_idx = _slice_to_indices(fs[query_frame])
+    k_idx = _slice_to_indices(fs[key_frame])
+
+    K = int(len(k_idx))
+    side = _infer_square_side(K)
+
+    sal_k = _subset_saliency(attn, qnorm, q_idx=q_idx, k_idx=k_idx, mode=saliency_mode)  # (K,)
+    hm = sal_k.reshape(side, side).astype(np.float32)
+
     if transpose_hw:
         hm = hm.T
+    if flip_ud:
+        hm = hm[::-1, :]
+    if flip_lr:
+        hm = hm[:, ::-1]
 
     if debug:
-        print(f"[heatmap] S={S} side={side} transpose={transpose_hw} "
-              f"qnorm={'yes' if qnorm is not None else 'no'}")
+        log.info(
+            f"[heatmap] S={S} state_t={layout['state_t']} tpf={layout['tokens_per_frame']} "
+            f"query_frame={query_frame} key_frame={key_frame} K={K} side={side} "
+            f"transpose={transpose_hw} flip_ud={flip_ud} flip_lr={flip_lr} mode={saliency_mode}"
+        )
 
-    # Upsample
     hm_up = cv2.resize(hm, (target_shape[1], target_shape[0]), interpolation=cv2.INTER_LINEAR)
 
-    # Percentile clip normalization (more stable than min-max)
     lo_p, hi_p = clip_percentiles
     lo = float(np.percentile(hm_up, lo_p))
     hi = float(np.percentile(hm_up, hi_p))
     hm_up = np.clip(hm_up, lo, hi)
     hm_up = (hm_up - lo) / (hi - lo + 1e-8)
-
     return hm_up
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Internal: find DiT backbone
-# ─────────────────────────────────────────────────────────────────────────────
-
-def _find_dit(model) -> Optional[torch.nn.Module]:
-    for attr_path in ["net", "model.net", "model"]:
-        obj = model
-        try:
-            for part in attr_path.split("."):
-                obj = getattr(obj, part)
-            if hasattr(obj, "blocks") and hasattr(obj, "final_layer"):
-                return obj
-        except AttributeError:
-            continue
-
-    for _, mod in model.named_modules():
-        if hasattr(mod, "blocks") and hasattr(mod, "final_layer") and hasattr(mod, "t_embedder"):
-            return mod
-    return None
-
-
+# ==============================================================================
+# LIBERO plumbing
+# ==============================================================================
 
 def _json_default(o):
     if isinstance(o, (np.generic,)):
@@ -383,6 +550,10 @@ def _build_cosmos_cfg(args) -> PolicyEvalConfig:
     )
 
 
+# ==============================================================================
+# Episode loop
+# ==============================================================================
+
 def run_episode(
     env,
     model,
@@ -397,10 +568,21 @@ def run_episode(
     output_dir: str,
     episode_prefix: str,
     threshold_methods,
+    # heatmap / selection knobs
     transpose_hw: bool,
+    flip_ud: bool,
+    flip_lr: bool,
     clip_lo: float,
     clip_hi: float,
+    saliency_mode: str,
+    prefer_S: Optional[int],
+    prefer_call: str,
+    query_frame: str,
+    key_frame: str,
+    # debug knobs
     attn_debug: bool,
+    debug_shapes: bool,
+    debug_dump_first_replan: bool,
 ) -> Dict:
     obs = env.reset()
     obs = env.set_init_state(initial_state)
@@ -427,6 +609,7 @@ def run_episode(
 
     t = 0
     done = False
+    did_dump = False
 
     while t < max_steps + NUM_STEPS_WAIT:
         if t < NUM_STEPS_WAIT:
@@ -436,6 +619,7 @@ def run_episode(
 
         observation = _prepare_observation(obs, flip_images=True)
         agentview_for_viz = observation["primary_image"]
+        wrist_for_viz = observation["wrist_image"]
 
         seg_raw = obs[seg_key]
         seg_rotated = np.ascontiguousarray(np.flipud(seg_raw))
@@ -443,7 +627,7 @@ def run_episode(
         is_replan = not action_plan
         if is_replan:
             clear_recorded_attention()
-            hooks = install_attention_hooks(model, layers=layers)
+            hooks = install_attention_hooks(model, layers=layers, debug_shapes=debug_shapes)
 
             try:
                 action_return_dict = get_action(
@@ -464,18 +648,44 @@ def run_episode(
 
             attention_dict = get_recorded_attention()
 
+            if debug_dump_first_replan and (not did_dump):
+                did_dump = True
+                dump_path = os.path.join(output_dir, f"{episode_prefix}_attn_debug_dump.json")
+                dbg = attention_dict.get("_debug", [])
+                summary = {}
+                for layer_idx in layers:
+                    rec = attention_dict.get(layer_idx, {})
+                    calls = rec.get("calls", [])
+                    Ss = [int(c.get("S", -1)) for c in calls]
+                    summary[str(layer_idx)] = {"num_calls": len(calls), "S_values": Ss[:50]}
+                with open(dump_path, "w") as f:
+                    json.dump({"debug_shapes": dbg[:200], "call_summary": summary}, f, indent=2, default=_json_default)
+                log.info(f"[debug] wrote attention debug dump: {dump_path}")
+            
             if attention_dict and object_ids:
+                per_layer_metrics = []  # list of dicts with IoU/mass/etc for this step t
+
                 for layer_idx in layers:
                     if layer_idx not in attention_dict:
                         continue
                     layer_rec = attention_dict[layer_idx]
 
+                    call = select_layer_call(layer_rec, prefer_S=prefer_S, prefer_call=prefer_call)
+                    if call is None:
+                        continue
+
                     try:
                         heatmap = create_cosmos_attention_heatmap(
-                            recorded_layer=layer_rec,
+                            recorded_call=call,
                             target_shape=(LIBERO_ENV_RESOLUTION, LIBERO_ENV_RESOLUTION),
+                            model=model,
+                            query_frame=query_frame,
+                            key_frame=key_frame,
                             transpose_hw=transpose_hw,
+                            flip_ud=flip_ud,
+                            flip_lr=flip_lr,
                             clip_percentiles=(clip_lo, clip_hi),
+                            saliency_mode=saliency_mode,
                             debug=(attn_debug and (t % 50 == 0)),
                         )
                     except Exception as e:
@@ -490,15 +700,24 @@ def run_episode(
                     )
                     iou_result["layer"] = layer_idx
                     iou_result["step"] = t
+                    iou_result["selected_call_S"] = int(call.get("S", -1))
+                    iou_result["query_frame"] = query_frame
+                    iou_result["key_frame"] = key_frame
                     step_iou_results.append(iou_result)
 
-                    combined_iou = iou_result["combined"].get("percentile_90", {}).get("iou", 0)
-                    mass = iou_result["attention_mass"].get("_all_objects", 0)
-                    log.info(
-                        f"  t={t} layer={layer_idx}: IoU={combined_iou:.3f}, "
-                        f"attn_mass={mass:.1%}, pointing={'hit' if iou_result['pointing_hit'] else 'miss'}"
+                    combined_iou = float(iou_result["combined"].get("percentile_90", {}).get("iou", 0.0))
+                    mass = float(iou_result["attention_mass"].get("_all_objects", 0.0))
+                    per_layer_metrics.append(
+                        {
+                            "layer": layer_idx,
+                            "S": int(call.get("S", -1)),
+                            "iou": combined_iou,
+                            "mass": mass,
+                            "pointing_hit": bool(iou_result.get("pointing_hit", False)),
+                        }
                     )
 
+                    # Keep per-layer visualizations if you want
                     if save_viz:
                         viz_path = os.path.join(
                             output_dir, f"{episode_prefix}_step{t:04d}_layer{layer_idx}_iou.png"
@@ -513,6 +732,123 @@ def run_episode(
                             output_path=viz_path,
                         )
                         plt.close(fig)
+
+                        viz_wrist = os.path.join(
+                            output_dir, f"{episode_prefix}_step{t:04d}_layer{layer_idx}_iou_WRIST.png"
+                        )
+                        fig2 = visualize_attention_vs_segmentation(
+                            frame_rgb=wrist_for_viz,
+                            attention_heatmap=heatmap,
+                            segmentation_mask=seg_rotated,
+                            object_ids=object_ids,
+                            iou_results=iou_result,
+                            layer_idx=layer_idx,
+                            output_path=viz_wrist,
+                        )
+                        plt.close(fig2)
+
+                # ---- NEW: aggregate reporting across layers ----
+                if per_layer_metrics:
+                    if len(layers) > 1:
+                        avg_iou = float(np.mean([m["iou"] for m in per_layer_metrics]))
+                        avg_mass = float(np.mean([m["mass"] for m in per_layer_metrics]))
+                        hit_rate = float(np.mean([1.0 if m["pointing_hit"] else 0.0 for m in per_layer_metrics]))
+                        Ss = [m["S"] for m in per_layer_metrics]
+
+                        log.info(
+                            f"  t={t} layers={ [m['layer'] for m in per_layer_metrics] } "
+                            f"S={Ss} [Q={query_frame} -> K={key_frame}]: "
+                            f"AVG IoU={avg_iou:.3f}, AVG attn_mass={avg_mass:.1%}, "
+                            f"pointing_hit_rate={hit_rate:.1%}"
+                        )
+                    else:
+                        # single-layer case: print the one layer as before (but using the collected metrics)
+                        m = per_layer_metrics[0]
+                        log.info(
+                            f"  t={t} layer={m['layer']} S={m['S']} "
+                            f"[Q={query_frame} -> K={key_frame}]: "
+                            f"IoU={m['iou']:.3f}, attn_mass={m['mass']:.1%}, "
+                            f"pointing={'hit' if m['pointing_hit'] else 'miss'}"
+                        )
+
+            # if attention_dict and object_ids:
+            #     for layer_idx in layers:
+            #         if layer_idx not in attention_dict:
+            #             continue
+            #         layer_rec = attention_dict[layer_idx]
+
+            #         call = select_layer_call(layer_rec, prefer_S=prefer_S, prefer_call=prefer_call)
+            #         if call is None:
+            #             continue
+
+            #         try:
+            #             heatmap = create_cosmos_attention_heatmap(
+            #                 recorded_call=call,
+            #                 target_shape=(LIBERO_ENV_RESOLUTION, LIBERO_ENV_RESOLUTION),
+            #                 model=model,
+            #                 query_frame=query_frame,
+            #                 key_frame=key_frame,
+            #                 transpose_hw=transpose_hw,
+            #                 flip_ud=flip_ud,
+            #                 flip_lr=flip_lr,
+            #                 clip_percentiles=(clip_lo, clip_hi),
+            #                 saliency_mode=saliency_mode,
+            #                 debug=(attn_debug and (t % 50 == 0)),
+            #             )
+            #         except Exception as e:
+            #             log.warning(f"[attn->heatmap] t={t} layer={layer_idx} failed: {e}")
+            #             continue
+
+            #         iou_result = compute_attention_object_iou(
+            #             attention_heatmap=heatmap,
+            #             segmentation_mask=seg_rotated,
+            #             object_ids=object_ids,
+            #             threshold_methods=threshold_methods,
+            #         )
+            #         iou_result["layer"] = layer_idx
+            #         iou_result["step"] = t
+            #         iou_result["selected_call_S"] = int(call.get("S", -1))
+            #         iou_result["query_frame"] = query_frame
+            #         iou_result["key_frame"] = key_frame
+            #         step_iou_results.append(iou_result)
+
+            #         combined_iou = iou_result["combined"].get("percentile_90", {}).get("iou", 0)
+            #         mass = iou_result["attention_mass"].get("_all_objects", 0)
+            #         log.info(
+            #             f"  t={t} layer={layer_idx} S={int(call.get('S', -1))} "
+            #             f"[Q={query_frame} -> K={key_frame}]: "
+            #             f"IoU={combined_iou:.3f}, attn_mass={mass:.1%}, "
+            #             f"pointing={'hit' if iou_result['pointing_hit'] else 'miss'}"
+            #         )
+
+            #         if save_viz:
+            #             viz_path = os.path.join(
+            #                 output_dir, f"{episode_prefix}_step{t:04d}_layer{layer_idx}_iou.png"
+            #             )
+            #             fig = visualize_attention_vs_segmentation(
+            #                 frame_rgb=agentview_for_viz,
+            #                 attention_heatmap=heatmap,
+            #                 segmentation_mask=seg_rotated,
+            #                 object_ids=object_ids,
+            #                 iou_results=iou_result,
+            #                 layer_idx=layer_idx,
+            #                 output_path=viz_path,
+            #             )
+            #             plt.close(fig)
+
+            #             viz_wrist = os.path.join(
+            #                 output_dir, f"{episode_prefix}_step{t:04d}_layer{layer_idx}_iou_WRIST.png"
+            #             )
+            #             fig2 = visualize_attention_vs_segmentation(
+            #                 frame_rgb=wrist_for_viz,
+            #                 attention_heatmap=heatmap,
+            #                 segmentation_mask=seg_rotated,
+            #                 object_ids=object_ids,
+            #                 iou_results=iou_result,
+            #                 layer_idx=layer_idx,
+            #                 output_path=viz_wrist,
+            #             )
+            #             plt.close(fig2)
 
         action = action_plan.popleft()
         if isinstance(action, np.ndarray):
@@ -545,14 +881,18 @@ def run_episode(
     return {
         "success": bool(done),
         "num_steps": t,
-        "step_iou_results": step_iou_results,
         "summary": summary,
         "objects_of_interest": list(object_ids.keys()),
+        "step_iou_results": step_iou_results,
     }
 
 
+# ==============================================================================
+# Main
+# ==============================================================================
+
 def main():
-    parser = argparse.ArgumentParser(description="LIBERO eval with attention IoU (Q-weighted saliency)")
+    parser = argparse.ArgumentParser(description="LIBERO eval with attention IoU (Cosmos DiT hooks, action-token queries)")
 
     # Cosmos model
     parser.add_argument("--ckpt-path", type=str, default="nvidia/Cosmos-Policy-LIBERO-Predict2-2B")
@@ -574,19 +914,47 @@ def main():
     parser.add_argument("--seed", type=int, default=7)
 
     # Attention / IoU
-    parser.add_argument("--layers", type=int, nargs="+", default=[27])
+    parser.add_argument("--layers", type=int, nargs="+",
+                        default=[25, 26, 27])
     parser.add_argument("--threshold-methods", type=str, nargs="+",
                         default=["percentile_90", "percentile_75", "otsu_0"])
 
-    # Heatmap debugging knobs
+    # Saliency
+    parser.add_argument("--saliency-mode", type=str, default="incoming_qweighted",
+                        choices=["incoming_qweighted", "incoming_argmaxq", "outgoing_mean"])
+
+    # Call selection
+    parser.add_argument("--prefer-S", type=int, default=-1,
+                        help="Prefer recorded calls with this S (set -1 to disable).")
+    parser.add_argument("--prefer-call", type=str, default="last",
+                        choices=["last", "first"])
+
+    # FRAME selection (IMPORTANT)
+    parser.add_argument("--query-frame", type=str, default="action",
+                        help="Which latent frame provides QUERIES (default: action). Examples: action, value, curr_last, frame4.")
+    parser.add_argument("--key-frame", type=str, default="curr_last",
+                        help="Which latent frame provides KEYS to visualize (must be square tokens). Examples: curr_last, frame3.")
+
+    # Alignment knobs
     parser.add_argument("--transpose-hw", action="store_true",
-                        help="Transpose latent grid before upsampling (tests flatten ordering).")
+                        help="Transpose latent grid before upsampling.")
+    parser.add_argument("--flip-ud", action="store_true",
+                        help="Flip attention grid vertically before upsampling.")
+    parser.add_argument("--flip-lr", action="store_true",
+                        help="Flip attention grid horizontally before upsampling.")
+
     parser.add_argument("--clip-lo", type=float, default=5.0,
-                        help="Low percentile for clipping normalization (default 5).")
+                        help="Low percentile for clipping normalization.")
     parser.add_argument("--clip-hi", type=float, default=95.0,
-                        help="High percentile for clipping normalization (default 95).")
+                        help="High percentile for clipping normalization.")
+
+    # Debug
     parser.add_argument("--attn-debug", action="store_true",
-                        help="Print attention/heatmap debug info occasionally.")
+                        help="Print attention/heatmap debug occasionally.")
+    parser.add_argument("--debug-shapes", action="store_true",
+                        help="Record q/k/x/rope shapes for hooked forwards.")
+    parser.add_argument("--debug-dump-first-replan", action="store_true",
+                        help="Dump attention call summary + shape debug to JSON on first replan.")
 
     # Output
     parser.add_argument("--output-dir", type=str, default="outputs_iou_cosmos")
@@ -617,6 +985,8 @@ def main():
     os.makedirs(args.output_dir, exist_ok=True)
 
     all_results = []
+
+    prefer_S = None if (args.prefer_S is None or args.prefer_S < 0) else int(args.prefer_S)
 
     for task_id in task_ids:
         task = task_suite.get_task(task_id)
@@ -650,9 +1020,18 @@ def main():
                 episode_prefix=episode_prefix,
                 threshold_methods=threshold_methods,
                 transpose_hw=args.transpose_hw,
+                flip_ud=args.flip_ud,
+                flip_lr=args.flip_lr,
                 clip_lo=args.clip_lo,
                 clip_hi=args.clip_hi,
+                saliency_mode=args.saliency_mode,
+                prefer_S=prefer_S,
+                prefer_call=args.prefer_call,
+                query_frame=args.query_frame,
+                key_frame=args.key_frame,
                 attn_debug=args.attn_debug,
+                debug_shapes=args.debug_shapes,
+                debug_dump_first_replan=args.debug_dump_first_replan,
             )
 
             result["task_id"] = task_id
@@ -662,7 +1041,6 @@ def main():
 
         env.close()
 
-    # Save summary (excluding huge per-step arrays)
     serializable_results = [{k: v for k, v in r.items() if k != "step_iou_results"} for r in all_results]
     results_path = os.path.join(args.output_dir, "iou_results.json")
     with open(results_path, "w") as f:

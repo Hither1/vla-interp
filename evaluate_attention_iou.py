@@ -1,9 +1,16 @@
 """LIBERO evaluation with attention-segmentation IoU analysis.
 
 Runs live LIBERO rollouts using SegmentationRenderEnv for ground-truth object
-masks and a locally-loaded Pi0 model with attention recording.  At every
-re-plan step the script computes IoU between the model's visual attention
-heatmap and the segmentation masks of task-relevant objects.
+masks and a locally-loaded Pi0 model with attention recording. At every re-plan
+step the script computes IoU between the model's visual attention heatmap and
+the segmentation masks of task-relevant objects.
+
+UPDATED BEHAVIOR (multi-layer averaging):
+  - When --layers includes more than one layer, the script reports (logs) IoU and
+    attention mass as the AVERAGE across the used layers at each replan step.
+  - Episode summary includes "layers_avg" (average over layers per step, then
+    summarized over the episode).
+  - Aggregate summary reports "layers_avg" when multiple layers are used.
 
 Usage examples:
   # Single task, 3 episodes
@@ -41,33 +48,34 @@ import numpy as np
 import jax
 import jax.numpy as jnp
 import matplotlib
+
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt  # noqa: E402
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
-from libero.libero import benchmark
-from libero.libero import get_libero_path
-from libero.libero.envs.env_wrapper import SegmentationRenderEnv
-from openpi_client import image_tools
-from PIL import Image
+from libero.libero import benchmark  # noqa: E402
+from libero.libero import get_libero_path  # noqa: E402
+from libero.libero.envs.env_wrapper import SegmentationRenderEnv  # noqa: E402
+from openpi_client import image_tools  # noqa: E402
+from PIL import Image  # noqa: E402
 
-from example_attention_viz import (
+from example_attention_viz import (  # noqa: E402
     load_model_from_checkpoint,
     get_paligemma_tokenizer,
 )
-from openpi.models import model as _model
-from openpi.models import gemma
+from openpi.models import model as _model  # noqa: E402
+from openpi.models import gemma  # noqa: F401, E402  (import kept to match original deps)
 
-from visualize_attention import (
+from visualize_attention import (  # noqa: E402
     enable_attention_recording,
     disable_attention_recording,
     get_recorded_attention_weights,
     extract_image_attention,
     create_attention_heatmap,
 )
-from attention_iou import (
+from attention_iou import (  # noqa: E402
     compute_attention_object_iou,
     summarize_episode_iou,
     visualize_attention_vs_segmentation,
@@ -130,7 +138,7 @@ def create_libero_observation(
         state_dim: State dimension the model expects.
         pi05: Whether to use Pi0-FAST tokenization.
     """
-    # Resize images to model input resolution
+
     def _resize(img):
         pil = Image.fromarray(img)
         pil = pil.resize((MODEL_INPUT_RESOLUTION, MODEL_INPUT_RESOLUTION), Image.LANCZOS)
@@ -139,12 +147,10 @@ def create_libero_observation(
     base_img = _resize(agentview_img)
     wrist_resized = _resize(wrist_img)
 
-    # Normalize to float [0, 1] and add batch dimension
     base_batch = base_img[None].astype(np.float32) / 255.0
     wrist_batch = wrist_resized[None].astype(np.float32) / 255.0
     dummy_batch = np.zeros_like(base_batch)
 
-    # Tokenize prompt
     text_tok = get_paligemma_tokenizer(max_token_len)
     state_f32 = np.asarray(state, dtype=np.float32)
     tokens, mask = text_tok.tokenize(prompt, state=state_f32 if pi05 else None)
@@ -162,7 +168,7 @@ def create_libero_observation(
         image_masks={
             "base_0_rgb": jnp.ones((1,), dtype=jnp.bool_),
             "left_wrist_0_rgb": jnp.ones((1,), dtype=jnp.bool_),
-            "right_wrist_0_rgb": jnp.array([pi05], dtype=jnp.bool_),  # masked for Pi0, not for Pi0-FAST
+            "right_wrist_0_rgb": jnp.array([pi05], dtype=jnp.bool_),
         },
         state=state_batch,
         tokenized_prompt=tokenized_prompt,
@@ -188,11 +194,46 @@ def _get_segmentation_env(task, resolution, seed):
 
 def _get_robot_state(obs):
     """Extract robot state from LIBERO observation dict."""
-    return np.concatenate((
-        obs["robot0_eef_pos"],
-        _quat2axisangle(obs["robot0_eef_quat"]),
-        obs["robot0_gripper_qpos"],
-    ))
+    return np.concatenate(
+        (
+            obs["robot0_eef_pos"],
+            _quat2axisangle(obs["robot0_eef_quat"]),
+            obs["robot0_gripper_qpos"],
+        )
+    )
+
+
+def _build_avg_step_results(step_iou_results: List[Dict]) -> List[Dict]:
+    """
+    Build per-step averaged results across layers, shaped like compute_attention_object_iou output,
+    so summarize_episode_iou can consume them.
+    """
+    by_step: Dict[int, List[Dict]] = {}
+    for r in step_iou_results:
+        by_step.setdefault(int(r["step"]), []).append(r)
+
+    avg_step_results: List[Dict] = []
+    for step, rs in sorted(by_step.items(), key=lambda x: x[0]):
+        ious = [float(x["combined"].get("percentile_90", {}).get("iou", 0.0)) for x in rs]
+        masses = [float(x["attention_mass"].get("_all_objects", 0.0)) for x in rs]
+        hits = [1.0 if x.get("pointing_hit", False) else 0.0 for x in rs]
+
+        base = dict(rs[0])  # copy
+        base["layer"] = "avg"
+        base["step"] = step
+
+        base["combined"] = dict(base.get("combined", {}))
+        base["combined"]["percentile_90"] = dict(base["combined"].get("percentile_90", {}))
+        base["combined"]["percentile_90"]["iou"] = float(np.mean(ious)) if ious else 0.0
+
+        base["attention_mass"] = dict(base.get("attention_mass", {}))
+        base["attention_mass"]["_all_objects"] = float(np.mean(masses)) if masses else 0.0
+
+        base["pointing_hit"] = bool(np.mean(hits) >= 0.5) if hits else False
+
+        avg_step_results.append(base)
+
+    return avg_step_results
 
 
 # ── Main Evaluation Loop ────────────────────────────────────────────────────
@@ -217,18 +258,13 @@ def run_episode(
     num_image_tokens: int = 256,
     threshold_methods=None,
 ) -> Dict:
-    """Run one episode, recording attention + segmentation IoU at each replan step.
-
-    Returns dict with per-step IoU results, episode summary, and success status.
-    """
+    """Run one episode, recording attention + segmentation IoU at each replan step."""
     if threshold_methods is None:
         threshold_methods = DEFAULT_THRESHOLD_METHODS
 
-    # Reset environment
     obs = env.reset()
     obs = env.set_init_state(initial_state)
 
-    # Build object ID map for objects of interest
     obj_of_interest = env.obj_of_interest
     object_ids = {}
     for obj_name in obj_of_interest:
@@ -239,10 +275,8 @@ def run_episode(
     if not object_ids:
         log.warning("No objects of interest found in segmentation mapping!")
 
-    # Find segmentation key in observation
     seg_key = find_segmentation_key(obs)
     if seg_key is None:
-        # Try common patterns
         for k in obs:
             if "seg" in k.lower():
                 seg_key = k
@@ -253,44 +287,37 @@ def run_episode(
     log.info(f"Using segmentation key: {seg_key}")
 
     action_plan = collections.deque()
-    step_iou_results = []
-    step_indices = []
+    step_iou_results: List[Dict] = []
     replay_images = []
 
     t = 0
     done = False
 
     while t < max_steps + num_steps_wait:
-        # Wait for objects to settle
         if t < num_steps_wait:
             obs, _, done, _ = env.step(LIBERO_DUMMY_ACTION)
             t += 1
             continue
 
-        # Preprocess images (rotate 180 to match training)
+        # Rotate 180 to match training
         agentview = np.ascontiguousarray(obs["agentview_image"][::-1, ::-1])
         wrist = np.ascontiguousarray(obs["robot0_eye_in_hand_image"][::-1, ::-1])
 
-        # Get segmentation (also rotate to match model's view)
         seg_raw = obs[seg_key]
         seg_rotated = np.ascontiguousarray(seg_raw[::-1, ::-1])
 
-        # Resize images for policy input
         agentview_resized = image_tools.convert_to_uint8(
             image_tools.resize_with_pad(agentview, MODEL_INPUT_RESOLUTION, MODEL_INPUT_RESOLUTION)
         )
         wrist_resized = image_tools.convert_to_uint8(
             image_tools.resize_with_pad(wrist, MODEL_INPUT_RESOLUTION, MODEL_INPUT_RESOLUTION)
         )
-
         replay_images.append(agentview_resized)
 
         is_replan = not action_plan
         if is_replan:
-            # Get robot state
             robot_state = _get_robot_state(obs)
 
-            # Create model observation
             observation = create_libero_observation(
                 agentview_img=agentview_resized,
                 wrist_img=wrist_resized,
@@ -301,20 +328,20 @@ def run_episode(
                 pi05=pi05,
             )
 
-            # Record attention
             enable_attention_recording()
             rng = jax.random.PRNGKey(t)
             actions = model.sample_actions(rng, observation, num_steps=10)
             attention_dict = get_recorded_attention_weights()
             disable_attention_recording()
 
-            # Extract action chunk (first 7 dims for LIBERO)
-            action_chunk = np.array(actions[0])  # remove batch dim
-            action_chunk = action_chunk[:, :7]    # LIBERO action dim
+            action_chunk = np.array(actions[0])
+            action_chunk = action_chunk[:, :7]
             action_plan.extend(action_chunk[:replan_steps])
 
-            # Compute attention heatmap and IoU for each layer
+            # ---- MULTI-LAYER: compute per-layer results, then log AVG across layers ----
             if attention_dict and object_ids:
+                per_layer_metrics = []
+
                 for layer_idx in layers:
                     layer_key = f"layer_{layer_idx}"
                     if layer_key not in attention_dict:
@@ -322,9 +349,9 @@ def run_episode(
 
                     attn = attention_dict[layer_key][0]  # first batch
 
-                    # Extract image attention (query = first action token)
+                    # Query token = first action token
                     text_token_end = num_image_tokens + observation.tokenized_prompt.shape[1]
-                    query_token_idx = text_token_end  # first action token
+                    query_token_idx = text_token_end
 
                     image_attn = extract_image_attention(
                         attn,
@@ -334,15 +361,12 @@ def run_episode(
                         head_idx=None,
                     )
 
-                    # Create heatmap at model input resolution (224x224)
-                    # so patch grid (16x16=256 tokens) matches correctly
                     heatmap = create_attention_heatmap(
                         np.array(image_attn),
                         (MODEL_INPUT_RESOLUTION, MODEL_INPUT_RESOLUTION),
                         patch_size=14,
                     )
 
-                    # Compute IoU
                     iou_result = compute_attention_object_iou(
                         attention_heatmap=heatmap,
                         segmentation_mask=seg_rotated,
@@ -352,17 +376,18 @@ def run_episode(
                     iou_result["layer"] = layer_idx
                     iou_result["step"] = t
                     step_iou_results.append(iou_result)
-                    step_indices.append(t)
 
-                    # Log headline metric
-                    combined_iou = iou_result["combined"].get("percentile_90", {}).get("iou", 0)
-                    mass = iou_result["attention_mass"].get("_all_objects", 0)
-                    log.info(
-                        f"  t={t} layer={layer_idx}: IoU={combined_iou:.3f}, "
-                        f"attn_mass={mass:.1%}, pointing={'hit' if iou_result['pointing_hit'] else 'miss'}"
+                    combined_iou = float(iou_result["combined"].get("percentile_90", {}).get("iou", 0.0))
+                    mass = float(iou_result["attention_mass"].get("_all_objects", 0.0))
+                    per_layer_metrics.append(
+                        {
+                            "layer": layer_idx,
+                            "iou": combined_iou,
+                            "mass": mass,
+                            "pointing_hit": bool(iou_result.get("pointing_hit", False)),
+                        }
                     )
 
-                    # Optional per-step visualization
                     if save_viz:
                         viz_path = os.path.join(
                             output_dir,
@@ -379,7 +404,24 @@ def run_episode(
                         )
                         plt.close(fig)
 
-        # Step environment
+                if per_layer_metrics:
+                    if len(layers) > 1:
+                        avg_iou = float(np.mean([m["iou"] for m in per_layer_metrics]))
+                        avg_mass = float(np.mean([m["mass"] for m in per_layer_metrics]))
+                        hit_rate = float(np.mean([1.0 if m["pointing_hit"] else 0.0 for m in per_layer_metrics]))
+                        used_layers = [m["layer"] for m in per_layer_metrics]
+                        log.info(
+                            f"  t={t} layers={used_layers}: "
+                            f"AVG IoU={avg_iou:.3f}, AVG attn_mass={avg_mass:.1%}, "
+                            f"pointing_hit_rate={hit_rate:.1%}"
+                        )
+                    else:
+                        m = per_layer_metrics[0]
+                        log.info(
+                            f"  t={t} layer={m['layer']}: IoU={m['iou']:.3f}, "
+                            f"attn_mass={m['mass']:.1%}, pointing={'hit' if m['pointing_hit'] else 'miss'}"
+                        )
+
         action = action_plan.popleft()
         obs, reward, done, info = env.step(action.tolist())
 
@@ -387,16 +429,34 @@ def run_episode(
             break
         t += 1
 
-    # Episode summary
-    summary = {}
+    # Episode summary (per-layer, plus layers_avg when multiple layers)
+    summary: Dict[str, Dict] = {}
     for layer_idx in layers:
         layer_results = [r for r in step_iou_results if r.get("layer") == layer_idx]
         if layer_results:
             summary[f"layer_{layer_idx}"] = summarize_episode_iou(layer_results)
 
+    if len(layers) > 1 and step_iou_results:
+        avg_step_results = _build_avg_step_results(step_iou_results)
+        if avg_step_results:
+            summary["layers_avg"] = summarize_episode_iou(avg_step_results)
+
     # Episode-level IoU evolution plot
     if step_iou_results and save_viz:
-        # Plot for each layer
+        # If multiple layers, also plot averaged curve
+        if len(layers) > 1:
+            avg_step_results = _build_avg_step_results(step_iou_results)
+            if avg_step_results:
+                avg_steps = [r["step"] for r in avg_step_results]
+                fig = visualize_iou_over_episode(
+                    step_results=avg_step_results,
+                    step_indices=avg_steps,
+                    prompt=task_description,
+                    output_path=os.path.join(output_dir, f"{episode_prefix}_layers_avg_iou_evolution.png"),
+                )
+                plt.close(fig)
+
+        # Plot for each layer (kept for debugging)
         for layer_idx in layers:
             layer_results = [r for r in step_iou_results if r.get("layer") == layer_idx]
             layer_steps = [r["step"] for r in layer_results]
@@ -438,27 +498,31 @@ def main():
     parser.add_argument("--no-pi05", action="store_true")
 
     # LIBERO
-    parser.add_argument("--task-suite", type=str, default="libero_10",
-                        choices=["libero_spatial", "libero_object", "libero_goal", "libero_10", "libero_90"])
-    parser.add_argument("--task-id", type=int, default=None,
-                        help="Specific task ID (default: all tasks)")
-    parser.add_argument("--num-episodes", type=int, default=5,
-                        help="Number of episodes per task")
+    parser.add_argument(
+        "--task-suite",
+        type=str,
+        default="libero_10",
+        choices=["libero_spatial", "libero_object", "libero_goal", "libero_10", "libero_90"],
+    )
+    parser.add_argument("--task-id", type=int, default=None, help="Specific task ID (default: all tasks)")
+    parser.add_argument("--num-episodes", type=int, default=5, help="Number of episodes per task")
     parser.add_argument("--replan-steps", type=int, default=5)
     parser.add_argument("--seed", type=int, default=7)
 
     # Attention / IoU
-    parser.add_argument("--layers", type=int, nargs="+", default=[0, 8, 17],
-                        help="Transformer layers to analyze")
+    parser.add_argument("--layers", type=int, nargs="+", default=[25, 26, 27], help="Transformer layers to analyze")
     parser.add_argument("--num-image-tokens", type=int, default=256)
-    parser.add_argument("--threshold-methods", type=str, nargs="+",
-                        default=["percentile_90", "percentile_75", "otsu_0"],
-                        help="Threshold methods as method_value strings")
+    parser.add_argument(
+        "--threshold-methods",
+        type=str,
+        nargs="+",
+        default=["percentile_90", "percentile_75", "otsu_0"],
+        help="Threshold methods as method_value strings",
+    )
 
     # Output
     parser.add_argument("--output-dir", type=str, default="outputs_iou")
-    parser.add_argument("--save-viz", action="store_true",
-                        help="Save per-step IoU visualizations (slow, disk-heavy)")
+    parser.add_argument("--save-viz", action="store_true", help="Save per-step IoU visualizations (slow, disk-heavy)")
 
     args = parser.parse_args()
 
@@ -470,7 +534,6 @@ def main():
         method, value = tm.rsplit("_", 1)
         threshold_methods.append((method, float(value)))
 
-    # Determine max steps per task suite
     max_steps_map = {
         "libero_spatial": 220,
         "libero_object": 280,
@@ -480,7 +543,6 @@ def main():
     }
     max_steps = max_steps_map[args.task_suite]
 
-    # Load model
     log.info("Loading model from checkpoint...")
     model, cfg, state_dim = load_model_from_checkpoint(
         checkpoint_path=args.checkpoint,
@@ -493,21 +555,15 @@ def main():
     )
     log.info(f"Model loaded. action_dim={cfg.action_dim}, state_dim={state_dim}")
 
-    # Initialize LIBERO benchmark
     np.random.seed(args.seed)
     benchmark_dict = benchmark.get_benchmark_dict()
     task_suite = benchmark_dict[args.task_suite]()
     num_tasks = task_suite.n_tasks
 
-    # Determine which tasks to evaluate
-    if args.task_id is not None:
-        task_ids = [args.task_id]
-    else:
-        task_ids = list(range(num_tasks))
+    task_ids = [args.task_id] if args.task_id is not None else list(range(num_tasks))
 
     os.makedirs(args.output_dir, exist_ok=True)
 
-    # Aggregate results
     all_results = []
 
     for task_id in task_ids:
@@ -519,7 +575,6 @@ def main():
         log.info(f"Task {task_id}: {task_description}")
         log.info(f"{'=' * 70}")
 
-        # Create segmentation env
         env, _ = _get_segmentation_env(task, LIBERO_ENV_RESOLUTION, args.seed)
 
         for ep_idx in range(min(args.num_episodes, len(initial_states))):
@@ -553,22 +608,33 @@ def main():
             result["task_description"] = task_description
             all_results.append(result)
 
-            # Log episode summary
+            # Log episode summary (prefer averaged summary if present)
             log.info(f"  Success: {result.get('success')}")
             log.info(f"  Steps: {result.get('num_steps')}")
-            for layer_key, summ in result.get("summary", {}).items():
+
+            summ_dict = result.get("summary", {})
+            if "layers_avg" in summ_dict:
+                summ = summ_dict["layers_avg"]
                 iou_mean = summ.get("combined_iou", {}).get("mean", 0)
                 mass_mean = summ.get("attention_mass_on_objects", {}).get("mean", 0)
                 pointing = summ.get("pointing_accuracy", 0)
                 log.info(
-                    f"  {layer_key}: IoU={iou_mean:.3f}, "
+                    f"  layers_avg: IoU={iou_mean:.3f}, "
                     f"attn_mass={mass_mean:.1%}, pointing={pointing:.1%}"
                 )
+            else:
+                for layer_key, summ in summ_dict.items():
+                    iou_mean = summ.get("combined_iou", {}).get("mean", 0)
+                    mass_mean = summ.get("attention_mass_on_objects", {}).get("mean", 0)
+                    pointing = summ.get("pointing_accuracy", 0)
+                    log.info(
+                        f"  {layer_key}: IoU={iou_mean:.3f}, "
+                        f"attn_mass={mass_mean:.1%}, pointing={pointing:.1%}"
+                    )
 
         env.close()
 
-    # Save aggregate results
-    # Strip non-serializable step_iou_results for the summary JSON
+    # Save aggregate results (strip step_iou_results)
     serializable_results = []
     for r in all_results:
         entry = {k: v for k, v in r.items() if k != "step_iou_results"}
@@ -583,31 +649,57 @@ def main():
     log.info(f"\n{'=' * 70}")
     log.info("AGGREGATE SUMMARY")
     log.info(f"{'=' * 70}")
-    successes = sum(1 for r in all_results if r.get("success"))
-    log.info(f"Success rate: {successes}/{len(all_results)} ({successes/len(all_results)*100:.1f}%)")
 
-    for layer_idx in args.layers:
-        layer_key = f"layer_{layer_idx}"
+    successes = sum(1 for r in all_results if r.get("success"))
+    total = max(1, len(all_results))
+    log.info(f"Success rate: {successes}/{len(all_results)} ({successes/total*100:.1f}%)")
+
+    if len(args.layers) > 1:
         ious = [
-            r["summary"][layer_key]["combined_iou"]["mean"]
+            r["summary"]["layers_avg"]["combined_iou"]["mean"]
             for r in all_results
-            if layer_key in r.get("summary", {})
+            if "layers_avg" in r.get("summary", {})
         ]
         masses = [
-            r["summary"][layer_key]["attention_mass_on_objects"]["mean"]
+            r["summary"]["layers_avg"]["attention_mass_on_objects"]["mean"]
             for r in all_results
-            if layer_key in r.get("summary", {})
+            if "layers_avg" in r.get("summary", {})
         ]
         pointings = [
-            r["summary"][layer_key]["pointing_accuracy"]
+            r["summary"]["layers_avg"]["pointing_accuracy"]
             for r in all_results
-            if layer_key in r.get("summary", {})
+            if "layers_avg" in r.get("summary", {})
         ]
         if ious:
             log.info(
-                f"  {layer_key}: mean_IoU={np.mean(ious):.3f} +/- {np.std(ious):.3f}, "
+                f"  layers_avg: mean_IoU={np.mean(ious):.3f} +/- {np.std(ious):.3f}, "
                 f"mean_mass={np.mean(masses):.1%}, mean_pointing={np.mean(pointings):.1%}"
             )
+        else:
+            log.info("  layers_avg: (no data)")
+    else:
+        for layer_idx in args.layers:
+            layer_key = f"layer_{layer_idx}"
+            ious = [
+                r["summary"][layer_key]["combined_iou"]["mean"]
+                for r in all_results
+                if layer_key in r.get("summary", {})
+            ]
+            masses = [
+                r["summary"][layer_key]["attention_mass_on_objects"]["mean"]
+                for r in all_results
+                if layer_key in r.get("summary", {})
+            ]
+            pointings = [
+                r["summary"][layer_key]["pointing_accuracy"]
+                for r in all_results
+                if layer_key in r.get("summary", {})
+            ]
+            if ious:
+                log.info(
+                    f"  {layer_key}: mean_IoU={np.mean(ious):.3f} +/- {np.std(ious):.3f}, "
+                    f"mean_mass={np.mean(masses):.1%}, mean_pointing={np.mean(pointings):.1%}"
+                )
 
 
 if __name__ == "__main__":
