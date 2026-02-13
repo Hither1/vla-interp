@@ -267,13 +267,34 @@ def run_episode(
 
     obj_of_interest = env.obj_of_interest
     object_ids = {}
+
+    # First try exact matching
     for obj_name in obj_of_interest:
         if obj_name in env.instance_to_id:
             object_ids[obj_name] = env.instance_to_id[obj_name]
+
+    # If no exact matches (common in libero_goal), try fuzzy matching
+    if not object_ids:
+        log.warning(f"No exact matches found. Attempting fuzzy matching...")
+        log.warning(f"  obj_of_interest: {list(obj_of_interest)}")
+        log.warning(f"  instance_to_id keys: {list(env.instance_to_id.keys())}")
+
+        for obj_name in obj_of_interest:
+            # Try to find instance names that contain the obj_name as substring
+            matches = [k for k in env.instance_to_id.keys()
+                      if obj_name.lower() in k.lower()]
+
+            if matches:
+                # Use the first match (or you could use all matches)
+                for match in matches:
+                    object_ids[match] = env.instance_to_id[match]
+                log.info(f"  Fuzzy matched '{obj_name}' -> {matches}")
+
     log.info(f"Objects of interest: {object_ids}")
 
     if not object_ids:
-        log.warning("No objects of interest found in segmentation mapping!")
+        log.warning("No objects of interest found in segmentation mapping even after fuzzy matching!")
+        log.warning(f"  Available instance_to_id: {env.instance_to_id}")
 
     seg_key = find_segmentation_key(obs)
     if seg_key is None:
