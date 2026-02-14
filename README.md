@@ -29,20 +29,70 @@ export TRANSFORMERS_CACHE=/n/netscratch/sham_lab/Lab/chloe00/huggingface
 python examples/libero/main.py --args.port 8000
 ```
 
+## Repository Structure
+
+```
+vla-interp/
+├── analysis/                    # Analysis and visualization scripts
+│   ├── attention/              # Attention visualization & IoU analysis
+│   ├── entropy/                # Action entropy analysis
+│   ├── probing/                # Linear probes, PCA, geometry analysis
+│   └── utils/                  # Shared analysis utilities
+│
+├── experiments/                 # Shell scripts for running experiments
+│   ├── run_attention_iou.sh
+│   ├── run_action_entropy.sh
+│   └── run_cosmos_eval.sh
+│
+├── results/                     # Experiment outputs and results
+│   ├── entropy/                # Entropy analysis results
+│   ├── attention/              # Attention visualizations
+│   ├── iou/                    # IoU evaluation results
+│   └── probes/                 # Probing results
+│
+├── docs/                        # Documentation and analysis reports
+│   ├── ATTENTION_VIZ_README.md
+│   ├── ENTROPY_ANALYSIS_README.md
+│   └── entropy_analysis_report.md
+│
+├── examples/                    # Example evaluation scripts
+│   ├── libero/                 # LIBERO benchmark evaluation
+│   ├── aloha_sim/              # ALOHA simulation
+│   ├── aloha_real/             # ALOHA real robot
+│   └── droid/                  # DROID dataset
+│
+├── src/openpi/                  # Core openpi library
+│   ├── models/                 # Pi0 model implementation
+│   ├── policies/               # Policy inference & transforms
+│   ├── training/               # Training utilities
+│   └── serving/                # WebSocket policy server
+│
+├── scripts/                     # Training and serving scripts
+│   ├── serve_policy.py         # Start policy server
+│   └── train.py                # Training script
+│
+├── third_party/                 # External dependencies
+│   ├── cosmos-policy/          # Cosmos policy implementation
+│   └── aloha/                  # ALOHA utilities
+│
+├── checkpoints/                 # Model checkpoints
+└── sae/                        # Sparse autoencoder utilities
+```
+
 ## Analysis Tools
 
 ### Attention Visualization
 
-Tools for visualizing visual, linguistic, and multimodal attention patterns in Pi0. See [ATTENTION_VIZ_README.md](ATTENTION_VIZ_README.md) for full documentation.
+Tools for visualizing visual, linguistic, and multimodal attention patterns in Pi0. See [docs/ATTENTION_VIZ_README.md](docs/ATTENTION_VIZ_README.md) for full documentation.
 
 | Script | Description |
 | --- | --- |
-| `example_attention_viz.py` | Visualize attention heatmaps for single frames or full episodes |
-| `visualize_attention.py` | Visual attention heatmap library |
-| `visualize_text_attention.py` | Linguistic attention analysis (per-token attention weights) |
-| `visualize_combined_attention.py` | Combined multimodal (vision + language) attention visualization |
-| `attention_iou.py` | IoU metrics between attention heatmaps and object segmentation masks |
-| `evaluate_attention_iou.py` | Evaluate attention-segmentation alignment across episodes |
+| `analysis/attention/example_attention_viz.py` | Visualize attention heatmaps for single frames or full episodes |
+| `analysis/attention/visualize_attention.py` | Visual attention heatmap library |
+| `analysis/attention/visualize_text_attention.py` | Linguistic attention analysis (per-token attention weights) |
+| `analysis/attention/visualize_combined_attention.py` | Combined multimodal (vision + language) attention visualization |
+| `analysis/attention/attention_iou.py` | IoU metrics between attention heatmaps and object segmentation masks |
+| `analysis/attention/evaluate_attention_iou.py` | Evaluate attention-segmentation alignment across episodes |
 
 ### Sparse Autoencoders (SAEs)
 
@@ -50,19 +100,30 @@ Train sparse autoencoders on Pi0 activations to discover interpretable features,
 
 | Script | Description |
 | --- | --- |
-| `train_save.py` | Train TopK / BatchTopK SAEs on Pi0 activations |
+| `analysis/probing/train_save.py` | Train TopK / BatchTopK SAEs on Pi0 activations |
 | `sae/top_activating_frames.py` | Find video frames that maximally activate each SAE feature |
 | `sae/top_activating_actions.py` | Analyze action distributions associated with each SAE feature |
 | `sae/top_activating_prompts.py` | Identify text prompts that maximally activate each SAE feature |
-| `sweep_sae_score_actions.py` | Evaluate SAE features for action prediction (MCC scoring) |
+| `analysis/probing/sweep_sae_score_actions.py` | Evaluate SAE features for action prediction (MCC scoring) |
 
 ### Linear Probing and Representation Geometry
 
 | Script | Description |
 | --- | --- |
-| `linear_probe.py` | Ridge regression probes and INLP for measuring linear information about actions |
-| `geometry.py` | Activation geometry analysis (stepwise distances, temporal curvature across layers) |
-| `action_pca.py` | PCA visualization of the action space |
+| `analysis/probing/linear_probe.py` | Ridge regression probes and INLP for measuring linear information about actions |
+| `analysis/probing/geometry.py` | Activation geometry analysis (stepwise distances, temporal curvature across layers) |
+| `analysis/probing/action_pca.py` | PCA visualization of the action space |
+
+### Action Entropy Analysis
+
+Analyze the entropy of predicted action distributions to understand model confidence and decision-making. See [docs/ENTROPY_ANALYSIS_README.md](docs/ENTROPY_ANALYSIS_README.md) for details.
+
+| Script | Description |
+| --- | --- |
+| `analysis/entropy/compute_action_entropy.py` | Compute entropy of action distributions across episodes |
+| `analysis/entropy/calculate_entropy_by_suite.py` | Calculate entropy statistics grouped by LIBERO task suite |
+| `analysis/entropy/visualize_entropy_results.py` | Generate entropy visualization plots |
+| `analysis/entropy/analyze_entropy_task_correlation.py` | Analyze correlation between entropy and task success |
 
 ### LIBERO Evaluation
 
