@@ -1,20 +1,38 @@
+#!/usr/bin/env python3
+"""
+LIBERO evaluation script with:
+  - prompt perturbation modes (original/empty/shuffle/random/synonym/opposite/custom)
+  - per-episode smoothness + boundary metrics
+  - replan consistency metric
+  - optional MMD tracking from the policy server
+  - action entropy computed once per (task_id, prompt_used) group by pooling
+         executed actions across ALL trajectories in that group.
+
+NEW (this version):
+  - For each (task_id, prompt_used) group, compute KDE action entropy for:
+        (1) success trajectories only
+        (2) failure trajectories only
+        (3) all trajectories
+    and attach these to every per-episode JSON under "action_entropy_group".
+"""
+
 import collections
 import dataclasses
+import json
 import logging
 import math
 import pathlib
 
 import imageio
-from libero.libero import benchmark
-from libero.libero import get_libero_path
-from libero.libero.envs import OffScreenRenderEnv
 import numpy as np
-from scipy.stats import gaussian_kde
-from openpi_client import image_tools
-from openpi_client import websocket_client_policy as _websocket_client_policy
 import tqdm
 import tyro
-import json
+from libero.libero import benchmark, get_libero_path
+from libero.libero.envs import OffScreenRenderEnv
+from openpi_client import image_tools
+from openpi_client import websocket_client_policy as _websocket_client_policy
+from scipy.stats import gaussian_kde
+
 
 LIBERO_DUMMY_ACTION = [0.0] * 6 + [-1.0]
 LIBERO_ENV_RESOLUTION = 256  # resolution used to render training data
@@ -34,9 +52,9 @@ class Args:
     # LIBERO environment-specific parameters
     #################################################################################################################
     task_suite_name: str = (
-        "libero_90"  # Task suite. Options: libero_spatial, libero_object, libero_goal, libero_10, libero_90
+        "libero_spatial"  # Task suite. Options: libero_spatial, libero_object, libero_goal, libero_10, libero_90
     )
-    num_steps_wait: int = 10  # Number of steps to wait for objects to stabilize i n sim
+    num_steps_wait: int = 10  # Number of steps to wait for objects to stabilize in sim
     num_trials_per_task: int = 20  # Number of rollouts per task
 
     #################################################################################################################
@@ -51,8 +69,11 @@ class Args:
     custom_prompt: str = ""  # Used when prompt_mode="custom"
 
     # MMD (Maximum Mean Discrepancy) tracking
-    track_mmd: bool = True  # Enable multi-sample MMD (policy uncertainty)
+    track_mmd: bool = False  # Enable multi-sample MMD (policy uncertainty)
     mmd_num_samples: int = 8  # Number of diffusion samples for MMD estimation
+
+    # Action entropy options
+    entropy_action_dim: int = 7  # LIBERO action dims (x,y,z,rx,ry,rz,gripper)
 
 
 # Synonym mappings for common LIBERO action verbs
@@ -97,66 +118,62 @@ OPPOSITE_MAP = {
 }
 
 
-def perturb_prompt(original: str, mode: str = "original", all_tasks: list = None) -> str:
+def perturb_prompt(original: str, mode: str = "original", all_tasks: list[str] | None = None, custom: str = "") -> str:
+    """Return a perturbed prompt string."""
     if mode == "original":
         return original
+    if mode == "custom":
+        return custom
 
-    elif mode == "empty":
+    if mode == "empty":
         return ""
 
-    elif mode == "shuffle":
+    if mode == "shuffle":
         words = original.split()
         np.random.shuffle(words)
-
         result = " ".join(words)
-        print("Modified prompt:", result)
+        logging.info(f"Modified prompt (shuffle): {result}")
         return result
 
-    elif mode == "random":
-        # Use a random (different) task's prompt
-        # return np.random.choice(all_tasks)
+    if mode == "random":
+        if not all_tasks:
+            return original
         others = [t for t in all_tasks if t != original]
-        result = np.random.choice(others) if others else original
-
-        print("Modified prompt:", result)
+        result = str(np.random.choice(others)) if others else original
+        logging.info(f"Modified prompt (random): {result}")
         return result
 
-    elif mode == "synonym":
-        # Replace action verbs with synonyms
+    if mode == "synonym":
         result = original.lower()
         for word, synonyms in SYNONYM_MAP.items():
             if word in result:
-                replacement = np.random.choice(synonyms)
+                replacement = str(np.random.choice(synonyms))
                 result = result.replace(word, replacement, 1)
-                break  # Only replace one word to keep prompt mostly intact
-        print("Modified prompt:", result)
+                break
+        logging.info(f"Modified prompt (synonym): {result}")
         return result
 
-    elif mode == "opposite":
-        # Replace actions/directions with opposites
+    if mode == "opposite":
         result = original.lower()
-        # Sort by length (descending) to match longer phrases first
         for phrase in sorted(OPPOSITE_MAP.keys(), key=len, reverse=True):
             if phrase in result:
                 result = result.replace(phrase, OPPOSITE_MAP[phrase], 1)
-                break  # Only replace one phrase
-        print("Modified prompt:", result)
+                break
+        logging.info(f"Modified prompt (opposite): {result}")
         return result
 
     return original
 
 
 def _json_default(o):
-    # numpy scalars -> python scalars
     if isinstance(o, np.generic):
         return o.item()
-    # numpy arrays -> lists
     if isinstance(o, np.ndarray):
         return o.tolist()
     raise TypeError(f"Object of type {type(o).__name__} is not JSON serializable")
 
 
-def compute_smoothness_metrics(action_log):
+def compute_smoothness_metrics(action_log: list[dict]):
     """Compute action smoothness and boundary metrics from an episode's action log.
 
     Annotates each action_log entry in-place with per-step smoothness fields, and
@@ -172,22 +189,19 @@ def compute_smoothness_metrics(action_log):
 
     LIBERO actions are [x, y, z, rx, ry, rz, gripper] (7D).
     """
-    actions = np.array([entry["action"] for entry in action_log])
+    actions = np.array([entry["action"] for entry in action_log], dtype=np.float32)
     if len(actions) < 2:
         return {}
 
-    # --- 1st derivative: action velocity ---
     deltas = np.diff(actions, axis=0)  # (T-1, 7)
-    delta_norms = np.linalg.norm(deltas[:, :6], axis=1)  # exclude gripper for L2
+    delta_norms = np.linalg.norm(deltas[:, :6], axis=1)
     pos_delta_norms = np.linalg.norm(deltas[:, :3], axis=1)
     rot_delta_norms = np.linalg.norm(deltas[:, 3:6], axis=1)
     gripper_deltas = np.abs(deltas[:, 6])
 
-    # --- 2nd derivative: action acceleration ---
     accels = np.diff(deltas, axis=0)  # (T-2, 7)
     accel_norms = np.linalg.norm(accels[:, :6], axis=1)
 
-    # --- Direction consistency (cosine similarity between consecutive deltas) ---
     cosine_sims = []
     for i in range(len(deltas) - 1):
         d1, d2 = deltas[i, :6], deltas[i + 1, :6]
@@ -195,30 +209,26 @@ def compute_smoothness_metrics(action_log):
         if n1 > 1e-8 and n2 > 1e-8:
             cosine_sims.append(float(np.dot(d1, d2) / (n1 * n2)))
         else:
-            cosine_sims.append(1.0)  # no motion = perfectly consistent
+            cosine_sims.append(1.0)
 
-    # --- Gripper state transitions (task-phase boundaries) ---
     gripper_actions = actions[:, 6]
     gripper_signs = np.sign(gripper_actions)
     gripper_transitions = []
     for i in range(1, len(gripper_signs)):
         if gripper_signs[i] != gripper_signs[i - 1] and gripper_signs[i] != 0:
-            gripper_transitions.append({
-                "t": action_log[i]["t"],
-                "step_idx": i,
-                "from": "open" if gripper_signs[i - 1] > 0 else "close",
-                "to": "open" if gripper_signs[i] > 0 else "close",
-            })
+            gripper_transitions.append(
+                {
+                    "t": action_log[i]["t"],
+                    "step_idx": i,
+                    "from": "open" if gripper_signs[i - 1] > 0 else "close",
+                    "to": "open" if gripper_signs[i] > 0 else "close",
+                }
+            )
 
-    # --- Chunk-boundary discontinuity analysis ---
-    chunk_start_set = {
-        i for i, entry in enumerate(action_log) if entry.get("is_chunk_start", False)
-    }
+    chunk_start_set = {i for i, entry in enumerate(action_log) if entry.get("is_chunk_start", False)}
     boundary_deltas = []
     within_deltas = []
     for i in range(len(delta_norms)):
-        # delta[i] = action_log[i+1] - action_log[i]
-        # If action_log[i+1] is a chunk start, this delta crosses a re-plan boundary.
         if (i + 1) in chunk_start_set:
             boundary_deltas.append(delta_norms[i])
         else:
@@ -231,13 +241,10 @@ def compute_smoothness_metrics(action_log):
         chunk_boundary_stats = {
             "mean_boundary_delta": mean_boundary,
             "mean_within_chunk_delta": mean_within,
-            "boundary_ratio": (
-                mean_boundary / mean_within if mean_within > 1e-8 else float("inf")
-            ),
+            "boundary_ratio": (mean_boundary / mean_within if mean_within > 1e-8 else float("inf")),
             "num_chunk_boundaries": len(boundary_deltas),
         }
 
-    # --- Annotate per-step metrics into action_log entries ---
     for i, entry in enumerate(action_log):
         if i < len(delta_norms):
             entry["action_delta_norm"] = float(delta_norms[i])
@@ -249,7 +256,6 @@ def compute_smoothness_metrics(action_log):
         if i < len(cosine_sims):
             entry["direction_consistency"] = float(cosine_sims[i])
 
-    # --- Episode-level summary ---
     summary = {
         "mean_action_delta": float(np.mean(delta_norms)),
         "max_action_delta": float(np.max(delta_norms)),
@@ -266,28 +272,19 @@ def compute_smoothness_metrics(action_log):
     return summary
 
 
-def compute_replan_consistency(action_log, replan_steps):
+def compute_replan_consistency(action_log: list[dict], replan_steps: int):
     """Measure how much the policy's predicted future changes between re-plans.
 
-    Consecutive action chunks overlap: chunk_i predicts [t..t+H-1], chunk_{i+1}
-    predicts [t+R..t+R+H-1], where R = replan_steps, H = action_horizon.  The
-    overlap is chunk_i[R:] vs chunk_{i+1}[:H-R].  A large L2 in this overlap
-    means the policy substantially revised its plan.
-
-    Requires ``full_action_chunk`` to have been stored in action_log entries at
-    chunk starts.
+    Overlap: old_chunk[replan_steps:] vs new_chunk[:H-replan_steps]
     """
-    chunk_entries = [
-        e for e in action_log
-        if e.get("is_chunk_start") and "full_action_chunk" in e
-    ]
+    chunk_entries = [e for e in action_log if e.get("is_chunk_start") and "full_action_chunk" in e]
     if len(chunk_entries) < 2:
         return {}
 
     replan_l2s = []
     for i in range(len(chunk_entries) - 1):
-        old_chunk = np.array(chunk_entries[i]["full_action_chunk"])
-        new_chunk = np.array(chunk_entries[i + 1]["full_action_chunk"])
+        old_chunk = np.array(chunk_entries[i]["full_action_chunk"], dtype=np.float32)
+        new_chunk = np.array(chunk_entries[i + 1]["full_action_chunk"], dtype=np.float32)
         overlap_old = old_chunk[replan_steps:]
         overlap_new = new_chunk[: len(overlap_old)]
         n = min(len(overlap_old), len(overlap_new))
@@ -305,168 +302,196 @@ def compute_replan_consistency(action_log, replan_steps):
     }
 
 
-def compute_action_entropy_kde(action_logs, action_dim=7):
-    """Estimate entropy of the action distribution across multiple episodes via Gaussian KDE.
+def compute_action_entropy_kde(action_logs: list[list[dict]], action_dim: int = 7):
+    """Estimate differential entropy of pooled executed actions across many episodes using Gaussian KDE.
 
-    Pools executed actions from all episodes for a given task/scenario and fits
-    a single Gaussian KDE.  Differential entropy is estimated as:
-        H_hat = -1/N * sum_i log p(x_i)
-
-    Args:
-        action_logs: List of action logs (one per episode). Each action log is
-            a list of dicts with an "action" key.
-        action_dim: Number of action dimensions to use (default 7, the real
-            LIBERO action dims before padding).
-
-    Returns:
-        Dict with entropy estimate and diagnostics, or {} if estimation fails.
+    H_hat = - (1/N) * sum_i log p(x_i)
     """
     all_actions = []
     for action_log in action_logs:
-        actions = np.array([entry["action"] for entry in action_log])  # (H_i, D_full)
+        if not action_log:
+            continue
+        actions = np.array([entry["action"] for entry in action_log], dtype=np.float32)
+        if actions.ndim != 2 or actions.shape[1] < action_dim:
+            continue
         all_actions.append(actions[:, :action_dim])
+
+    if not all_actions:
+        return {}
+
     actions = np.concatenate(all_actions, axis=0)  # (N_total, D)
     N, D = actions.shape
-
     if N < D + 1:
-        # Not enough samples for reliable KDE
         return {}
 
     try:
-        # gaussian_kde expects shape (D, N) — each column is one observation
-        kde = gaussian_kde(actions.T)  # bandwidth via Scott's rule
-        log_densities = kde.logpdf(actions.T)  # (N,)
+        kde = gaussian_kde(actions.T)  # expects (D, N)
+        log_densities = kde.logpdf(actions.T)
         entropy = -float(np.mean(log_densities))
-
         return {
             "action_entropy_kde": entropy,
             "mean_log_density": float(np.mean(log_densities)),
             "std_log_density": float(np.std(log_densities)),
             "kde_bandwidth_factor": float(kde.factor),
-            "num_samples": N,
-            "num_episodes": len(action_logs),
-            "action_dim": D,
+            "num_samples": int(N),
+            "num_episodes": int(len(action_logs)),
+            "action_dim": int(D),
         }
     except np.linalg.LinAlgError:
-        # Degenerate covariance (e.g., all actions identical)
         return {}
 
 
+def compute_entropy_triplet(action_logs: list[list[dict]], successes: list[bool], action_dim: int = 7) -> dict:
+    """Compute KDE entropy for all / success-only / failure-only trajectories within a group."""
+    if len(action_logs) != len(successes):
+        raise ValueError("action_logs and successes must have the same length")
+
+    all_logs = action_logs
+    succ_logs = [log for log, ok in zip(action_logs, successes) if ok]
+    fail_logs = [log for log, ok in zip(action_logs, successes) if not ok]
+
+    return {
+        "all": compute_action_entropy_kde(all_logs, action_dim=action_dim),
+        "success": compute_action_entropy_kde(succ_logs, action_dim=action_dim),
+        "failure": compute_action_entropy_kde(fail_logs, action_dim=action_dim),
+        "counts": {
+            "num_episodes_all": int(len(all_logs)),
+            "num_episodes_success": int(len(succ_logs)),
+            "num_episodes_failure": int(len(fail_logs)),
+        },
+    }
+
+
+def _get_libero_env(task, resolution: int, seed: int):
+    """Initializes and returns the LIBERO environment, along with the task description."""
+    task_description = task.language
+    task_bddl_file = pathlib.Path(get_libero_path("bddl_files")) / task.problem_folder / task.bddl_file
+    env_args = {"bddl_file_name": task_bddl_file, "camera_heights": resolution, "camera_widths": resolution}
+    env = OffScreenRenderEnv(**env_args)
+    env.seed(seed)  # affects object positions even when using fixed init state
+    return env, task_description
+
+
+def _quat2axisangle(quat: np.ndarray):
+    """robosuite quat -> axis-angle."""
+    quat = np.array(quat, dtype=np.float32)
+    if quat[3] > 1.0:
+        quat[3] = 1.0
+    elif quat[3] < -1.0:
+        quat[3] = -1.0
+
+    den = np.sqrt(1.0 - quat[3] * quat[3])
+    if math.isclose(float(den), 0.0):
+        return np.zeros(3, dtype=np.float32)
+    return (quat[:3] * 2.0 * math.acos(float(quat[3]))) / den
+
+
+def _get_max_steps(task_suite_name: str) -> int:
+    if task_suite_name == "libero_spatial":
+        return 220
+    if task_suite_name == "libero_object":
+        return 280
+    if task_suite_name == "libero_goal":
+        return 300
+    if task_suite_name == "libero_10":
+        return 520
+    if task_suite_name == "libero_90":
+        return 400
+    raise ValueError(f"Unknown task suite: {task_suite_name}")
+
+
 def eval_libero(args: Args) -> None:
-    # Set random seed
     np.random.seed(args.seed)
 
-    # Initialize LIBERO task suite
     benchmark_dict = benchmark.get_benchmark_dict()
     task_suite = benchmark_dict[args.task_suite_name]()
     num_tasks_in_suite = task_suite.n_tasks
-    
-    logging.info(f"Task suite: {args.task_suite_name}")
+    logging.info(f"Task suite: {args.task_suite_name} (n_tasks={num_tasks_in_suite})")
 
-    # -------------------------------------------------------------------------
     # Prepare all_task_descriptions (used by prompt_mode="random")
-    # -------------------------------------------------------------------------
     all_task_descriptions = []
     for i in range(num_tasks_in_suite):
         try:
             t = task_suite.get_task(i)
-            # Usually the natural language instruction is stored here
-            desc = getattr(t, "language", None)
-            if desc is None:
-                desc = getattr(t, "task_description", None)
-            if desc is None:
-                desc = str(t)
+            desc = getattr(t, "language", None) or getattr(t, "task_description", None) or str(t)
             all_task_descriptions.append(str(desc))
         except Exception as e:
             logging.warning(f"Failed to get task description for task {i}: {e}")
             all_task_descriptions.append(f"task_{i}")
-
-    # Optional: ensure uniqueness to avoid choosing the same string a lot
     all_task_descriptions = list(dict.fromkeys(all_task_descriptions))
 
-
-    logging.info(f"Task suite: {args.task_suite_name}")
-
     pathlib.Path(args.video_out_path).mkdir(parents=True, exist_ok=True)
-
-    if args.task_suite_name == "libero_spatial":
-        max_steps = 220  # longest training demo has 193 steps
-    elif args.task_suite_name == "libero_object":
-        max_steps = 280  # longest training demo has 254 steps
-    elif args.task_suite_name == "libero_goal":
-        max_steps = 300  # longest training demo has 270 steps
-    elif args.task_suite_name == "libero_10":
-        max_steps = 520  # longest training demo has 505 steps
-    elif args.task_suite_name == "libero_90":
-        max_steps = 400  # longest training demo has 373 steps
-    else:
-        raise ValueError(f"Unknown task suite: {args.task_suite_name}")
+    max_steps = _get_max_steps(args.task_suite_name)
 
     client = _websocket_client_policy.WebsocketClientPolicy(args.host, args.port)
 
-    # Start evaluation
     total_episodes, total_successes = 0, 0
-    for task_id in tqdm.tqdm(range(num_tasks_in_suite)):
-        # Get task
+
+    for task_id in tqdm.tqdm(range(num_tasks_in_suite), desc="Tasks"):
         task = task_suite.get_task(task_id)
-
-        # Get default LIBERO initial states
         initial_states = task_suite.get_task_init_states(task_id)
-
-        # Initialize LIBERO environment and task description
         env, task_description = _get_libero_env(task, LIBERO_ENV_RESOLUTION, args.seed)
 
-        # Start episodes
         task_episodes, task_successes = 0, 0
-        task_episode_data = []  # deferred JSON data for all episodes in this task
-        task_action_logs = []   # action logs across episodes for task-level entropy
-        for episode_idx in tqdm.tqdm(range(args.num_trials_per_task)):
-            logging.info(f"\nTask: {task_description}")
-             
-            # Reset environment
+
+        # Group episodes by prompt used, but keep logs + success flags:
+        # (task_id, prompt_used) -> {"logs": [...], "successes": [...]}
+        action_groups_by_prompt: dict[str, dict] = collections.defaultdict(lambda: {"logs": [], "successes": []})
+
+        # deferred JSON writing so we can attach group entropy later
+        deferred_episode_jsons: list[dict] = []
+
+        for episode_idx in tqdm.tqdm(range(args.num_trials_per_task), desc=f"Task {task_id} eps", leave=False):
+            logging.info(f"\nTask {task_id}: {task_description}")
+
             env.reset()
             action_plan = collections.deque()
-            action_log = []
+            action_log: list[dict] = []
 
-            # Set initial states
             obs = env.set_init_state(initial_states[episode_idx])
 
-            # Setup
+            # Freeze the prompt ONCE per episode (so group entropy is well-defined).
+            if args.prompt_mode == "custom":
+                episode_prompt = perturb_prompt(
+                    str(task_description), "custom", all_task_descriptions, custom=args.custom_prompt
+                )
+            else:
+                episode_prompt = perturb_prompt(
+                    str(task_description), args.prompt_mode, all_task_descriptions, custom=args.custom_prompt
+                )
+
             t = 0
             replay_images = []
             chunk_mmd_score = None
             chunk_action_sample_std = None
             chunk_action_std_per_ts = None
             is_new_chunk = False
+            done = False
 
-            logging.info(f"Starting episode {task_episodes+1}...")
+            logging.info(
+                f"Starting episode {task_episodes + 1}/{args.num_trials_per_task}... prompt_mode={args.prompt_mode}"
+            )
+
             while t < max_steps + args.num_steps_wait:
                 try:
-                    # IMPORTANT: Do nothing for the first few timesteps because the simulator drops objects
-                    # and we need to wait for them to fall
                     if t < args.num_steps_wait:
                         obs, reward, done, info = env.step(LIBERO_DUMMY_ACTION)
                         t += 1
                         continue
 
-                    # Get preprocessed image
-                    # IMPORTANT: rotate 180 degrees to match train preprocessing
+                    # rotate 180 degrees to match train preprocessing
                     img = np.ascontiguousarray(obs["agentview_image"][::-1, ::-1])
                     wrist_img = np.ascontiguousarray(obs["robot0_eye_in_hand_image"][::-1, ::-1])
-                    img = image_tools.convert_to_uint8(
-                        image_tools.resize_with_pad(img, args.resize_size, args.resize_size)
-                    )
+
+                    img = image_tools.convert_to_uint8(image_tools.resize_with_pad(img, args.resize_size, args.resize_size))
                     wrist_img = image_tools.convert_to_uint8(
                         image_tools.resize_with_pad(wrist_img, args.resize_size, args.resize_size)
                     )
 
-                    # Save preprocessed image for replay video
                     replay_images.append(img)
 
                     is_new_chunk = not action_plan
                     if is_new_chunk:
-                        # Finished executing previous action chunk -- compute new chunk
-                        # Prepare observations dict
                         element = {
                             "observation/image": img,
                             "observation/wrist_image": wrist_img,
@@ -475,80 +500,78 @@ def eval_libero(args: Args) -> None:
                                     obs["robot0_eef_pos"],
                                     _quat2axisangle(obs["robot0_eef_quat"]),
                                     obs["robot0_gripper_qpos"],
-                                )
+                                ),
+                                axis=0,
                             ),
-                            # "prompt": str(task_description),
-                            "prompt": perturb_prompt(str(task_description), args.prompt_mode, all_task_descriptions),
+                            "prompt": episode_prompt,  # frozen per episode
                             "episode_id": f"task{task_id}_ep{episode_idx}",
                         }
                         if args.track_mmd:
                             element["compute_mmd"] = True
                             element["mmd_num_samples"] = args.mmd_num_samples
 
-                        # Query model to get action
                         result = client.infer(element)
                         action_chunk = result["actions"]
+
                         chunk_mmd_score = result.get("mmd_score")
                         chunk_action_sample_std = result.get("action_sample_std")
                         chunk_action_std_per_ts = result.get("action_std_per_timestep")
+
                         if chunk_mmd_score is not None:
                             logging.info(f"  MMD: {chunk_mmd_score:.6f}, sample_std: {chunk_action_sample_std:.4f}")
-                        assert (
-                            len(action_chunk) >= args.replan_steps
-                        ), f"We want to replan every {args.replan_steps} steps, but policy only predicts {len(action_chunk)} steps."
+
+                        if len(action_chunk) < args.replan_steps:
+                            raise RuntimeError(
+                                f"Need replan_steps={args.replan_steps} but policy predicted only {len(action_chunk)} steps."
+                            )
                         action_plan.extend(action_chunk[: args.replan_steps])
 
                     action = action_plan.popleft()
-
-                    # Execute action in environment
                     obs, reward, done, info = env.step(action.tolist())
+
                     log_entry = {
-                        "t": t,
+                        "t": int(t),
                         "kind": "policy",
                         "action": np.asarray(action, dtype=np.float32).tolist(),
-                        "reward": reward,
-                        "done": done,
-                        "is_chunk_start": is_new_chunk,
+                        "reward": float(reward),
+                        "done": bool(done),
+                        "is_chunk_start": bool(is_new_chunk),
                     }
-                    # Only attach per-chunk data on the first step of each new chunk
+
                     if is_new_chunk:
-                        # Save full predicted chunk for replan consistency analysis
-                        log_entry["full_action_chunk"] = np.asarray(
-                            action_chunk, dtype=np.float32
-                        ).tolist()
+                        log_entry["full_action_chunk"] = np.asarray(action_chunk, dtype=np.float32).tolist()
                         if chunk_mmd_score is not None:
-                            log_entry["mmd_score"] = chunk_mmd_score
-                            log_entry["action_sample_std"] = chunk_action_sample_std
-                            log_entry["action_std_per_timestep"] = chunk_action_std_per_ts
+                            log_entry["mmd_score"] = float(chunk_mmd_score)
+                            if chunk_action_sample_std is not None:
+                                log_entry["action_sample_std"] = float(chunk_action_sample_std)
+                            if chunk_action_std_per_ts is not None:
+                                log_entry["action_std_per_timestep"] = chunk_action_std_per_ts
+
                     action_log.append(log_entry)
 
                     if done:
                         task_successes += 1
                         total_successes += 1
                         break
+
                     t += 1
 
                 except Exception as e:
-                    logging.error(f"Caught exception: {e}")
+                    logging.error(f"Caught exception in episode {episode_idx}: {e}")
                     break
 
             task_episodes += 1
             total_episodes += 1
 
-            # Save a replay video of the episode
+            # Save replay video
             suffix = "success" if done else "failure"
-            task_segment = task_description.replace(" ", "_")
-            imageio.mimwrite(
-                pathlib.Path(args.video_out_path) / f"rollout_{task_segment}_trial{episode_idx}_{suffix}.mp4",
-                [np.asarray(x) for x in replay_images],
-                fps=10,
-            )
+            task_segment = str(task_description).replace(" ", "_")
+            video_path = pathlib.Path(args.video_out_path) / f"rollout_{task_segment}_trial{episode_idx}_{suffix}.mp4"
+            imageio.mimwrite(video_path, [np.asarray(x) for x in replay_images], fps=10)
 
-            actions_path = (
-                pathlib.Path(args.video_out_path)
-                / f"actions_{task_segment}_trial{episode_idx}_{suffix}.json"
-            )
-            # Compute smoothness & boundary metrics (also annotates action_log in-place)
+            actions_path = pathlib.Path(args.video_out_path) / f"actions_{task_segment}_trial{episode_idx}_{suffix}.json"
+
+            # Smoothness & boundary metrics (annotates log entries)
             smoothness_summary = compute_smoothness_metrics(action_log)
             if smoothness_summary:
                 logging.info(
@@ -565,11 +588,7 @@ def eval_libero(args: Args) -> None:
                     )
 
             # Per-episode MMD summary
-            episode_mmds = [
-                entry["mmd_score"]
-                for entry in action_log
-                if "mmd_score" in entry
-            ]
+            episode_mmds = [entry["mmd_score"] for entry in action_log if "mmd_score" in entry]
             mmd_summary = {}
             if episode_mmds:
                 mmd_summary = {
@@ -577,19 +596,13 @@ def eval_libero(args: Args) -> None:
                     "max_mmd": float(np.max(episode_mmds)),
                     "std_mmd": float(np.std(episode_mmds)),
                 }
-                episode_stds = [
-                    entry["action_sample_std"]
-                    for entry in action_log
-                    if "action_sample_std" in entry
-                ]
+                episode_stds = [entry.get("action_sample_std") for entry in action_log if "action_sample_std" in entry]
+                episode_stds = [x for x in episode_stds if x is not None]
                 if episode_stds:
                     mmd_summary["mean_action_sample_std"] = float(np.mean(episode_stds))
-                logging.info(
-                    f"Episode MMD: mean={mmd_summary['mean_mmd']:.6f}, "
-                    f"max={mmd_summary['max_mmd']:.6f}"
-                )
+                logging.info(f"Episode MMD: mean={mmd_summary['mean_mmd']:.6f}, max={mmd_summary['max_mmd']:.6f}")
 
-            # Replan consistency: how much predicted future changes between chunks
+            # Replan consistency
             replan_summary = compute_replan_consistency(action_log, args.replan_steps)
             if replan_summary:
                 logging.info(
@@ -597,80 +610,78 @@ def eval_libero(args: Args) -> None:
                     f"max_L2={replan_summary['max_replan_l2']:.4f}"
                 )
 
-            # Collect action log for task-level entropy (computed after all episodes)
-            task_action_logs.append(action_log)
+            # Collect logs + success labels by prompt for group entropy
+            action_groups_by_prompt[episode_prompt]["logs"].append(action_log)
+            action_groups_by_prompt[episode_prompt]["successes"].append(bool(done))
 
-            # Defer JSON writing until task-level entropy is computed
-            task_episode_data.append({
-                "actions_path": actions_path,
-                "json_data": {
-                    "task_id": int(task_id),
-                    "trial_id": int(episode_idx),
-                    "seed": int(args.seed),
-                    "task_description": str(task_description),
-                    "success": bool(done),
-                    "actions": action_log,
-                    "smoothness": smoothness_summary,
-                    "mmd": mmd_summary,
-                    "replan_consistency": replan_summary,
-                },
-            })
-
-            # Log current results
-            logging.info(f"Success: {done}")
-            logging.info(f"# episodes completed so far: {total_episodes}")
-            logging.info(f"# successes: {total_successes} ({total_successes / total_episodes * 100:.1f}%)")
-
-        # Task-level action entropy across all episodes
-        task_entropy = compute_action_entropy_kde(task_action_logs)
-        if task_entropy:
-            logging.info(
-                f"Task {task_id} action entropy (KDE, {task_entropy['num_episodes']} episodes): "
-                f"{task_entropy['action_entropy_kde']:.4f} "
-                f"(bw_factor={task_entropy['kde_bandwidth_factor']:.4f}, "
-                f"N={task_entropy['num_samples']}, D={task_entropy['action_dim']})"
+            # Defer JSON until group entropy computed
+            deferred_episode_jsons.append(
+                {
+                    "actions_path": actions_path,
+                    "prompt_used": episode_prompt,
+                    "json_data": {
+                        "task_id": int(task_id),
+                        "trial_id": int(episode_idx),
+                        "seed": int(args.seed),
+                        "task_description": str(task_description),
+                        "prompt_mode": str(args.prompt_mode),
+                        "prompt_used": str(episode_prompt),
+                        "custom_prompt": str(args.custom_prompt) if args.prompt_mode == "custom" else "",
+                        "success": bool(done),
+                        "actions": action_log,
+                        "smoothness": smoothness_summary,
+                        "mmd": mmd_summary,
+                        "replan_consistency": replan_summary,
+                        "video_path": str(video_path),
+                    },
+                }
             )
 
-        # Write deferred per-episode JSONs (now including task-level entropy)
-        for ep_data in task_episode_data:
-            ep_data["json_data"]["action_entropy"] = task_entropy
-            with open(ep_data["actions_path"], "w") as f:
-                json.dump(ep_data["json_data"], f, indent=2, default=_json_default)
+            logging.info(f"Success: {done}")
+            logging.info(f"# episodes completed so far: {total_episodes}")
+            logging.info(f"# successes: {total_successes} ({(total_successes / max(1,total_episodes))*100:.1f}%)")
 
-        # Log final results
-        logging.info(f"Current task success rate: {float(task_successes) / float(task_episodes)}")
-        logging.info(f"Current total success rate: {float(total_successes) / float(total_episodes)}")
+        # Compute entropy ONCE per prompt group for this task_id (all/success/failure)
+        entropy_by_prompt: dict[str, dict] = {}
+        for prompt_str, group in action_groups_by_prompt.items():
+            logs = group["logs"]
+            successes = group["successes"]
+            ent_triplet = compute_entropy_triplet(logs, successes, action_dim=args.entropy_action_dim)
+            entropy_by_prompt[prompt_str] = ent_triplet
 
-    logging.info(f"Total success rate: {float(total_successes) / float(total_episodes)}")
+        def _fmt_ent(ent: dict) -> str:
+            if not ent:
+                return "H=NA"
+            return (
+                f"H={ent.get('action_entropy_kde', float('nan')):.4f} | "
+                f"eps={ent.get('num_episodes', 0)} | "
+                f"N={ent.get('num_samples', 0)} | "
+                f"bw={ent.get('kde_bandwidth_factor', float('nan')):.4f}"
+            )
+
+        # Log group entropies
+        for prompt_str, ent3 in entropy_by_prompt.items():
+            c = ent3.get("counts", {})
+            logging.info(
+                f"Task {task_id} group entropy (task_id+prompt_used): "
+                f"[all: {_fmt_ent(ent3.get('all', {}))}] "
+                f"[succ: {_fmt_ent(ent3.get('success', {}))}] "
+                f"[fail: {_fmt_ent(ent3.get('failure', {}))}] "
+                f"| counts={c} | prompt='{prompt_str[:120]}'"
+            )
+
+        # Write deferred per-episode JSONs (attach the correct group entropy triplet)
+        for ep in deferred_episode_jsons:
+            p = ep["prompt_used"]
+            ep["json_data"]["action_entropy_group"] = entropy_by_prompt.get(p, {})
+            with open(ep["actions_path"], "w") as f:
+                json.dump(ep["json_data"], f, indent=2, default=_json_default)
+
+        logging.info(f"Task {task_id} success rate: {float(task_successes) / float(max(1, task_episodes)):.3f}")
+        logging.info(f"Total success rate so far: {float(total_successes) / float(max(1, total_episodes)):.3f}")
+
+    logging.info(f"Total success rate: {float(total_successes) / float(max(1, total_episodes)):.3f}")
     logging.info(f"Total episodes: {total_episodes}")
-
-
-def _get_libero_env(task, resolution, seed):
-    """Initializes and returns the LIBERO environment, along with the task description."""
-    task_description = task.language
-    task_bddl_file = pathlib.Path(get_libero_path("bddl_files")) / task.problem_folder / task.bddl_file
-    env_args = {"bddl_file_name": task_bddl_file, "camera_heights": resolution, "camera_widths": resolution}
-    env = OffScreenRenderEnv(**env_args)
-    env.seed(seed)  # IMPORTANT: seed seems to affect object positions even when using fixed initial state
-    return env, task_description
-
-
-def _quat2axisangle(quat):
-    """
-    Copied from robosuite: https://github.com/ARISE-Initiative/robosuite/blob/eafb81f54ffc104f905ee48a16bb15f059176ad3/robosuite/utils/transform_utils.py#L490C1-L512C55
-    """
-    # clip quaternion
-    if quat[3] > 1.0:
-        quat[3] = 1.0
-    elif quat[3] < -1.0:
-        quat[3] = -1.0
-
-    den = np.sqrt(1.0 - quat[3] * quat[3])
-    if math.isclose(den, 0.0):
-        # This is (close to) a zero degree rotation, immediately return
-        return np.zeros(3)
-
-    return (quat[:3] * 2.0 * math.acos(quat[3])) / den
 
 
 if __name__ == "__main__":

@@ -26,7 +26,7 @@ python -m cosmos_policy.experiments.robot.libero.run_libero_eval \
     --trained_with_image_aug True \
     --chunk_size 16 \
     --num_open_loop_steps 16 \
-    --task_suite_name libero_90 \
+    --task_suite_name libero_10 \
     --local_log_dir cosmos_policy/experiments/robot/libero/logs/ \
     --randomize_seed False \
     --data_collection False \

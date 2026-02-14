@@ -1066,7 +1066,40 @@ def main():
 
         env.close()
 
-    serializable_results = [{k: v for k, v in r.items() if k != "step_iou_results"} for r in all_results]
+    # Save aggregate results (strip verbose step_iou_results but keep per_step_iou arrays)
+    serializable_results = []
+    for r in all_results:
+        entry = {k: v for k, v in r.items() if k != "step_iou_results"}
+
+        # Extract per-step IOU arrays for each layer
+        if "step_iou_results" in r:
+            per_step_iou = {}
+            for layer_idx in args.layers:
+                layer_key = f"layer_{layer_idx}"
+                layer_results = [res for res in r["step_iou_results"] if res.get("layer") == layer_idx]
+                if layer_results:
+                    per_step_iou[layer_key] = [
+                        {
+                            "step": int(res["step"]),
+                            "combined_iou": float(res["combined"].get("percentile_90", {}).get("iou", 0.0)),
+                            "combined_dice": float(res["combined"].get("percentile_90", {}).get("dice", 0.0)),
+                            "attention_mass": float(res["attention_mass"].get("_all_objects", 0.0)),
+                            "pointing_hit": bool(res.get("pointing_hit", False)),
+                            "per_object_iou": {
+                                obj_name: float(obj_metrics.get("percentile_90", {}).get("iou", 0.0))
+                                for obj_name, obj_metrics in res.get("per_object", {}).items()
+                            },
+                            "selected_call_S": int(res.get("selected_call_S", -1)),
+                            "query_frame": str(res.get("query_frame", "")),
+                            "key_frame": str(res.get("key_frame", "")),
+                        }
+                        for res in layer_results
+                    ]
+
+            entry["per_step_iou"] = per_step_iou
+
+        serializable_results.append(entry)
+
     results_path = os.path.join(args.output_dir, f"iou_results_{args.task_suite}.json")
     with open(results_path, "w") as f:
         json.dump(serializable_results, f, indent=2, default=_json_default)

@@ -32,9 +32,9 @@ export MUJOCO_GL=egl
 # ── Configuration (override via environment or edit here) ────────────────────
 TASK_SUITE="${TASK_SUITE:-libero_10}"
 NUM_EPISODES="${NUM_EPISODES:-5}"
-LAYERS="${LAYERS:-17}"
+# LAYERS="${LAYERS:-17}"
 CHECKPOINT="${CHECKPOINT:-$HOME/.cache/openpi/openpi-assets/checkpoints/pi05_libero}"
-SAVE_VIZ="${SAVE_VIZ:-1}"   # set to 1 for per-step visualizations (slow, disk-heavy)
+SAVE_VIZ="${SAVE_VIZ:-0}"   # set to 1 for per-step visualizations (slow, disk-heavy)
 SEED="${SEED:-7}"
 
 OUTPUT_DIR="outputs_iou/${TASK_SUITE}_seed${SEED}"
@@ -46,7 +46,7 @@ echo "============================================================"
 echo "Job ID:        $SLURM_JOB_ID"
 echo "Task suite:    $TASK_SUITE"
 echo "Num episodes:  $NUM_EPISODES"
-echo "Layers:        $LAYERS"
+# echo "Layers:        $LAYERS"
 echo "Checkpoint:    $CHECKPOINT"
 echo "Output dir:    $OUTPUT_DIR"
 echo "Save viz:      $SAVE_VIZ"
@@ -61,7 +61,7 @@ python evaluate_attention_iou.py \
     --checkpoint "$CHECKPOINT" \
     --task-suite "$TASK_SUITE" \
     --num-episodes "$NUM_EPISODES" \
-    --layers $LAYERS \
+    # --layers $LAYERS \
     --seed "$SEED" \
     --output-dir "$OUTPUT_DIR" \
     $VIZ_FLAG

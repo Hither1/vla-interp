@@ -16,7 +16,7 @@
 # ── Environment ──────────────────────────────────────────────────────────────
 source ~/.bashrc
 conda deactivate
-conda activate cosmos
+conda activate vla
 
 set -euo pipefail
 
@@ -29,9 +29,9 @@ export MUJOCO_GL=egl
 # ── Configuration (override via environment or edit here) ────────────────────
 TASK_SUITE="${TASK_SUITE:-libero_10}"
 NUM_EPISODES="${NUM_EPISODES:-5}"
-LAYERS="${LAYERS:-27}"
+# LAYERS="${LAYERS:-27}"
 SEED="${SEED:-7}"
-SAVE_VIZ="${SAVE_VIZ:-1}"
+SAVE_VIZ="${SAVE_VIZ:-0}"
 
 # Cosmos model paths
 CKPT_PATH="${CKPT_PATH:-nvidia/Cosmos-Policy-LIBERO-Predict2-2B}"
@@ -49,7 +49,7 @@ echo "============================================================"
 echo "Job ID:        $SLURM_JOB_ID"
 echo "Task suite:    $TASK_SUITE"
 echo "Num episodes:  $NUM_EPISODES"
-echo "Layers:        $LAYERS"
+# echo "Layers:        $LAYERS"
 echo "Checkpoint:    $CKPT_PATH"
 echo "Output dir:    $OUTPUT_DIR"
 echo "Save viz:      $SAVE_VIZ"
@@ -68,7 +68,7 @@ python evaluate_attention_iou_cosmos.py \
     --t5-text-embeddings-path "$T5_EMBEDDINGS" \
     --task-suite "$TASK_SUITE" \
     --num-episodes "$NUM_EPISODES" \
-    --layers $LAYERS \
+    # --layers $LAYERS \
     --seed "$SEED" \
     --output-dir "$OUTPUT_DIR" \
     $VIZ_FLAG
