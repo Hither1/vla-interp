@@ -53,7 +53,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(_PROJECT_ROOT, "src"))
 
 from libero.libero import benchmark  # noqa: E402
 from libero.libero import get_libero_path  # noqa: E402

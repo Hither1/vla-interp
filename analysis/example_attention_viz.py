@@ -43,7 +43,8 @@ import matplotlib.pyplot as plt
 import cv2
 
 # Add src to path (your repo layout)
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(_PROJECT_ROOT, "src"))
 
 from openpi.models import pi0_config
 from openpi.models import model as _model

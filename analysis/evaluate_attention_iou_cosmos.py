@@ -31,7 +31,7 @@ from typing import Dict, List, Optional, Tuple, Any
 import numpy as np
 
 # ── Path setup ────────────────────────────────────────────────────────────────
-_COSMOS_POLICY_DIR = str(pathlib.Path(__file__).resolve().parent / "third_party" / "cosmos-policy")
+_COSMOS_POLICY_DIR = str(pathlib.Path(__file__).resolve().parent.parent / "third_party" / "cosmos-policy")
 if _COSMOS_POLICY_DIR not in sys.path:
     sys.path.insert(0, _COSMOS_POLICY_DIR)
 

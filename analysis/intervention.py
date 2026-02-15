@@ -4,6 +4,12 @@ import numpy as np
 import torch
 import jax
 import jax.numpy as jnp
+import os
+import sys
+
+# Add src to path
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(_PROJECT_ROOT, "src"))
 
 import openpi.models.gemma as gemma_mod
 

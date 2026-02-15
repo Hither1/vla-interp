@@ -20,6 +20,12 @@ conda activate vla
 
 set -euo pipefail
 
+module load gcc/12.2.0-fasrc01
+module load cuda/12.4.1-fasrc01
+
+export HF_HOME=/n/netscratch/sham_lab/Lab/chloe00/huggingface
+export TRANSFORMERS_CACHE=/n/netscratch/sham_lab/Lab/chloe00/huggingface
+
 export PYTHONPATH="${PYTHONPATH:-}:/n/netscratch/sham_lab/Lab/chloe00/libero"
 export LIBERO_CONFIG_PATH=/n/netscratch/sham_lab/Lab/chloe00/libero
 
@@ -60,7 +66,7 @@ if [[ "$SAVE_VIZ" == "1" ]]; then
     VIZ_FLAG="--save-viz"
 fi
 
-python evaluate_attention_iou_cosmos.py \
+python analysis/evaluate_attention_iou_cosmos.py \
     --ckpt-path "$CKPT_PATH" \
     --config-name "$CONFIG_NAME" \
     --config-file "$CONFIG_FILE" \
