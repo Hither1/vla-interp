@@ -161,28 +161,19 @@ def create_libero_observation(
 
 def _get_libero_env(task, resolution, seed):
     """Create a LIBERO env for a task."""
+    from libero.libero.envs import OffScreenRenderEnv
+
     task_bddl_file = (
         pathlib.Path(get_libero_path("bddl_files")) / task.problem_folder / task.bddl_file
     )
-    # Import here to avoid requiring segmentation env if not needed
-    from libero.libero.envs import SubprocVectorEnv
 
-    def env_fn():
-        import robosuite
-        return robosuite.make(
-            task.problem_folder,
-            robots="Panda",
-            has_renderer=False,
-            has_offscreen_renderer=True,
-            use_camera_obs=True,
-            camera_names=["agentview", "robot0_eye_in_hand"],
-            camera_heights=resolution,
-            camera_widths=resolution,
-        )
+    env_args = {
+        "bddl_file_name": str(task_bddl_file),
+        "camera_heights": resolution,
+        "camera_widths": resolution,
+    }
 
-    # For simplicity, just use a single env
-    # You may want to use the actual LIBERO env creation based on your setup
-    env = task.get_env(env_args={"bddl_file_name": str(task_bddl_file)})
+    env = OffScreenRenderEnv(**env_args)
     env.seed(seed)
     return env, task.language
 

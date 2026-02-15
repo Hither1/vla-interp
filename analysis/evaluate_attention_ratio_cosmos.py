@@ -426,8 +426,17 @@ def _json_default(o):
 
 def _get_libero_env(task, resolution, seed):
     """Create a LIBERO env for a task."""
+    from libero.libero.envs import OffScreenRenderEnv
+
     task_bddl_file = pathlib.Path(get_libero_path("bddl_files")) / task.problem_folder / task.bddl_file
-    env = task.get_env(env_args={"bddl_file_name": str(task_bddl_file)})
+
+    env_args = {
+        "bddl_file_name": str(task_bddl_file),
+        "camera_heights": resolution,
+        "camera_widths": resolution,
+    }
+
+    env = OffScreenRenderEnv(**env_args)
     env.seed(seed)
     return env, task.language
 
