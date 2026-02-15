@@ -1,0 +1,28 @@
+======================================================================
+Cosmos Policy: Action Entropy Analysis Summary
+======================================================================
+
+CROSS-SUITE COMPARISON (task-level entropy)
+----------------------------------------------------------------------
+Suite                Tasks  Trials    SR%     Mean H      Std H      Min H      Max H
+----------------------------------------------------------------------
+LIBERO-Spatial          10     200  98.5    -7.3375     0.7192    -8.7540    -6.3578
+LIBERO-Object           10     200  99.0    -8.5309     0.4743    -9.1628    -7.7330
+LIBERO-Goal             10     200  99.0    -8.6373     1.9943   -13.4355    -6.3656
+LIBERO-10               10     200  96.5    -7.8117     1.1947    -9.5104    -5.7245
+LIBERO-90               81    1620  23.4    -9.1883     1.0849   -13.0437    -6.0071
+
+
+
+KEY FINDINGS
+----------------------------------------------------------------------
+Entropy ranking (lowest to highest):
+  LIBERO-90: -9.1883
+  LIBERO-Goal: -8.6373
+  LIBERO-Object: -8.5309
+  LIBERO-10: -7.8117
+  LIBERO-Spatial: -7.3375
+
+Interpretation:
+  Lower (more negative) entropy = more concentrated/deterministic action distribution
+  Higher (less negative) entropy = more spread out/diverse action distribution
