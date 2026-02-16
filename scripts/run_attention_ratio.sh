@@ -59,7 +59,7 @@ echo "========================================="
 echo
 
 # Build command
-CMD="python $PROJECT_ROOT/analysis/evaluate_attention_ratio.py \
+CMD="python $PROJECT_ROOT/analysis/attention/evaluate_attention_ratio.py \
   --checkpoint $CHECKPOINT \
   --task-suite $TASK_SUITE \
   --num-episodes $NUM_EPISODES \
@@ -93,10 +93,10 @@ echo
 RESULTS_FILE="$OUTPUT_DIR/attention_ratio_results_${TASK_SUITE}.json"
 if [ -f "$RESULTS_FILE" ]; then
   echo "Generating analysis..."
-  python "$PROJECT_ROOT/analysis/parse_attention_ratio_results.py" \
+  python "$PROJECT_ROOT/analysis/attention/parse_attention_ratio_results.py" \
     --results "$RESULTS_FILE" \
     --output "$OUTPUT_DIR/summary.txt" \
-    --output-dir "$OUTPUT_DIR/analysis" \
+    --output-dir "$OUTPUT_DIR/analysis/attention" \
     --plot-all
 
   echo
