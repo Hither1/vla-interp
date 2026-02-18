@@ -258,6 +258,7 @@ def run_episode(
     episode_prefix: str = "ep",
     num_image_tokens: int = 256,
     threshold_methods=None,
+    metric: str = "iou",
 ) -> Dict:
     """Run one episode, recording attention + segmentation IoU at each replan step."""
     if threshold_methods is None:
@@ -401,11 +402,13 @@ def run_episode(
 
                     combined_iou = float(iou_result["combined"].get("percentile_90", {}).get("iou", 0.0))
                     mass = float(iou_result["attention_mass"].get("_all_objects", 0.0))
+                    primary_val = mass if metric == "attention_ratio" else combined_iou
                     per_layer_metrics.append(
                         {
                             "layer": layer_idx,
                             "iou": combined_iou,
                             "mass": mass,
+                            "primary": primary_val,
                             "pointing_hit": bool(iou_result.get("pointing_hit", False)),
                         }
                     )
@@ -427,20 +430,21 @@ def run_episode(
                         plt.close(fig)
 
                 if per_layer_metrics:
+                    metric_label = "attn_ratio" if metric == "attention_ratio" else "IoU"
                     if len(layers) > 1:
-                        avg_iou = float(np.mean([m["iou"] for m in per_layer_metrics]))
+                        avg_primary = float(np.mean([m["primary"] for m in per_layer_metrics]))
                         avg_mass = float(np.mean([m["mass"] for m in per_layer_metrics]))
                         hit_rate = float(np.mean([1.0 if m["pointing_hit"] else 0.0 for m in per_layer_metrics]))
                         used_layers = [m["layer"] for m in per_layer_metrics]
                         log.info(
                             f"  t={t} layers={used_layers}: "
-                            f"AVG IoU={avg_iou:.3f}, AVG attn_mass={avg_mass:.1%}, "
+                            f"AVG {metric_label}={avg_primary:.3f}, AVG attn_mass={avg_mass:.1%}, "
                             f"pointing_hit_rate={hit_rate:.1%}"
                         )
                     else:
                         m = per_layer_metrics[0]
                         log.info(
-                            f"  t={t} layer={m['layer']}: IoU={m['iou']:.3f}, "
+                            f"  t={t} layer={m['layer']}: {metric_label}={m['primary']:.3f}, "
                             f"attn_mass={m['mass']:.1%}, pointing={'hit' if m['pointing_hit'] else 'miss'}"
                         )
 
@@ -541,6 +545,14 @@ def main():
         default=["percentile_90", "percentile_75", "otsu_0"],
         help="Threshold methods as method_value strings",
     )
+    parser.add_argument(
+        "--metric",
+        type=str,
+        default="iou",
+        choices=["iou", "attention_ratio"],
+        help="Primary metric: 'iou' (thresholded binary IoU) or 'attention_ratio' "
+             "(attention mass on GT region / total attention, no thresholding).",
+    )
 
     # Output
     parser.add_argument("--output-dir", type=str, default="outputs_iou")
@@ -623,6 +635,7 @@ def main():
                 episode_prefix=episode_prefix,
                 num_image_tokens=args.num_image_tokens,
                 threshold_methods=threshold_methods,
+                metric=args.metric,
             )
 
             result["task_id"] = task_id
@@ -635,13 +648,15 @@ def main():
             log.info(f"  Steps: {result.get('num_steps')}")
 
             summ_dict = result.get("summary", {})
+            metric_label = "attn_ratio" if args.metric == "attention_ratio" else "IoU"
             if "layers_avg" in summ_dict:
                 summ = summ_dict["layers_avg"]
                 iou_mean = summ.get("combined_iou", {}).get("mean", 0)
                 mass_mean = summ.get("attention_mass_on_objects", {}).get("mean", 0)
                 pointing = summ.get("pointing_accuracy", 0)
+                primary_mean = mass_mean if args.metric == "attention_ratio" else iou_mean
                 log.info(
-                    f"  layers_avg: IoU={iou_mean:.3f}, "
+                    f"  layers_avg: {metric_label}={primary_mean:.3f}, "
                     f"attn_mass={mass_mean:.1%}, pointing={pointing:.1%}"
                 )
             else:
@@ -649,8 +664,9 @@ def main():
                     iou_mean = summ.get("combined_iou", {}).get("mean", 0)
                     mass_mean = summ.get("attention_mass_on_objects", {}).get("mean", 0)
                     pointing = summ.get("pointing_accuracy", 0)
+                    primary_mean = mass_mean if args.metric == "attention_ratio" else iou_mean
                     log.info(
-                        f"  {layer_key}: IoU={iou_mean:.3f}, "
+                        f"  {layer_key}: {metric_label}={primary_mean:.3f}, "
                         f"attn_mass={mass_mean:.1%}, pointing={pointing:.1%}"
                     )
 
@@ -703,8 +719,9 @@ def main():
         serializable_results.append(entry)
 
     results_path = os.path.join(args.output_dir, f"iou_results_{args.task_suite}.json")
+    output_data = {"metric": args.metric, "results": serializable_results}
     with open(results_path, "w") as f:
-        json.dump(serializable_results, f, indent=2, default=_json_default)
+        json.dump(output_data, f, indent=2, default=_json_default)
     log.info(f"\nResults saved to {results_path}")
 
     # Print aggregate summary
@@ -716,9 +733,16 @@ def main():
     total = max(1, len(all_results))
     log.info(f"Success rate: {successes}/{len(all_results)} ({successes/total*100:.1f}%)")
 
+    metric_label = "attn_ratio" if args.metric == "attention_ratio" else "IoU"
+
+    def _extract_primary(summ):
+        if args.metric == "attention_ratio":
+            return summ.get("attention_mass_on_objects", {}).get("mean", 0)
+        return summ.get("combined_iou", {}).get("mean", 0)
+
     if len(args.layers) > 1:
-        ious = [
-            r["summary"]["layers_avg"]["combined_iou"]["mean"]
+        primaries = [
+            _extract_primary(r["summary"]["layers_avg"])
             for r in all_results
             if "layers_avg" in r.get("summary", {})
         ]
@@ -732,9 +756,9 @@ def main():
             for r in all_results
             if "layers_avg" in r.get("summary", {})
         ]
-        if ious:
+        if primaries:
             log.info(
-                f"  layers_avg: mean_IoU={np.mean(ious):.3f} +/- {np.std(ious):.3f}, "
+                f"  layers_avg: mean_{metric_label}={np.mean(primaries):.3f} +/- {np.std(primaries):.3f}, "
                 f"mean_mass={np.mean(masses):.1%}, mean_pointing={np.mean(pointings):.1%}"
             )
         else:
@@ -742,8 +766,8 @@ def main():
     else:
         for layer_idx in args.layers:
             layer_key = f"layer_{layer_idx}"
-            ious = [
-                r["summary"][layer_key]["combined_iou"]["mean"]
+            primaries = [
+                _extract_primary(r["summary"][layer_key])
                 for r in all_results
                 if layer_key in r.get("summary", {})
             ]
@@ -757,9 +781,9 @@ def main():
                 for r in all_results
                 if layer_key in r.get("summary", {})
             ]
-            if ious:
+            if primaries:
                 log.info(
-                    f"  {layer_key}: mean_IoU={np.mean(ious):.3f} +/- {np.std(ious):.3f}, "
+                    f"  {layer_key}: mean_{metric_label}={np.mean(primaries):.3f} +/- {np.std(primaries):.3f}, "
                     f"mean_mass={np.mean(masses):.1%}, mean_pointing={np.mean(pointings):.1%}"
                 )
 

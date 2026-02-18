@@ -24,10 +24,32 @@ import matplotlib
 matplotlib.use("Agg")
 
 
-def load_results(results_path: str) -> List[Dict]:
-    """Load results from JSON file."""
+def load_results(results_path: str) -> Dict[str, List[Dict]]:
+    """Load results, returning a dict mapping subset name -> list of episodes.
+
+    When given a directory, each JSON file becomes one subset (name derived
+    from the filename, e.g. attention_ratio_results_libero_goal.json -> libero_goal).
+    When given a single file, returns a single-entry dict.
+    """
+    p = Path(results_path)
+    if p.is_dir():
+        subsets = {}
+        for json_file in sorted(p.glob("*.json")):
+            name = json_file.stem
+            for prefix in ("attention_ratio_results_",):
+                if name.startswith(prefix):
+                    name = name[len(prefix):]
+            with open(json_file, 'r') as f:
+                data = json.load(f)
+            subsets[name] = data if isinstance(data, list) else [data]
+        return subsets
     with open(results_path, 'r') as f:
-        return json.load(f)
+        data = json.load(f)
+    name = p.stem
+    for prefix in ("attention_ratio_results_",):
+        if name.startswith(prefix):
+            name = name[len(prefix):]
+    return {name: data if isinstance(data, list) else [data]}
 
 
 def compute_aggregate_stats(all_results: List[Dict]) -> Dict:
@@ -232,10 +254,10 @@ def plot_attention_fractions(all_results: List[Dict], output_path: str):
     plt.close()
 
 
-def print_summary(stats: Dict, results_path: str):
+def print_summary(stats: Dict, label: str):
     """Print formatted summary of results."""
     print("\n" + "="*70)
-    print(f"ATTENTION RATIO ANALYSIS: {Path(results_path).name}")
+    print(f"ATTENTION RATIO ANALYSIS: {label}")
     print("="*70)
 
     print(f"\nDataset:")
@@ -278,48 +300,72 @@ def main():
 
     args = parser.parse_args()
 
-    # Load results
-    results = load_results(args.results)
-    stats = compute_aggregate_stats(results)
+    # Load results split by subset
+    subsets = load_results(args.results)
 
-    # Print summary
-    print_summary(stats, args.results)
+    output_lines = []
 
-    # Save summary to file
-    if args.output:
-        with open(args.output, 'w') as f:
-            f.write(f"Attention Ratio Analysis: {Path(args.results).name}\n")
-            f.write("="*70 + "\n\n")
-            f.write(f"Episodes: {stats['num_episodes']}\n")
-            f.write(f"Tasks: {stats['num_tasks']}\n")
-            f.write(f"Success Rate: {stats['success_rate']:.1%}\n\n")
+    for subset_name, results in subsets.items():
+        stats = compute_aggregate_stats(results)
 
+        # Print summary to stdout
+        print_summary(stats, subset_name)
+
+        # Accumulate lines for optional file output
+        if args.output:
+            output_lines.append(f"Attention Ratio Analysis: {subset_name}")
+            output_lines.append("=" * 70)
+            output_lines.append(f"Episodes: {stats['num_episodes']}")
+            output_lines.append(f"Tasks: {stats['num_tasks']}")
+            output_lines.append(f"Success Rate: {stats['success_rate']:.1%}")
             if "visual_linguistic_ratio" in stats:
                 ratio = stats["visual_linguistic_ratio"]
-                f.write(f"Visual/Linguistic Ratio:\n")
-                f.write(f"  Mean:   {ratio['mean']:.3f} ± {ratio['std']:.3f}\n")
-                f.write(f"  Median: {ratio['median']:.3f}\n")
-                f.write(f"  Range:  [{ratio['min']:.3f}, {ratio['max']:.3f}]\n")
-
+                output_lines.append(f"Visual/Linguistic Ratio:")
+                output_lines.append(f"  Mean:   {ratio['mean']:.3f} ± {ratio['std']:.3f}")
+                output_lines.append(f"  Median: {ratio['median']:.3f}")
+                output_lines.append(f"  Range:  [{ratio['min']:.3f}, {ratio['max']:.3f}]")
             if "visual_fraction" in stats:
-                f.write(f"\nAttention Fractions:\n")
-                f.write(f"  Visual:     {stats['visual_fraction']['mean']:.1%}\n")
-                f.write(f"  Linguistic: {stats['linguistic_fraction']['mean']:.1%}\n")
+                output_lines.append(f"Attention Fractions:")
+                output_lines.append(f"  Visual:     {stats['visual_fraction']['mean']:.1%}")
+                output_lines.append(f"  Linguistic: {stats['linguistic_fraction']['mean']:.1%}")
+            output_lines.append("")
 
+        # Generate per-subset plots with subset name as suffix
+        if args.plot_all or args.plot_distribution:
+            os.makedirs(args.output_dir, exist_ok=True)
+            plot_ratio_distribution(results, os.path.join(args.output_dir, f"ratio_distribution_{subset_name}.png"))
+
+        if args.plot_all or args.plot_per_task:
+            os.makedirs(args.output_dir, exist_ok=True)
+            plot_per_task_comparison(results, os.path.join(args.output_dir, f"ratio_per_task_{subset_name}.png"))
+
+        if args.plot_all or args.plot_fractions:
+            os.makedirs(args.output_dir, exist_ok=True)
+            plot_attention_fractions(results, os.path.join(args.output_dir, f"attention_fractions_{subset_name}.png"))
+
+    # Also print combined stats when multiple subsets are present
+    if len(subsets) > 1:
+        all_results = [r for results in subsets.values() for r in results]
+        combined_stats = compute_aggregate_stats(all_results)
+        print_summary(combined_stats, "COMBINED")
+
+        if args.output:
+            output_lines.append("Attention Ratio Analysis: COMBINED")
+            output_lines.append("=" * 70)
+            output_lines.append(f"Episodes: {combined_stats['num_episodes']}")
+            output_lines.append(f"Tasks: {combined_stats['num_tasks']}")
+            output_lines.append(f"Success Rate: {combined_stats['success_rate']:.1%}")
+            if "visual_linguistic_ratio" in combined_stats:
+                ratio = combined_stats["visual_linguistic_ratio"]
+                output_lines.append(f"Visual/Linguistic Ratio:")
+                output_lines.append(f"  Mean:   {ratio['mean']:.3f} ± {ratio['std']:.3f}")
+                output_lines.append(f"  Median: {ratio['median']:.3f}")
+                output_lines.append(f"  Range:  [{ratio['min']:.3f}, {ratio['max']:.3f}]")
+
+    if args.output:
+        with open(args.output, 'w') as f:
+            f.write("\n".join(output_lines) + "\n")
         print(f"Summary saved to {args.output}")
-
-    # Generate plots
-    if args.plot_all or args.plot_distribution:
-        os.makedirs(args.output_dir, exist_ok=True)
-        plot_ratio_distribution(results, os.path.join(args.output_dir, "ratio_distribution.png"))
-
-    if args.plot_all or args.plot_per_task:
-        os.makedirs(args.output_dir, exist_ok=True)
-        plot_per_task_comparison(results, os.path.join(args.output_dir, "ratio_per_task.png"))
-
-    if args.plot_all or args.plot_fractions:
-        os.makedirs(args.output_dir, exist_ok=True)
-        plot_attention_fractions(results, os.path.join(args.output_dir, "attention_fractions.png"))
 
 
 if __name__ == "__main__":

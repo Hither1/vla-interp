@@ -32,7 +32,6 @@ CONFIG_NAME="${CONFIG_NAME:-cosmos_predict2_2b_480p_libero__inference_only}"
 TASK_SUITE="${TASK_SUITE:-libero_10}"
 TASK_ID="${TASK_ID:-}"  # Empty means all tasks
 NUM_EPISODES="${NUM_EPISODES:-5}"
-LAYERS="${LAYERS:-25 26 27}"
 OUTPUT_DIR="${OUTPUT_DIR:-results/attention_ratio_cosmos_${TASK_SUITE}}"
 
 # Frame selection for Cosmos (important!)
@@ -56,7 +55,6 @@ echo "Config:        $CONFIG_NAME"
 echo "Task Suite:    $TASK_SUITE"
 echo "Task ID:       ${TASK_ID:-all}"
 echo "Episodes:      $NUM_EPISODES"
-echo "Layers:        $LAYERS"
 echo "Query Frame:   $QUERY_FRAME"
 echo "Visual Frame:  $VISUAL_FRAME"
 echo "Text Frame:    $TEXT_FRAME"
@@ -70,10 +68,6 @@ CMD="python $PROJECT_ROOT/analysis/attention/evaluate_attention_ratio_cosmos.py 
   --config-name $CONFIG_NAME \
   --task-suite $TASK_SUITE \
   --num-episodes $NUM_EPISODES \
-  --layers $LAYERS \
-  --query-frame $QUERY_FRAME \
-  --visual-frame $VISUAL_FRAME \
-  --text-frame $TEXT_FRAME \
   --output-dir $OUTPUT_DIR"
 
 # Add task ID if specified

@@ -7,8 +7,6 @@
 #SBATCH --cpus-per-task=24
 #SBATCH --mem=240G
 #SBATCH --time=10:30:00
-#SBATCH --account=kempner_grads
-#SBATCH --partition=kempner_h100
 #SBATCH --mail-user=csu@g.harvard.edu
 #SBATCH --mail-type=END
 #SBATCH --exclusive
@@ -37,7 +35,7 @@ CHECKPOINT="${CHECKPOINT:-$HOME/.cache/openpi/openpi-assets/checkpoints/pi05_lib
 SAVE_VIZ="${SAVE_VIZ:-0}"   # set to 1 for per-step visualizations (slow, disk-heavy)
 SEED="${SEED:-7}"
 
-OUTPUT_DIR="outputs_iou/${TASK_SUITE}_seed${SEED}"
+OUTPUT_DIR="results/attention/outputs_attn_ratio/${TASK_SUITE}_seed${SEED}"
 
 # ── Run ──────────────────────────────────────────────────────────────────────
 mkdir -p logs "$OUTPUT_DIR"
@@ -57,12 +55,12 @@ if [[ "$SAVE_VIZ" == "1" ]]; then
     VIZ_FLAG="--save-viz"
 fi
 
-python evaluate_attention_iou.py \
+python analysis/attention/evaluate_attention_iou.py \
     --checkpoint "$CHECKPOINT" \
     --task-suite "$TASK_SUITE" \
     --num-episodes "$NUM_EPISODES" \
-    # --layers $LAYERS \
     --seed "$SEED" \
+    --metric attention_ratio \
     --output-dir "$OUTPUT_DIR" \
     $VIZ_FLAG
 

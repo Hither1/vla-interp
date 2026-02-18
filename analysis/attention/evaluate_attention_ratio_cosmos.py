@@ -155,92 +155,62 @@ def remove_attention_hooks(handles: Optional[List] = None):
     _HOOKS = []
 
 
-def _is_i2v_cross_attention(module: torch.nn.Module) -> bool:
-    """Check if a module is I2VCrossAttention (separate text/image K/V)."""
-    return hasattr(module, "k_img") and hasattr(module, "v_img")
-
-
-def _cross_attn_hook_fn(layer_idx: int):
-    """Records cross-attention weights for text and image context separately.
-
-    For I2VCrossAttention: computes separate text and image attention matrices.
-    For regular cross-Attention: records a single attention matrix over the
-    concatenated context (text || image).
-    """
+def _self_attn_hook_fn(layer_idx: int):
+    """Records q,k attention weights."""
     def hook(module, args, output):
         if not args:
             return
-        x = args[0]  # query: (B, T*H*W, D)
+        x = args[0]
         if not torch.is_tensor(x):
             return
 
-        # context is the second positional arg
-        context = args[1] if len(args) > 1 else None
-        if context is None:
-            return
+        rope_emb = None
+        for a in args[1:]:
+            if torch.is_tensor(a) and a.dtype in (torch.float16, torch.bfloat16, torch.float32):
+                rope_emb = a
+                break
 
         with torch.no_grad():
-            is_i2v = _is_i2v_cross_attention(module)
-
-            if is_i2v:
-                # I2VCrossAttention: context is (text_ctx, img_ctx)
-                if not isinstance(context, (tuple, list)) or len(context) != 2:
+            try:
+                q, k, v = module.compute_qkv(x)
+            except TypeError:
+                try:
+                    q, k, v = module.compute_qkv(x, rope_emb=rope_emb)
+                except Exception:
                     return
-                qkv = module.compute_qkv(x, context)
-                if len(qkv) != 5:
-                    return
-                q, k_text, v_text, k_img, v_img = qkv
 
-                # q: (B, Sq, H, D), k_text: (B, Sk_text, H, D), k_img: (B, Sk_img, H, D)
-                # Rearrange to (B, H, S, D) for matmul
-                q_f = q[0].float().permute(1, 0, 2)       # (H, Sq, D)
-                k_text_f = k_text[0].float().permute(1, 0, 2)  # (H, Sk_text, D)
-                k_img_f = k_img[0].float().permute(1, 0, 2)    # (H, Sk_img, D)
+            q_float = q.float()
+            if q_float.ndim != 4:
+                return
 
-                scale = q_f.shape[-1] ** -0.5
-
-                # Text attention: (H, Sq, Sk_text)
-                attn_text = torch.matmul(q_f * scale, k_text_f.transpose(-2, -1))
-                # Image attention: (H, Sq, Sk_img)
-                attn_img = torch.matmul(q_f * scale, k_img_f.transpose(-2, -1))
-
-                # Softmax over the JOINT key dimension (text + image together)
-                # to get comparable attention masses
-                attn_joint = torch.cat([attn_text, attn_img], dim=-1)  # (H, Sq, Sk_text+Sk_img)
-                attn_joint = F.softmax(attn_joint, dim=-1)
-
-                n_text = attn_text.shape[-1]
-                attn_text_normed = attn_joint[..., :n_text]    # (H, Sq, Sk_text)
-                attn_img_normed = attn_joint[..., n_text:]     # (H, Sq, Sk_img)
-
-                _RECORDED.setdefault(layer_idx, {})
-                _RECORDED[layer_idx].setdefault("calls", [])
-                _RECORDED[layer_idx]["calls"].append({
-                    "is_i2v": True,
-                    "attn_text": attn_text_normed.cpu().numpy(),   # (H, Sq, Sk_text)
-                    "attn_img": attn_img_normed.cpu().numpy(),     # (H, Sq, Sk_img)
-                    "num_queries": int(q_f.shape[1]),
-                    "num_text_keys": int(k_text_f.shape[1]),
-                    "num_img_keys": int(k_img_f.shape[1]),
-                })
+            qn = torch.linalg.norm(q_float, dim=-1)
+            if qn.shape[1] == x.shape[1]:
+                qnorm = qn.mean(dim=-1)
             else:
-                # Regular cross-attention: context is a single tensor (text || image concatenated)
-                q, k, v = module.compute_qkv(x, context)
-                q_f = q[0].float().permute(1, 0, 2)   # (H, Sq, D)
-                k_f = k[0].float().permute(1, 0, 2)   # (H, Sk, D)
+                qnorm = qn.mean(dim=1)
 
-                scale = q_f.shape[-1] ** -0.5
-                attn = torch.matmul(q_f * scale, k_f.transpose(-2, -1))
-                attn = F.softmax(attn, dim=-1)  # (H, Sq, Sk)
+            if q.ndim != 4 or k.ndim != 4:
+                return
 
-                _RECORDED.setdefault(layer_idx, {})
-                _RECORDED[layer_idx].setdefault("calls", [])
-                _RECORDED[layer_idx]["calls"].append({
-                    "is_i2v": False,
-                    "cross_attn": attn.cpu().numpy(),  # (H, Sq, Sk)
-                    "num_queries": int(q_f.shape[1]),
-                    "num_keys": int(k_f.shape[1]),
-                })
+            if q.shape[1] == qnorm.shape[1]:
+                q_f = q.float().permute(0, 2, 1, 3)
+                k_f = k.float().permute(0, 2, 1, 3)
+            else:
+                q_f = q.float()
+                k_f = k.float()
+
+            S = int(q_f.shape[-2])
+            scale = q_f.shape[-1] ** -0.5
+            attn = torch.matmul(q_f * scale, k_f.transpose(-2, -1))
+            attn = F.softmax(attn, dim=-1)
+
+            _RECORDED.setdefault(layer_idx, {})
+            _RECORDED[layer_idx].setdefault("calls", [])
+            _RECORDED[layer_idx]["calls"].append({
+                "self_attn": attn[0].cpu().numpy(),
+                "qnorm": qnorm[0].cpu().numpy(),
+                "S": S,
+            })
 
     return hook
 
@@ -249,7 +219,7 @@ def install_attention_hooks(
     model: torch.nn.Module,
     layers: Optional[List[int]] = None,
 ) -> List[torch.utils.hooks.RemovableHandle]:
-    """Installs forward hooks on DiT blocks' cross_attn modules."""
+    """Installs forward hooks on DiT blocks' self_attn modules."""
     global _HOOKS
     _RECORDED.clear()
 
@@ -266,7 +236,7 @@ def install_attention_hooks(
         if idx >= len(blocks):
             continue
         block = blocks[idx]
-        handles.append(block.cross_attn.register_forward_hook(_cross_attn_hook_fn(idx)))
+        handles.append(block.self_attn.register_forward_hook(_self_attn_hook_fn(idx)))
 
     _HOOKS = handles
     return handles
@@ -276,96 +246,128 @@ def install_attention_hooks(
 # Attention ratio computation
 # ==============================================================================
 
-def compute_cosmos_attention_ratio(recorded_call: Dict[str, Any]) -> Dict:
+def _frame_token_layout(model: torch.nn.Module, S: int) -> Dict[str, Any]:
+    """Interpret token axis as [state_t frames] x [tokens_per_frame]."""
+    if not hasattr(model, "config") or not hasattr(model.config, "state_t"):
+        raise ValueError("Model missing config.state_t")
+
+    state_t = int(model.config.state_t)
+
+    if not hasattr(model.config, "min_num_conditional_frames"):
+        raise ValueError("Model missing config.min_num_conditional_frames")
+    min_cond = int(model.config.min_num_conditional_frames)
+
+    if S % state_t != 0:
+        raise ValueError(f"S={S} not divisible by state_t={state_t}")
+    tpf = S // state_t
+
+    action_frame = min_cond
+    curr_last_frame = min_cond - 1
+
+    frame_slices: Dict[str, Tuple[int, int]] = {}
+    for f in range(state_t):
+        frame_slices[f"frame{f}"] = (f * tpf, (f + 1) * tpf)
+
+    frame_slices["curr_last"] = frame_slices[f"frame{curr_last_frame}"]
+    frame_slices["action"] = frame_slices[f"frame{action_frame}"]
+
+    return {
+        "state_t": state_t,
+        "tokens_per_frame": tpf,
+        "frame_slices": frame_slices,
+        "action_frame": action_frame,
+        "curr_last_frame": curr_last_frame,
+    }
+
+
+def compute_cosmos_attention_ratio(
+    recorded_call: Dict[str, Any],
+    model: torch.nn.Module,
+    query_frame: str = "action",
+    visual_frame: str = "curr_last",
+    text_frame: str = "frame0",  # Assuming text embeddings are in frame 0
+) -> Dict:
     """
-    Compute visual/linguistic attention ratio from cross-attention.
+    Compute visual/linguistic attention ratio for Cosmos DiT.
 
-    For I2VCrossAttention: text and image have separate K/V projections,
-    so we compare attention on text keys vs image keys directly.
-
-    For regular cross-attention: the context is concatenated [text || image],
-    and we need `num_text_keys` to split them.
-
-    Uses max over heads to capture the strongest attention any head assigns.
-    Normalizes by token count for fair comparison.
+    Args:
+        recorded_call: Dict with "self_attn" (H,S,S) and "qnorm" (S,)
+        model: Cosmos model with config
+        query_frame: Which frame provides queries (default: "action")
+        visual_frame: Which frame contains visual tokens (default: "curr_last")
+        text_frame: Which frame contains text tokens (default: "frame0")
 
     Returns:
         Dict with visual_mass, linguistic_mass, ratio, etc.
     """
-    is_i2v = recorded_call.get("is_i2v", False)
+    attn = recorded_call.get("self_attn", None)
+    if attn is None or attn.ndim != 3:
+        raise ValueError("recorded_call missing valid 'self_attn'")
 
-    if is_i2v:
-        attn_text = recorded_call["attn_text"]  # (H, Sq, Sk_text)
-        attn_img = recorded_call["attn_img"]    # (H, Sq, Sk_img)
-        num_queries = recorded_call["num_queries"]
-        num_text_keys = recorded_call["num_text_keys"]
-        num_img_keys = recorded_call["num_img_keys"]
+    qnorm = recorded_call.get("qnorm", None)
+    S = int(attn.shape[-1])
 
-        # Max over heads: (Sq, Sk_text) and (Sq, Sk_img)
-        text_max = attn_text.max(axis=0).astype(np.float32)
-        img_max = attn_img.max(axis=0).astype(np.float32)
+    layout = _frame_token_layout(model, S)
+    fs = layout["frame_slices"]
 
-        # Per-token attention mass (sum over queries, then normalize by key count)
-        linguistic_mass_raw = float(np.sum(text_max))
-        visual_mass_raw = float(np.sum(img_max))
-        linguistic_mass = linguistic_mass_raw / max(num_text_keys, 1)
-        visual_mass = visual_mass_raw / max(num_img_keys, 1)
+    if query_frame not in fs:
+        raise ValueError(f"Unknown query_frame='{query_frame}'")
+    if visual_frame not in fs:
+        raise ValueError(f"Unknown visual_frame='{visual_frame}'")
+    if text_frame not in fs:
+        raise ValueError(f"Unknown text_frame='{text_frame}'")
 
-    else:
-        # Regular cross-attention with concatenated context
-        attn = recorded_call["cross_attn"]  # (H, Sq, Sk)
-        num_queries = recorded_call["num_queries"]
-        num_keys = recorded_call["num_keys"]
-        # We don't know the text/image split without extra info
-        # For now, return the full attention and warn
-        log.warning("Regular (non-I2V) cross-attention: cannot split text vs image without split info")
-        return {
-            "visual_mass": 0.0,
-            "linguistic_mass": 0.0,
-            "visual_mass_raw": 0.0,
-            "linguistic_mass_raw": 0.0,
-            "total_mass": 0.0,
-            "visual_linguistic_ratio": 0.0,
-            "visual_fraction": 0.0,
-            "linguistic_fraction": 0.0,
-            "num_queries": num_queries,
-            "num_visual_tokens": 0,
-            "num_text_tokens": num_keys,
-            "is_i2v": False,
-        }
+    q_idx = np.arange(fs[query_frame][0], fs[query_frame][1], dtype=np.int64)
+    v_idx = np.arange(fs[visual_frame][0], fs[visual_frame][1], dtype=np.int64)
+    t_idx = np.arange(fs[text_frame][0], fs[text_frame][1], dtype=np.int64)
 
-    # Ratio (per-token normalized, so fair regardless of token counts)
+    # Average over heads and queries
+    attn_avg = attn.mean(axis=0).astype(np.float32)  # (S,S)
+    attn_from_queries = attn_avg[q_idx, :]  # (Q,S)
+
+    # Attention mass on visual tokens
+    visual_attn = attn_from_queries[:, v_idx]  # (Q, V)
+    visual_mass = float(np.sum(visual_attn))
+
+    # Attention mass on text tokens
+    text_attn = attn_from_queries[:, t_idx]  # (Q, T)
+    linguistic_mass = float(np.sum(text_attn))
+
+    # Ratio
     if linguistic_mass > 1e-8:
         ratio = visual_mass / linguistic_mass
     else:
         ratio = float('inf') if visual_mass > 1e-8 else 0.0
 
+    # Total for normalization
     total_mass = visual_mass + linguistic_mass
 
     return {
         "visual_mass": visual_mass,
         "linguistic_mass": linguistic_mass,
-        "visual_mass_raw": visual_mass_raw,
-        "linguistic_mass_raw": linguistic_mass_raw,
         "total_mass": total_mass,
         "visual_linguistic_ratio": ratio,
         "visual_fraction": visual_mass / max(total_mass, 1e-8),
         "linguistic_fraction": linguistic_mass / max(total_mass, 1e-8),
-        "num_queries": num_queries,
-        "num_visual_tokens": num_img_keys if is_i2v else 0,
-        "num_text_tokens": num_text_keys if is_i2v else 0,
-        "is_i2v": is_i2v,
+        "num_queries": len(q_idx),
+        "num_visual_tokens": len(v_idx),
+        "num_text_tokens": len(t_idx),
     }
 
 
 def select_layer_call(
     layer_rec: Dict[str, Any],
+    prefer_S: Optional[int] = None,
     prefer_call: str = "last",
 ) -> Optional[Dict[str, Any]]:
     """Select which recorded call to use for a layer."""
     calls = layer_rec.get("calls", [])
     if not calls:
         return None
+    if prefer_S is not None:
+        exact = [c for c in calls if int(c.get("S", -1)) == int(prefer_S)]
+        if exact:
+            return exact[0] if prefer_call == "first" else exact[-1]
     return calls[0] if prefer_call == "first" else calls[-1]
 
 
@@ -497,9 +499,13 @@ def run_episode(
     num_open_loop_steps: int,
     output_dir: str,
     episode_prefix: str,
+    prefer_S: Optional[int],
     prefer_call: str,
+    query_frame: str,
+    visual_frame: str,
+    text_frame: str,
 ) -> Dict:
-    """Run one episode and track visual/linguistic cross-attention ratios."""
+    """Run one episode and track visual/linguistic attention ratios."""
     obs = env.reset()
     obs = env.set_init_state(initial_state)
 
@@ -549,22 +555,33 @@ def run_episode(
                         continue
                     layer_rec = attention_dict[layer_idx]
 
-                    call = select_layer_call(layer_rec, prefer_call=prefer_call)
+                    call = select_layer_call(layer_rec, prefer_S=prefer_S, prefer_call=prefer_call)
                     if call is None:
                         continue
 
                     try:
-                        ratio_result = compute_cosmos_attention_ratio(recorded_call=call)
+                        ratio_result = compute_cosmos_attention_ratio(
+                            recorded_call=call,
+                            model=model,
+                            query_frame=query_frame,
+                            visual_frame=visual_frame,
+                            text_frame=text_frame,
+                        )
                     except Exception as e:
                         log.warning(f"[ratio] t={t} layer={layer_idx} failed: {e}")
                         continue
 
                     ratio_result["layer"] = layer_idx
                     ratio_result["step"] = t
+                    ratio_result["selected_call_S"] = int(call.get("S", -1))
+                    ratio_result["query_frame"] = query_frame
+                    ratio_result["visual_frame"] = visual_frame
+                    ratio_result["text_frame"] = text_frame
                     step_ratio_results.append(ratio_result)
 
                     per_layer_metrics.append({
                         "layer": layer_idx,
+                        "S": int(call.get("S", -1)),
                         "ratio": ratio_result["visual_linguistic_ratio"],
                         "visual_mass": ratio_result["visual_mass"],
                         "linguistic_mass": ratio_result["linguistic_mass"],
@@ -575,16 +592,19 @@ def run_episode(
                         avg_ratio = float(np.mean([m["ratio"] for m in per_layer_metrics if np.isfinite(m["ratio"])]))
                         avg_visual = float(np.mean([m["visual_mass"] for m in per_layer_metrics]))
                         avg_linguistic = float(np.mean([m["linguistic_mass"] for m in per_layer_metrics]))
+                        Ss = [m["S"] for m in per_layer_metrics]
 
                         log.info(
                             f"  t={t} layers={[m['layer'] for m in per_layer_metrics]} "
-                            f"AVG ratio={avg_ratio:.3f}, visual={avg_visual:.6f}, linguistic={avg_linguistic:.6f}"
+                            f"S={Ss} [Q={query_frame} V={visual_frame} T={text_frame}]: "
+                            f"AVG ratio={avg_ratio:.3f}, visual={avg_visual:.3f}, linguistic={avg_linguistic:.3f}"
                         )
                     else:
                         m = per_layer_metrics[0]
                         log.info(
-                            f"  t={t} layer={m['layer']} "
-                            f"ratio={m['ratio']:.3f}, visual={m['visual_mass']:.6f}, linguistic={m['linguistic_mass']:.6f}"
+                            f"  t={t} layer={m['layer']} S={m['S']} "
+                            f"[Q={query_frame} V={visual_frame} T={text_frame}]: "
+                            f"ratio={m['ratio']:.3f}, visual={m['visual_mass']:.3f}, linguistic={m['linguistic_mass']:.3f}"
                         )
 
         action = action_plan.popleft()
@@ -640,7 +660,13 @@ def main():
     parser.add_argument("--layers", type=int, nargs="+", default=[25, 26, 27])
 
     # Call selection
+    parser.add_argument("--prefer-S", type=int, default=-1)
     parser.add_argument("--prefer-call", type=str, default="last", choices=["last", "first"])
+
+    # Frame selection
+    parser.add_argument("--query-frame", type=str, default="action")
+    parser.add_argument("--visual-frame", type=str, default="curr_last")
+    parser.add_argument("--text-frame", type=str, default="frame0")
 
     # Output
     parser.add_argument("--output-dir", type=str, default="results/attention_ratio_cosmos")
@@ -665,6 +691,7 @@ def main():
     os.makedirs(args.output_dir, exist_ok=True)
 
     all_results = []
+    prefer_S = None if (args.prefer_S is None or args.prefer_S < 0) else int(args.prefer_S)
 
     for task_id in task_ids:
         task = task_suite.get_task(task_id)
@@ -695,7 +722,11 @@ def main():
                 num_open_loop_steps=args.num_open_loop_steps,
                 output_dir=args.output_dir,
                 episode_prefix=episode_prefix,
+                prefer_S=prefer_S,
                 prefer_call=args.prefer_call,
+                query_frame=args.query_frame,
+                visual_frame=args.visual_frame,
+                text_frame=args.text_frame,
             )
 
             result["task_id"] = task_id
@@ -724,10 +755,10 @@ def main():
                             "linguistic_mass": float(res["linguistic_mass"]),
                             "visual_fraction": float(res["visual_fraction"]),
                             "linguistic_fraction": float(res["linguistic_fraction"]),
-                            "num_queries": int(res.get("num_queries", 0)),
-                            "num_visual_tokens": int(res.get("num_visual_tokens", 0)),
-                            "num_text_tokens": int(res.get("num_text_tokens", 0)),
-                            "is_i2v": bool(res.get("is_i2v", False)),
+                            "selected_call_S": int(res.get("selected_call_S", -1)),
+                            "query_frame": str(res.get("query_frame", "")),
+                            "visual_frame": str(res.get("visual_frame", "")),
+                            "text_frame": str(res.get("text_frame", "")),
                         }
                         for res in layer_results
                     ]

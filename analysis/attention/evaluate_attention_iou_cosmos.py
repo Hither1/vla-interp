@@ -31,7 +31,7 @@ from typing import Dict, List, Optional, Tuple, Any
 import numpy as np
 
 # ── Path setup ────────────────────────────────────────────────────────────────
-_COSMOS_POLICY_DIR = str(pathlib.Path(__file__).resolve().parent.parent / "third_party" / "cosmos-policy")
+_COSMOS_POLICY_DIR = str(pathlib.Path(__file__).resolve().parent.parent.parent / "third_party" / "cosmos-policy")
 if _COSMOS_POLICY_DIR not in sys.path:
     sys.path.insert(0, _COSMOS_POLICY_DIR)
 
@@ -583,6 +583,8 @@ def run_episode(
     attn_debug: bool,
     debug_shapes: bool,
     debug_dump_first_replan: bool,
+    # metric
+    metric: str = "iou",
 ) -> Dict:
     obs = env.reset()
     obs = env.set_init_state(initial_state)
@@ -732,12 +734,14 @@ def run_episode(
 
                     combined_iou = float(iou_result["combined"].get("percentile_90", {}).get("iou", 0.0))
                     mass = float(iou_result["attention_mass"].get("_all_objects", 0.0))
+                    primary_val = mass if metric == "attention_ratio" else combined_iou
                     per_layer_metrics.append(
                         {
                             "layer": layer_idx,
                             "S": int(call.get("S", -1)),
                             "iou": combined_iou,
                             "mass": mass,
+                            "primary": primary_val,
                             "pointing_hit": bool(iou_result.get("pointing_hit", False)),
                         }
                     )
@@ -774,8 +778,9 @@ def run_episode(
 
                 # ---- NEW: aggregate reporting across layers ----
                 if per_layer_metrics:
+                    metric_label = "attn_ratio" if metric == "attention_ratio" else "IoU"
                     if len(layers) > 1:
-                        avg_iou = float(np.mean([m["iou"] for m in per_layer_metrics]))
+                        avg_primary = float(np.mean([m["primary"] for m in per_layer_metrics]))
                         avg_mass = float(np.mean([m["mass"] for m in per_layer_metrics]))
                         hit_rate = float(np.mean([1.0 if m["pointing_hit"] else 0.0 for m in per_layer_metrics]))
                         Ss = [m["S"] for m in per_layer_metrics]
@@ -783,7 +788,7 @@ def run_episode(
                         log.info(
                             f"  t={t} layers={ [m['layer'] for m in per_layer_metrics] } "
                             f"S={Ss} [Q={query_frame} -> K={key_frame}]: "
-                            f"AVG IoU={avg_iou:.3f}, AVG attn_mass={avg_mass:.1%}, "
+                            f"AVG {metric_label}={avg_primary:.3f}, AVG attn_mass={avg_mass:.1%}, "
                             f"pointing_hit_rate={hit_rate:.1%}"
                         )
                     else:
@@ -792,7 +797,7 @@ def run_episode(
                         log.info(
                             f"  t={t} layer={m['layer']} S={m['S']} "
                             f"[Q={query_frame} -> K={key_frame}]: "
-                            f"IoU={m['iou']:.3f}, attn_mass={m['mass']:.1%}, "
+                            f"{metric_label}={m['primary']:.3f}, attn_mass={m['mass']:.1%}, "
                             f"pointing={'hit' if m['pointing_hit'] else 'miss'}"
                         )
 
@@ -944,6 +949,15 @@ def main():
     parser.add_argument("--threshold-methods", type=str, nargs="+",
                         default=["percentile_90", "percentile_75", "otsu_0"])
 
+    parser.add_argument(
+        "--metric",
+        type=str,
+        default="iou",
+        choices=["iou", "attention_ratio"],
+        help="Primary metric: 'iou' (thresholded binary IoU) or 'attention_ratio' "
+             "(attention mass on GT region / total attention, no thresholding).",
+    )
+
     # Saliency
     parser.add_argument("--saliency-mode", type=str, default="incoming_qweighted",
                         choices=["incoming_qweighted", "incoming_argmaxq", "outgoing_mean"])
@@ -1057,6 +1071,7 @@ def main():
                 attn_debug=args.attn_debug,
                 debug_shapes=args.debug_shapes,
                 debug_dump_first_replan=args.debug_dump_first_replan,
+                metric=args.metric,
             )
 
             result["task_id"] = task_id
@@ -1101,8 +1116,9 @@ def main():
         serializable_results.append(entry)
 
     results_path = os.path.join(args.output_dir, f"iou_results_{args.task_suite}.json")
+    output_data = {"metric": args.metric, "results": serializable_results}
     with open(results_path, "w") as f:
-        json.dump(serializable_results, f, indent=2, default=_json_default)
+        json.dump(output_data, f, indent=2, default=_json_default)
     log.info(f"\nResults saved to {results_path}")
 
 

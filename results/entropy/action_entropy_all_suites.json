@@ -1,0 +1,618 @@
+{
+  "libero_spatial": {
+    "suite": "libero_spatial",
+    "data_dir": "data/libero/spatial/videos",
+    "num_tasks": 10,
+    "num_total_episodes": 200,
+    "per_task": {
+      "pick up the black bowl between the plate and the ramekin and place it on the plate": {
+        "entropy": {
+          "action_entropy_kde": -6.894454315909696,
+          "mean_log_density": 6.894454315909696,
+          "std_log_density": 0.9233385356100562,
+          "kde_bandwidth_factor": 0.5094999669796946,
+          "num_samples": 1665,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 1665
+      },
+      "pick up the black bowl from table center and place it on the plate": {
+        "entropy": {
+          "action_entropy_kde": -8.385043785913831,
+          "mean_log_density": 8.385043785913831,
+          "std_log_density": 0.750301035224332,
+          "kde_bandwidth_factor": 0.4990564045274222,
+          "num_samples": 2091,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 2091
+      },
+      "pick up the black bowl in the top drawer of the wooden cabinet and place it on the plate": {
+        "entropy": {
+          "action_entropy_kde": -6.3911237606367886,
+          "mean_log_density": 6.3911237606367886,
+          "std_log_density": 0.9962741592333926,
+          "kde_bandwidth_factor": 0.4907498581976917,
+          "num_samples": 2515,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 2515
+      },
+      "pick up the black bowl next to the cookie box and place it on the plate": {
+        "entropy": {
+          "action_entropy_kde": -7.1855595848570015,
+          "mean_log_density": 7.1855595848570015,
+          "std_log_density": 1.1002209385887967,
+          "kde_bandwidth_factor": 0.49727269456513473,
+          "num_samples": 2175,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 2175
+      },
+      "pick up the black bowl next to the plate and place it on the plate": {
+        "entropy": {
+          "action_entropy_kde": -6.392413562637339,
+          "mean_log_density": 6.392413562637339,
+          "std_log_density": 0.9409255049106022,
+          "kde_bandwidth_factor": 0.5016756089613816,
+          "num_samples": 1974,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 1974
+      },
+      "pick up the black bowl next to the ramekin and place it on the plate": {
+        "entropy": {
+          "action_entropy_kde": -7.3157182887977354,
+          "mean_log_density": 7.3157182887977354,
+          "std_log_density": 1.242878794365078,
+          "kde_bandwidth_factor": 0.4984960715748007,
+          "num_samples": 2117,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 2117
+      },
+      "pick up the black bowl on the cookie box and place it on the plate": {
+        "entropy": {
+          "action_entropy_kde": -7.334368096495113,
+          "mean_log_density": 7.334368096495113,
+          "std_log_density": 0.9886952567821332,
+          "kde_bandwidth_factor": 0.5093611007094528,
+          "num_samples": 1670,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 1670
+      },
+      "pick up the black bowl on the ramekin and place it on the plate": {
+        "entropy": {
+          "action_entropy_kde": -7.003864655295359,
+          "mean_log_density": 7.003864655295359,
+          "std_log_density": 0.9345817833224782,
+          "kde_bandwidth_factor": 0.49899136393191873,
+          "num_samples": 2094,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 2094
+      },
+      "pick up the black bowl on the stove and place it on the plate": {
+        "entropy": {
+          "action_entropy_kde": -8.246404110416824,
+          "mean_log_density": 8.246404110416824,
+          "std_log_density": 0.9106018861393346,
+          "kde_bandwidth_factor": 0.49317981663773747,
+          "num_samples": 2382,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 2382
+      },
+      "pick up the black bowl on the wooden cabinet and place it on the plate": {
+        "entropy": {
+          "action_entropy_kde": -6.3991890474622375,
+          "mean_log_density": 6.3991890474622375,
+          "std_log_density": 1.079272549916274,
+          "kde_bandwidth_factor": 0.4923045643311833,
+          "num_samples": 2429,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 2429
+      }
+    },
+    "suite_level_entropy": {
+      "action_entropy_kde": -5.316554262642503,
+      "mean_log_density": 5.316554262642503,
+      "std_log_density": 1.0531292327728041,
+      "kde_bandwidth_factor": 0.40444639219401934,
+      "num_samples": 21112,
+      "num_episodes": 200,
+      "action_dim": 7
+    },
+    "task_entropy_stats": {
+      "mean": -7.154813920842193,
+      "std": 0.6775048780099446,
+      "min": -8.385043785913831,
+      "max": -6.3911237606367886,
+      "median": -7.0947121200761805
+    }
+  },
+  "libero_object": {
+    "suite": "libero_object",
+    "data_dir": "data/libero/object/videos",
+    "num_tasks": 10,
+    "num_total_episodes": 200,
+    "per_task": {
+      "pick up the alphabet soup and place it in the basket": {
+        "entropy": {
+          "action_entropy_kde": -8.450147418282025,
+          "mean_log_density": 8.450147418282025,
+          "std_log_density": 1.3034775116284223,
+          "kde_bandwidth_factor": 0.4812826788678184,
+          "num_samples": 3116,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 3116
+      },
+      "pick up the bbq sauce and place it in the basket": {
+        "entropy": {
+          "action_entropy_kde": -7.780275273458227,
+          "mean_log_density": 7.780275273458227,
+          "std_log_density": 0.9599689546033782,
+          "kde_bandwidth_factor": 0.48240756515325794,
+          "num_samples": 3037,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 3037
+      },
+      "pick up the butter and place it in the basket": {
+        "entropy": {
+          "action_entropy_kde": -7.5993343449307575,
+          "mean_log_density": 7.5993343449307575,
+          "std_log_density": 1.226239666358444,
+          "kde_bandwidth_factor": 0.48239312743232676,
+          "num_samples": 3038,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 3038
+      },
+      "pick up the chocolate pudding and place it in the basket": {
+        "entropy": {
+          "action_entropy_kde": -7.937146870385758,
+          "mean_log_density": 7.937146870385758,
+          "std_log_density": 1.4152342742651622,
+          "kde_bandwidth_factor": 0.48298936583179725,
+          "num_samples": 2997,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 2997
+      },
+      "pick up the cream cheese and place it in the basket": {
+        "entropy": {
+          "action_entropy_kde": -8.284047927790414,
+          "mean_log_density": 8.284047927790414,
+          "std_log_density": 1.2181635412827028,
+          "kde_bandwidth_factor": 0.48716880142823377,
+          "num_samples": 2726,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 2726
+      },
+      "pick up the ketchup and place it in the basket": {
+        "entropy": {
+          "action_entropy_kde": -7.994222396733835,
+          "mean_log_density": 7.994222396733835,
+          "std_log_density": 1.1636901688183525,
+          "kde_bandwidth_factor": 0.48423921396582004,
+          "num_samples": 2913,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 2913
+      },
+      "pick up the milk and place it in the basket": {
+        "entropy": {
+          "action_entropy_kde": -7.7813652995251195,
+          "mean_log_density": 7.7813652995251195,
+          "std_log_density": 1.2063643024022908,
+          "kde_bandwidth_factor": 0.4864921202754705,
+          "num_samples": 2768,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 2768
+      },
+      "pick up the orange juice and place it in the basket": {
+        "entropy": {
+          "action_entropy_kde": -8.617594220564461,
+          "mean_log_density": 8.617594220564461,
+          "std_log_density": 1.0884632558911462,
+          "kde_bandwidth_factor": 0.48756060247469046,
+          "num_samples": 2702,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 2702
+      },
+      "pick up the salad dressing and place it in the basket": {
+        "entropy": {
+          "action_entropy_kde": -8.58048538693154,
+          "mean_log_density": 8.58048538693154,
+          "std_log_density": 1.0982083804068645,
+          "kde_bandwidth_factor": 0.4898376848019015,
+          "num_samples": 2567,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 2567
+      },
+      "pick up the tomato sauce and place it in the basket": {
+        "entropy": {
+          "action_entropy_kde": -8.113578388385076,
+          "mean_log_density": 8.113578388385076,
+          "std_log_density": 1.1886633620392661,
+          "kde_bandwidth_factor": 0.48437545318476877,
+          "num_samples": 2904,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 2904
+      }
+    },
+    "suite_level_entropy": {
+      "action_entropy_kde": -7.446094655075473,
+      "mean_log_density": 7.446094655075473,
+      "std_log_density": 1.5265180693661735,
+      "kde_bandwidth_factor": 0.39322812769328813,
+      "num_samples": 28768,
+      "num_episodes": 200,
+      "action_dim": 7
+    },
+    "task_entropy_stats": {
+      "mean": -8.113819752698722,
+      "std": 0.33847444067570664,
+      "min": -8.617594220564461,
+      "max": -7.5993343449307575,
+      "median": -8.053900392559456
+    }
+  },
+  "libero_goal": {
+    "suite": "libero_goal",
+    "data_dir": "data/libero/goal/videos",
+    "num_tasks": 10,
+    "num_total_episodes": 200,
+    "per_task": {
+      "open the middle drawer of the cabinet": {
+        "entropy": {
+          "action_entropy_kde": -8.035780769611808,
+          "mean_log_density": 8.035780769611808,
+          "std_log_density": 0.8709863189633325,
+          "kde_bandwidth_factor": 0.4866522139463344,
+          "num_samples": 2758,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 2758
+      },
+      "open the top drawer and put the bowl inside": {
+        "entropy": {
+          "action_entropy_kde": -6.848976200760906,
+          "mean_log_density": 6.848976200760906,
+          "std_log_density": 1.1273914271174137,
+          "kde_bandwidth_factor": 0.46977929851164457,
+          "num_samples": 4066,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 4066
+      },
+      "push the plate to the front of the stove": {
+        "entropy": {
+          "action_entropy_kde": -12.846079748238967,
+          "mean_log_density": 12.846079748238967,
+          "std_log_density": 1.2380800018599922,
+          "kde_bandwidth_factor": 0.4865881006075007,
+          "num_samples": 2762,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 2762
+      },
+      "put the bowl on the plate": {
+        "entropy": {
+          "action_entropy_kde": -8.060033432055068,
+          "mean_log_density": 8.060033432055068,
+          "std_log_density": 0.8065482898382262,
+          "kde_bandwidth_factor": 0.5144191268029855,
+          "num_samples": 1498,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 1498
+      },
+      "put the bowl on the stove": {
+        "entropy": {
+          "action_entropy_kde": -7.73232608807955,
+          "mean_log_density": 7.73232608807955,
+          "std_log_density": 0.768884003355271,
+          "kde_bandwidth_factor": 0.5077826315733796,
+          "num_samples": 1728,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 1728
+      },
+      "put the bowl on top of the cabinet": {
+        "entropy": {
+          "action_entropy_kde": -7.598129413638352,
+          "mean_log_density": 7.598129413638352,
+          "std_log_density": 0.8342850581347298,
+          "kde_bandwidth_factor": 0.5086189767147962,
+          "num_samples": 1697,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 1697
+      },
+      "put the cream cheese in the bowl": {
+        "entropy": {
+          "action_entropy_kde": -8.115791459872845,
+          "mean_log_density": 8.115791459872845,
+          "std_log_density": 0.9506145278915823,
+          "kde_bandwidth_factor": 0.5005810913411622,
+          "num_samples": 2022,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 2022
+      },
+      "put the wine bottle on the rack": {
+        "entropy": {
+          "action_entropy_kde": -6.138789185122559,
+          "mean_log_density": 6.138789185122559,
+          "std_log_density": 0.8998710505286596,
+          "kde_bandwidth_factor": 0.4799025827850554,
+          "num_samples": 3216,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 3216
+      },
+      "put the wine bottle on top of the cabinet": {
+        "entropy": {
+          "action_entropy_kde": -8.58726820791968,
+          "mean_log_density": 8.58726820791968,
+          "std_log_density": 1.1957665067186238,
+          "kde_bandwidth_factor": 0.48670036555533047,
+          "num_samples": 2755,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 2755
+      },
+      "turn on the stove": {
+        "entropy": {
+          "action_entropy_kde": -7.949294130773173,
+          "mean_log_density": 7.949294130773173,
+          "std_log_density": 0.9620991971344552,
+          "kde_bandwidth_factor": 0.5148584290034443,
+          "num_samples": 1484,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 1484
+      }
+    },
+    "suite_level_entropy": {
+      "action_entropy_kde": -5.045870238757457,
+      "mean_log_density": 5.045870238757457,
+      "std_log_density": 1.1359975109886018,
+      "kde_bandwidth_factor": 0.39978087621638864,
+      "num_samples": 23986,
+      "num_episodes": 200,
+      "action_dim": 7
+    },
+    "task_entropy_stats": {
+      "mean": -8.19124686360729,
+      "std": 1.6883895594576994,
+      "min": -12.846079748238967,
+      "max": -6.138789185122559,
+      "median": -7.99253745019249
+    }
+  },
+  "libero_10": {
+    "suite": "libero_10",
+    "data_dir": "data/libero/10/videos",
+    "num_tasks": 10,
+    "num_total_episodes": 200,
+    "per_task": {
+      "pick up the book and place it in the back compartment of the caddy": {
+        "entropy": {
+          "action_entropy_kde": -8.81245073917535,
+          "mean_log_density": 8.81245073917535,
+          "std_log_density": 0.9023828911103053,
+          "kde_bandwidth_factor": 0.4706931765275225,
+          "num_samples": 3980,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 3980
+      },
+      "put both moka pots on the stove": {
+        "entropy": {
+          "action_entropy_kde": -9.068340393469454,
+          "mean_log_density": 9.068340393469454,
+          "std_log_density": 1.5621338137963694,
+          "kde_bandwidth_factor": 0.4344197837061862,
+          "num_samples": 9616,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 9616
+      },
+      "put both the alphabet soup and the cream cheese box in the basket": {
+        "entropy": {
+          "action_entropy_kde": -7.047933483640041,
+          "mean_log_density": 7.047933483640041,
+          "std_log_density": 1.2402910046207511,
+          "kde_bandwidth_factor": 0.4583990106413506,
+          "num_samples": 5325,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 5325
+      },
+      "put both the alphabet soup and the tomato sauce in the basket": {
+        "entropy": {
+          "action_entropy_kde": -9.105951497467984,
+          "mean_log_density": 9.105951497467984,
+          "std_log_density": 1.118169733440931,
+          "kde_bandwidth_factor": 0.4553255578078027,
+          "num_samples": 5734,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 5734
+      },
+      "put both the cream cheese box and the butter in the basket": {
+        "entropy": {
+          "action_entropy_kde": -7.430625878980725,
+          "mean_log_density": 7.430625878980725,
+          "std_log_density": 1.1921693550883017,
+          "kde_bandwidth_factor": 0.4622745885541438,
+          "num_samples": 4854,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 4854
+      },
+      "put the black bowl in the bottom drawer of the cabinet and close it": {
+        "entropy": {
+          "action_entropy_kde": -6.840626795064189,
+          "mean_log_density": 6.840626795064189,
+          "std_log_density": 0.9904553818988008,
+          "kde_bandwidth_factor": 0.46048157306737214,
+          "num_samples": 5066,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 5066
+      },
+      "put the white mug on the left plate and put the yellow and white mug on the right plate": {
+        "entropy": {
+          "action_entropy_kde": -8.269770816276504,
+          "mean_log_density": 8.269770816276504,
+          "std_log_density": 1.1061395271526517,
+          "kde_bandwidth_factor": 0.46048157306737214,
+          "num_samples": 5066,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 5066
+      },
+      "put the white mug on the plate and put the chocolate pudding to the right of the plate": {
+        "entropy": {
+          "action_entropy_kde": -8.434545358669565,
+          "mean_log_density": 8.434545358669565,
+          "std_log_density": 0.8605271497019522,
+          "kde_bandwidth_factor": 0.4618269941685751,
+          "num_samples": 4906,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 4906
+      },
+      "put the yellow and white mug in the microwave and close it": {
+        "entropy": {
+          "action_entropy_kde": -5.8928381740784594,
+          "mean_log_density": 5.8928381740784594,
+          "std_log_density": 1.0999975579274333,
+          "kde_bandwidth_factor": 0.45634989821113775,
+          "num_samples": 5594,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 5594
+      },
+      "turn on the stove and put the moka pot on it": {
+        "entropy": {
+          "action_entropy_kde": -6.899788664896091,
+          "mean_log_density": 6.899788664896091,
+          "std_log_density": 0.9937126863331914,
+          "kde_bandwidth_factor": 0.4601934416640154,
+          "num_samples": 5101,
+          "num_episodes": 20,
+          "action_dim": 7
+        },
+        "num_episodes": 20,
+        "num_action_steps": 5101
+      }
+    },
+    "suite_level_entropy": {
+      "action_entropy_kde": -6.310645123797812,
+      "mean_log_density": 6.310645123797812,
+      "std_log_density": 1.6548337533152861,
+      "kde_bandwidth_factor": 0.3705822387105474,
+      "num_samples": 55242,
+      "num_episodes": 200,
+      "action_dim": 7
+    },
+    "task_entropy_stats": {
+      "mean": -7.780287180171835,
+      "std": 1.0501802015292212,
+      "min": -9.105951497467984,
+      "max": -5.8928381740784594,
+      "median": -7.850198347628615
+    }
+  }
+}

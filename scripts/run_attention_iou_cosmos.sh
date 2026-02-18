@@ -1,14 +1,10 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=cosmos-attn-iou
 #SBATCH --output=/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/logs/cosmos_attn_iou_%j.log
-#SBATCH --nodes=1
-#SBATCH --ntasks-per-node=1
-#SBATCH --gpus-per-node=1
-#SBATCH --cpus-per-task=24
-#SBATCH --mem=240G
-#SBATCH --time=11:30:00
-#SBATCH --account=kempner_grads
-#SBATCH --partition=kempner_h100
+#SBATCH -p gpu                 # Partition
+#SBATCH -t 12:00:00            # Time limit
+#SBATCH --gres=gpu:1           # GPU request
+#SBATCH --mem=64G              # Memory (Cosmos needs more)
 #SBATCH --mail-user=csu@g.harvard.edu
 #SBATCH --mail-type=END
 #SBATCH --exclusive
@@ -46,7 +42,7 @@ CONFIG_FILE="${CONFIG_FILE:-cosmos_policy/config/config.py}"
 DATASET_STATS="${DATASET_STATS:-nvidia/Cosmos-Policy-LIBERO-Predict2-2B/libero_dataset_statistics.json}"
 T5_EMBEDDINGS="${T5_EMBEDDINGS:-nvidia/Cosmos-Policy-LIBERO-Predict2-2B/libero_t5_embeddings.pkl}"
 
-OUTPUT_DIR="outputs_iou_cosmos/${TASK_SUITE}_seed${SEED}"
+OUTPUT_DIR="results/attention/outputs_attn_ratio_cosmos/${TASK_SUITE}_seed${SEED}"
 
 # ── Run ──────────────────────────────────────────────────────────────────────
 mkdir -p logs "$OUTPUT_DIR"
@@ -66,7 +62,7 @@ if [[ "$SAVE_VIZ" == "1" ]]; then
     VIZ_FLAG="--save-viz"
 fi
 
-python analysis/evaluate_attention_iou_cosmos.py \
+python analysis/attention/evaluate_attention_iou_cosmos.py \
     --ckpt-path "$CKPT_PATH" \
     --config-name "$CONFIG_NAME" \
     --config-file "$CONFIG_FILE" \
@@ -74,8 +70,8 @@ python analysis/evaluate_attention_iou_cosmos.py \
     --t5-text-embeddings-path "$T5_EMBEDDINGS" \
     --task-suite "$TASK_SUITE" \
     --num-episodes "$NUM_EPISODES" \
-    # --layers $LAYERS \
     --seed "$SEED" \
+    --metric attention_ratio \
     --output-dir "$OUTPUT_DIR" \
     $VIZ_FLAG
 
