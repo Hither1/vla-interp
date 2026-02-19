@@ -125,6 +125,31 @@ Analyze the entropy of predicted action distributions to understand model confid
 | `analysis/entropy/visualize_entropy_results.py` | Generate entropy visualization plots |
 | `analysis/entropy/analyze_entropy_task_correlation.py` | Analyze correlation between entropy and task success |
 
+To compute mean entropy for a data split (e.g. `90_b`, `90_d`), run each split separately since the suite name is inferred from the directory path. Each run automatically computes entropy for all episodes, success-only, and failure-only:
+
+```bash
+python analysis/entropy/compute_action_entropy.py \
+    --data-dir data/libero/90_b/videos \
+    --output results/entropy/action_entropy_90_b.json
+
+python analysis/entropy/compute_action_entropy.py \
+    --data-dir data/libero/90_d/videos \
+    --output results/entropy/action_entropy_90_d.json
+```
+
+Results are nested by outcome (`all`, `success`, `failure`). To read mean task-level entropy:
+
+```python
+import json
+for fname in ["results/entropy/action_entropy_90_b.json",
+              "results/entropy/action_entropy_90_d.json"]:
+    d = json.load(open(fname))
+    for suite, suite_result in d.items():
+        for outcome, res in suite_result.items():
+            stats = res.get("task_entropy_stats", {})
+            print(f"{fname}  [{outcome}]  mean: {stats.get('mean')}  std: {stats.get('std')}")
+```
+
 ### LIBERO Evaluation
 
 ```bash

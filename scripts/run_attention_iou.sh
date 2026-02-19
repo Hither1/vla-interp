@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=attn-iou
 #SBATCH --output=/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/logs/attn_iou_%j.log
-#SBATCH --nodes=1
-#SBATCH --ntasks-per-node=1
-#SBATCH --gpus-per-node=1
-#SBATCH --cpus-per-task=24
+#SBATCH -p gpu                 # Partition
+#SBATCH -t 12:00:00            # Time limit
+#SBATCH --gres=gpu:1           # GPU request
 #SBATCH --mem=240G
-#SBATCH --time=10:30:00
 #SBATCH --mail-user=csu@g.harvard.edu
 #SBATCH --mail-type=END
 #SBATCH --exclusive
@@ -35,7 +33,7 @@ CHECKPOINT="${CHECKPOINT:-$HOME/.cache/openpi/openpi-assets/checkpoints/pi05_lib
 SAVE_VIZ="${SAVE_VIZ:-0}"   # set to 1 for per-step visualizations (slow, disk-heavy)
 SEED="${SEED:-7}"
 
-OUTPUT_DIR="results/attention/outputs_attn_ratio/${TASK_SUITE}_seed${SEED}"
+OUTPUT_DIR="results/iou/outputs_attn_ratio/${TASK_SUITE}_seed${SEED}"
 
 # ── Run ──────────────────────────────────────────────────────────────────────
 mkdir -p logs "$OUTPUT_DIR"

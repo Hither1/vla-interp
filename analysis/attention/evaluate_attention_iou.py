@@ -536,7 +536,7 @@ def main():
     parser.add_argument("--seed", type=int, default=7)
 
     # Attention / IoU
-    parser.add_argument("--layers", type=int, nargs="+", default=[25, 26, 27], help="Transformer layers to analyze")
+    parser.add_argument("--layers", type=int, nargs="+", default=[15, 16, 17], help="Transformer layers to analyze")
     parser.add_argument("--num-image-tokens", type=int, default=256)
     parser.add_argument(
         "--threshold-methods",

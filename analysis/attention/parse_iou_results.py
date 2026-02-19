@@ -185,7 +185,7 @@ def parse_all_files(
 ) -> Dict[str, Dict]:
     """Parse all iou_results*.json files in a directory."""
     results_dir = Path(directory)
-    json_files = sorted(results_dir.glob("iou_results*.json"))
+    json_files = sorted(results_dir.glob("*.json"))
 
     if not json_files:
         print(f"No JSON files found in {results_dir}")
@@ -216,9 +216,12 @@ def get_success_rate(json_path: str) -> float:
 
 
 def _suite_name_from_filename(filename: str) -> str:
-    """Extract suite name like 'libero_spatial' from 'iou_results_libero_spatial.json'."""
+    """Extract suite name from filenames like 'attention_ratio_results_libero_spatial.json'."""
     stem = Path(filename).stem
-    return stem.replace("iou_results_", "")
+    for prefix in ("iou_results_", "attention_ratio_results_", "attention_iou_results_"):
+        if stem.startswith(prefix):
+            return stem[len(prefix):]
+    return stem
 
 
 # -----------------------------
@@ -233,7 +236,7 @@ def plot_iou_vs_success(
 ):
     """Scatter plot of mean IoU vs success rate across task suites."""
     results_dir = Path(directory)
-    json_files = sorted(results_dir.glob("iou_results*.json"))
+    json_files = sorted(results_dir.glob("*.json"))
     if not json_files:
         print(f"No JSON files found in {results_dir}")
         return

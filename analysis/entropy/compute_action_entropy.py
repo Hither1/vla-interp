@@ -4,6 +4,10 @@ Reads per-episode action JSON files produced by examples/libero/main.py,
 groups them by task, and computes per-task and suite-level action entropy
 using Gaussian KDE.
 
+For each suite, computes entropy for all episodes, success-only, and
+failure-only in a single run. Results are nested under "all", "success",
+and "failure" keys in the output JSON.
+
 Can run post-hoc on existing data (no GPU or policy server needed).
 
 Usage:
@@ -20,8 +24,10 @@ Usage:
     # Auto-discover all suites under data/libero/
     python compute_action_entropy.py --auto-discover
 
-    # Filter by success/failure
-    python compute_action_entropy.py --auto-discover --filter success
+    # Custom splits (e.g. 90_b, 90_d)
+    python compute_action_entropy.py \
+        --data-dir data/libero/90_b/videos \
+        --output results/entropy/action_entropy_90_b.json
 """
 
 import argparse
@@ -241,6 +247,165 @@ def compute_suite_entropy(
     return summary
 
 
+def load_action_logs_by_outcome(
+    data_dir: str,
+) -> Dict[str, Dict[str, List[List[dict]]]]:
+    """Load action logs grouped by task and outcome in a single pass.
+
+    For each (task_description, trial_id), keeps one file per outcome
+    (success / failure). If the same trial has both, success is preferred
+    for the 'all' view; each outcome bucket is kept separately.
+
+    Returns:
+        Dict mapping task_description -> {"success": [...], "failure": [...]}
+        where each value is a list of action logs (one per episode).
+    """
+    pattern = os.path.join(data_dir, "actions_*.json")
+    json_files = sorted(glob.glob(pattern))
+
+    if not json_files:
+        log.warning(f"No action JSON files found in {data_dir}")
+        return {}
+
+    # Deduplicate by (task, trial_id): prefer success over failure for the
+    # same trial, but track outcome so we can split later.
+    file_key_map: Dict[tuple, str] = {}
+    for fpath in json_files:
+        basename = os.path.basename(fpath)
+        if basename.endswith("_success.json"):
+            outcome = "success"
+        elif basename.endswith("_failure.json"):
+            outcome = "failure"
+        else:
+            outcome = "unknown"
+        try:
+            with open(fpath) as f:
+                data = json.load(f)
+            key = (data["task_description"], data["trial_id"], outcome)
+            if key not in file_key_map:
+                file_key_map[key] = fpath
+        except (json.JSONDecodeError, KeyError) as e:
+            log.warning(f"Skipping {fpath}: {e}")
+            continue
+
+    # Group by task and outcome
+    task_outcome_logs: Dict[str, Dict[str, List]] = collections.defaultdict(
+        lambda: collections.defaultdict(list)
+    )
+    for (task_desc, _trial_id, outcome), fpath in sorted(file_key_map.items()):
+        try:
+            with open(fpath) as f:
+                data = json.load(f)
+            task_outcome_logs[task_desc][outcome].append(data["actions"])
+        except (json.JSONDecodeError, KeyError) as e:
+            log.warning(f"Skipping {fpath}: {e}")
+
+    return {task: dict(outcomes) for task, outcomes in task_outcome_logs.items()}
+
+
+def compute_suite_entropy_by_outcome(
+    data_dir: str,
+    suite_name: str = "",
+    action_dim: int = 7,
+) -> Dict[str, dict]:
+    """Compute per-task entropy for all, success, and failure outcomes.
+
+    Iterates over tasks once, computing KDE entropy per task for each outcome
+    simultaneously, then averages per-task entropies over tasks.
+
+    Returns:
+        Dict with keys "all", "success", "failure", each containing
+        task_entropy_stats (mean/std/...), per_task, suite_level_entropy.
+    """
+    task_outcome_logs = load_action_logs_by_outcome(data_dir)
+
+    if not task_outcome_logs:
+        empty = {"suite": suite_name, "error": "no_data", "data_dir": data_dir}
+        return {"all": empty, "success": empty, "failure": empty}
+
+    log.info(f"Suite '{suite_name}': {len(task_outcome_logs)} tasks")
+
+    # outcome label -> which outcome buckets to pool for that split
+    outcome_sources = {
+        "all":     ["success", "failure", "unknown"],
+        "success": ["success"],
+        "failure": ["failure"],
+    }
+    outcome_labels = ["all", "success", "failure"]
+
+    # Accumulators
+    per_task:      Dict[str, Dict[str, dict]] = {o: {} for o in outcome_labels}
+    task_entropies: Dict[str, list]           = {o: [] for o in outcome_labels}
+    all_logs:       Dict[str, list]           = {o: [] for o in outcome_labels}
+
+    for task_desc, outcome_logs in sorted(task_outcome_logs.items()):
+        task_row = {}  # outcome -> entropy value, for compact logging
+        for outcome_label, include in outcome_sources.items():
+            logs = []
+            for o in include:
+                logs.extend(outcome_logs.get(o, []))
+            if not logs:
+                continue
+
+            result = compute_action_entropy_kde(logs, action_dim=action_dim)
+            per_task[outcome_label][task_desc] = {
+                "entropy": result,
+                "num_episodes": len(logs),
+                "num_action_steps": sum(len(al) for al in logs),
+            }
+            if result:
+                task_entropies[outcome_label].append(result["action_entropy_kde"])
+                task_row[outcome_label] = result["action_entropy_kde"]
+            all_logs[outcome_label].extend(logs)
+
+        if task_row:
+            parts = "  ".join(
+                f"{o}={task_row[o]:.4f}" for o in outcome_labels if o in task_row
+            )
+            log.info(f"  {task_desc[:55]}: {parts}")
+
+    # Compile per-outcome summaries
+    results = {}
+    for outcome_label in outcome_labels:
+        task_ents = task_entropies[outcome_label]
+        suite_entropy = (
+            compute_action_entropy_kde(all_logs[outcome_label], action_dim=action_dim)
+            if all_logs[outcome_label] else {}
+        )
+        summary: dict = {
+            "suite": suite_name,
+            "data_dir": data_dir,
+            "num_tasks": len(per_task[outcome_label]),
+            "num_total_episodes": sum(
+                v["num_episodes"] for v in per_task[outcome_label].values()
+            ),
+            "per_task": per_task[outcome_label],
+            "suite_level_entropy": suite_entropy,
+        }
+        if task_ents:
+            summary["task_entropy_stats"] = {
+                "mean":   float(np.mean(task_ents)),
+                "std":    float(np.std(task_ents)),
+                "min":    float(np.min(task_ents)),
+                "max":    float(np.max(task_ents)),
+                "median": float(np.median(task_ents)),
+            }
+        results[outcome_label] = summary
+
+    # Summary log
+    log.info(f"\nSuite '{suite_name}' task-entropy stats (mean ± std):")
+    for outcome_label in outcome_labels:
+        stats = results[outcome_label].get("task_entropy_stats", {})
+        n = results[outcome_label].get("num_tasks", 0)
+        if stats:
+            log.info(
+                f"  [{outcome_label:<8}] mean={stats['mean']:.4f} ± {stats['std']:.4f}  "
+                f"range=[{stats['min']:.4f}, {stats['max']:.4f}]  n_tasks={n}"
+            )
+
+    return results
+
+
 def _json_default(o):
     if isinstance(o, np.generic):
         return o.item()
@@ -268,10 +433,6 @@ def main():
     parser.add_argument(
         "--action-dim", type=int, default=7,
         help="Number of action dimensions (default: 7 for LIBERO)"
-    )
-    parser.add_argument(
-        "--filter", type=str, default=None, choices=["success", "failure"],
-        help="Only include episodes with this outcome"
     )
     parser.add_argument(
         "--output", type=str, default="data/libero/action_entropy_results.json",
@@ -306,33 +467,31 @@ def main():
         log.error("No data directories found")
         return
 
-    # Compute entropy for each suite
+    # Compute entropy for each suite (all / success / failure) in one pass
     all_results = {}
     for suite_name, data_dir in suite_dirs:
         log.info(f"\n{'=' * 70}")
         log.info(f"Processing {suite_name}: {data_dir}")
         log.info(f"{'=' * 70}")
-
-        result = compute_suite_entropy(
+        all_results[suite_name] = compute_suite_entropy_by_outcome(
             data_dir=data_dir,
             suite_name=suite_name,
             action_dim=args.action_dim,
-            filter_outcome=args.filter,
         )
-        all_results[suite_name] = result
 
     # Print cross-suite comparison
     log.info(f"\n{'=' * 70}")
     log.info("CROSS-SUITE COMPARISON")
     log.info(f"{'=' * 70}")
-    log.info(f"{'Suite':<20} {'Tasks':>5} {'Episodes':>8} {'Mean Task H':>12} {'Pooled H':>10}")
-    log.info("-" * 60)
-    for suite_name, result in all_results.items():
-        n_tasks = result.get("num_tasks", 0)
-        n_eps = result.get("num_total_episodes", 0)
-        mean_h = result.get("task_entropy_stats", {}).get("mean", float("nan"))
-        pooled_h = result.get("suite_level_entropy", {}).get("action_entropy_kde", float("nan"))
-        log.info(f"{suite_name:<20} {n_tasks:>5} {n_eps:>8} {mean_h:>12.4f} {pooled_h:>10.4f}")
+    log.info(f"{'Suite':<20} {'Outcome':<10} {'Tasks':>5} {'Episodes':>8} {'Mean Task H':>12} {'Pooled H':>10}")
+    log.info("-" * 70)
+    for suite_name, suite_result in all_results.items():
+        for outcome_label, result in suite_result.items():
+            n_tasks = result.get("num_tasks", 0)
+            n_eps = result.get("num_total_episodes", 0)
+            mean_h = result.get("task_entropy_stats", {}).get("mean", float("nan"))
+            pooled_h = result.get("suite_level_entropy", {}).get("action_entropy_kde", float("nan"))
+            log.info(f"{suite_name:<20} {outcome_label:<10} {n_tasks:>5} {n_eps:>8} {mean_h:>12.4f} {pooled_h:>10.4f}")
 
     # Save results
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
