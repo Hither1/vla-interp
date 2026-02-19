@@ -1,15 +1,24 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=action-entropy
+#SBATCH --job-name=eval-cosmos
 #SBATCH --output=/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/logs/action_entropy_%j.log
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --gpus-per-node=1
 #SBATCH --cpus-per-task=24
 #SBATCH --mem=240G
+#SBATCH --account=kempner_grads
+#SBATCH --partition=kempner
 #SBATCH --time=16:30:00
 #SBATCH --mail-user=csu@g.harvard.edu
 #SBATCH --mail-type=END
 #SBATCH --exclusive
+
+source ~/.bashrc
+conda deactivate
+conda activate vla
+
+module load gcc/12.2.0-fasrc01
+module load cuda/12.4.1-fasrc01
 
 # Prompt perturbation mode.
 # Options: original, empty, shuffle, random, synonym, opposite, custom
@@ -24,6 +33,17 @@ CUSTOM_PROMPT="${CUSTOM_PROMPT:-}"
 # Options: libero_spatial, libero_object, libero_goal, libero_10, libero_90, all
 # "all" runs all five suites sequentially in a single job.
 TASK_SUITE="${TASK_SUITE:-libero_10}"
+
+# Ensure cosmos_policy package is importable
+export PYTHONPATH="/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/third_party/cosmos-policy${PYTHONPATH:+:${PYTHONPATH}}"
+
+
+export HF_HOME=/n/netscratch/sham_lab/Lab/chloe00/huggingface
+export TRANSFORMERS_CACHE=/n/netscratch/sham_lab/Lab/chloe00/huggingface
+
+export PYTHONPATH="${PYTHONPATH:-}:/n/netscratch/sham_lab/Lab/chloe00/libero"
+export LIBERO_CONFIG_PATH=/n/netscratch/sham_lab/Lab/chloe00/libero
+
 
 if [ "${TASK_SUITE}" = "all" ]; then
     SUITES=(libero_spatial libero_object libero_goal libero_10)

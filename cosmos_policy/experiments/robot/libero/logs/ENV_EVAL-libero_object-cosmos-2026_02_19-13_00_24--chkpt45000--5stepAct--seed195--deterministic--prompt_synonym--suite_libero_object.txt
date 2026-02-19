@@ -1,0 +1,2529 @@
+Eval config: PolicyEvalConfig(suite='libero', model_family='cosmos', config='cosmos_predict2_2b_480p_libero__inference_only', ckpt_path='nvidia/Cosmos-Policy-LIBERO-Predict2-2B', planning_model_config_name='', planning_model_ckpt_path='', config_file='cosmos_policy/config/config.py', use_third_person_image=True, num_third_person_images=1, use_wrist_image=True, num_wrist_images=1, use_proprio=True, flip_images=True, use_variance_scale=False, use_jpeg_compression=True, ar_future_prediction=False, ar_value_prediction=False, ar_qvalue_prediction=False, num_denoising_steps_action=5, num_denoising_steps_future_state=1, num_denoising_steps_value=1, unnormalize_actions=True, normalize_proprio=True, dataset_stats_path='nvidia/Cosmos-Policy-LIBERO-Predict2-2B/libero_dataset_statistics.json', t5_text_embeddings_path='nvidia/Cosmos-Policy-LIBERO-Predict2-2B/libero_t5_embeddings.pkl', trained_with_image_aug=True, chunk_size=16, num_open_loop_steps=16, deterministic=True, deterministic_reset=False, deterministic_reset_seed=None, use_ensemble_future_state_predictions=False, num_future_state_predictions_in_ensemble=3, future_state_ensemble_aggregation_scheme='average', use_ensemble_value_predictions=False, num_value_predictions_in_ensemble=5, value_ensemble_aggregation_scheme='average', search_depth=1, mask_current_state_action_for_value_prediction=False, mask_future_state_for_qvalue_prediction=False, num_queries_best_of_n=1, use_parallel_inference=False, available_gpus='0,1,2,3,4,5,6,7', parallel_timeout=15, task_suite_name='libero_object', num_trials_per_task=20, initial_states_path='DEFAULT', env_img_res=256, local_log_dir='cosmos_policy/experiments/robot/libero/logs/', run_id_note='chkpt45000--5stepAct--seed195--deterministic--prompt_synonym--suite_libero_object', use_wandb=False, wandb_entity='YOUR_ENTITY', wandb_project='YOUR_PROJECT', seed=195, randomize_seed=False, data_collection=False, jpeg_compress=True, track_action_entropy=True, action_entropy_action_dim=7, prompt_mode='synonym', custom_prompt='')
+Using serial inference (parallel inference disabled)
+Task suite: libero_object
+Number of tasks: 10
+Prompt mode: synonym
+Using default initial states
+
+Task: pick up the alphabet soup and place it in the basket
+Starting episode 1... prompt_mode=synonym, prompt='grab up the alphabet soup and place it in the basket'
+Query 1/1: Action query time = 39.824 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2678
+t=10: Selected seed 195 with value = 0.2678
+Query 1/1: Action query time = 0.613 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3210
+t=26: Selected seed 195 with value = 0.3210
+Query 1/1: Action query time = 0.611 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3757
+t=42: Selected seed 195 with value = 0.3757
+Query 1/1: Action query time = 0.611 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4467
+t=58: Selected seed 195 with value = 0.4467
+Query 1/1: Action query time = 0.611 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5079
+t=74: Selected seed 195 with value = 0.5079
+Query 1/1: Action query time = 0.611 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5941
+t=90: Selected seed 195 with value = 0.5941
+Query 1/1: Action query time = 0.611 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6969
+t=106: Selected seed 195 with value = 0.6969
+Query 1/1: Action query time = 0.610 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8229
+t=122: Selected seed 195 with value = 0.8229
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=1--success=True--task=pick_up_the_alphabet_soup_and_place_it_i.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=1--success=True--task=pick_up_the_alphabet_soup_and_place.mp4
+Success: True
+# episodes completed so far: 1
+# successes: 1 (100.0%)
+
+Task: pick up the alphabet soup and place it in the basket
+Starting episode 2... prompt_mode=synonym, prompt='grab up the alphabet soup and place it in the basket'
+Query 1/1: Action query time = 0.644 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2506
+t=10: Selected seed 195 with value = 0.2506
+Query 1/1: Action query time = 0.610 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2986
+t=26: Selected seed 195 with value = 0.2986
+Query 1/1: Action query time = 0.611 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3485
+t=42: Selected seed 195 with value = 0.3485
+Query 1/1: Action query time = 0.611 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4059
+t=58: Selected seed 195 with value = 0.4059
+Query 1/1: Action query time = 0.611 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4752
+t=74: Selected seed 195 with value = 0.4752
+Query 1/1: Action query time = 0.611 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5570
+t=90: Selected seed 195 with value = 0.5570
+Query 1/1: Action query time = 0.611 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6493
+t=106: Selected seed 195 with value = 0.6493
+Query 1/1: Action query time = 0.612 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7620
+t=122: Selected seed 195 with value = 0.7620
+Query 1/1: Action query time = 0.611 sec
+t=138: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8920
+t=138: Selected seed 195 with value = 0.8920
+Query 1/1: Action query time = 0.612 sec
+t=154: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9576
+t=154: Selected seed 195 with value = 0.9576
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=2--success=True--task=pick_up_the_alphabet_soup_and_place_it_i.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=2--success=True--task=pick_up_the_alphabet_soup_and_place.mp4
+Success: True
+# episodes completed so far: 2
+# successes: 2 (100.0%)
+
+Task: pick up the alphabet soup and place it in the basket
+Starting episode 3... prompt_mode=synonym, prompt='grab up the alphabet soup and place it in the basket'
+Query 1/1: Action query time = 0.653 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2450
+t=10: Selected seed 195 with value = 0.2450
+Query 1/1: Action query time = 0.609 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3235
+t=26: Selected seed 195 with value = 0.3235
+Query 1/1: Action query time = 0.610 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3803
+t=42: Selected seed 195 with value = 0.3803
+Query 1/1: Action query time = 0.609 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4353
+t=58: Selected seed 195 with value = 0.4353
+Query 1/1: Action query time = 0.610 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4693
+t=74: Selected seed 195 with value = 0.4693
+Query 1/1: Action query time = 0.612 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5556
+t=90: Selected seed 195 with value = 0.5556
+Query 1/1: Action query time = 0.610 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6574
+t=106: Selected seed 195 with value = 0.6574
+Query 1/1: Action query time = 0.611 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7687
+t=122: Selected seed 195 with value = 0.7687
+Query 1/1: Action query time = 0.611 sec
+t=138: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8902
+t=138: Selected seed 195 with value = 0.8902
+Query 1/1: Action query time = 0.611 sec
+t=154: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 1.0000
+t=154: Selected seed 195 with value = 1.0000
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=3--success=True--task=pick_up_the_alphabet_soup_and_place_it_i.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=3--success=True--task=pick_up_the_alphabet_soup_and_place.mp4
+Success: True
+# episodes completed so far: 3
+# successes: 3 (100.0%)
+
+Task: pick up the alphabet soup and place it in the basket
+Starting episode 4... prompt_mode=synonym, prompt='grab up the alphabet soup and place it in the basket'
+Query 1/1: Action query time = 0.658 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2587
+t=10: Selected seed 195 with value = 0.2587
+Query 1/1: Action query time = 0.609 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3019
+t=26: Selected seed 195 with value = 0.3019
+Query 1/1: Action query time = 0.608 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3506
+t=42: Selected seed 195 with value = 0.3506
+Query 1/1: Action query time = 0.610 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4150
+t=58: Selected seed 195 with value = 0.4150
+Query 1/1: Action query time = 0.609 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4992
+t=74: Selected seed 195 with value = 0.4992
+Query 1/1: Action query time = 0.608 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5919
+t=90: Selected seed 195 with value = 0.5919
+Query 1/1: Action query time = 0.609 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6887
+t=106: Selected seed 195 with value = 0.6887
+Query 1/1: Action query time = 0.609 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8107
+t=122: Selected seed 195 with value = 0.8107
+Query 1/1: Action query time = 0.609 sec
+t=138: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9673
+t=138: Selected seed 195 with value = 0.9673
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=4--success=True--task=pick_up_the_alphabet_soup_and_place_it_i.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=4--success=True--task=pick_up_the_alphabet_soup_and_place.mp4
+Success: True
+# episodes completed so far: 4
+# successes: 4 (100.0%)
+
+Task: pick up the alphabet soup and place it in the basket
+Starting episode 5... prompt_mode=synonym, prompt='grab up the alphabet soup and place it in the basket'
+Query 1/1: Action query time = 0.646 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2482
+t=10: Selected seed 195 with value = 0.2482
+Query 1/1: Action query time = 0.610 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2933
+t=26: Selected seed 195 with value = 0.2933
+Query 1/1: Action query time = 0.609 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3226
+t=42: Selected seed 195 with value = 0.3226
+Query 1/1: Action query time = 0.609 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4063
+t=58: Selected seed 195 with value = 0.4063
+Query 1/1: Action query time = 0.609 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4866
+t=74: Selected seed 195 with value = 0.4866
+Query 1/1: Action query time = 0.610 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5668
+t=90: Selected seed 195 with value = 0.5668
+Query 1/1: Action query time = 0.610 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6735
+t=106: Selected seed 195 with value = 0.6735
+Query 1/1: Action query time = 0.611 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7931
+t=122: Selected seed 195 with value = 0.7931
+Query 1/1: Action query time = 0.610 sec
+t=138: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9398
+t=138: Selected seed 195 with value = 0.9398
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=5--success=True--task=pick_up_the_alphabet_soup_and_place_it_i.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=5--success=True--task=pick_up_the_alphabet_soup_and_place.mp4
+Success: True
+# episodes completed so far: 5
+# successes: 5 (100.0%)
+
+Task: pick up the alphabet soup and place it in the basket
+Starting episode 6... prompt_mode=synonym, prompt='grab up the alphabet soup and place it in the basket'
+Query 1/1: Action query time = 0.654 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2616
+t=10: Selected seed 195 with value = 0.2616
+Query 1/1: Action query time = 0.609 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3198
+t=26: Selected seed 195 with value = 0.3198
+Query 1/1: Action query time = 0.610 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3698
+t=42: Selected seed 195 with value = 0.3698
+Query 1/1: Action query time = 0.609 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4467
+t=58: Selected seed 195 with value = 0.4467
+Query 1/1: Action query time = 0.610 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4899
+t=74: Selected seed 195 with value = 0.4899
+Query 1/1: Action query time = 0.614 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5732
+t=90: Selected seed 195 with value = 0.5732
+Query 1/1: Action query time = 0.610 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6711
+t=106: Selected seed 195 with value = 0.6711
+Query 1/1: Action query time = 0.610 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7843
+t=122: Selected seed 195 with value = 0.7843
+Query 1/1: Action query time = 0.610 sec
+t=138: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9157
+t=138: Selected seed 195 with value = 0.9157
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=6--success=True--task=pick_up_the_alphabet_soup_and_place_it_i.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=6--success=True--task=pick_up_the_alphabet_soup_and_place.mp4
+Success: True
+# episodes completed so far: 6
+# successes: 6 (100.0%)
+
+Task: pick up the alphabet soup and place it in the basket
+Starting episode 7... prompt_mode=synonym, prompt='grab up the alphabet soup and place it in the basket'
+Query 1/1: Action query time = 0.660 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2507
+t=10: Selected seed 195 with value = 0.2507
+Query 1/1: Action query time = 0.612 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3183
+t=26: Selected seed 195 with value = 0.3183
+Query 1/1: Action query time = 0.610 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3763
+t=42: Selected seed 195 with value = 0.3763
+Query 1/1: Action query time = 0.611 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4189
+t=58: Selected seed 195 with value = 0.4189
+Query 1/1: Action query time = 0.614 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4846
+t=74: Selected seed 195 with value = 0.4846
+Query 1/1: Action query time = 0.610 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5705
+t=90: Selected seed 195 with value = 0.5705
+Query 1/1: Action query time = 0.611 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6677
+t=106: Selected seed 195 with value = 0.6677
+Query 1/1: Action query time = 0.612 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7859
+t=122: Selected seed 195 with value = 0.7859
+Query 1/1: Action query time = 0.612 sec
+t=138: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9512
+t=138: Selected seed 195 with value = 0.9512
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=7--success=True--task=pick_up_the_alphabet_soup_and_place_it_i.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=7--success=True--task=pick_up_the_alphabet_soup_and_place.mp4
+Success: True
+# episodes completed so far: 7
+# successes: 7 (100.0%)
+
+Task: pick up the alphabet soup and place it in the basket
+Starting episode 8... prompt_mode=synonym, prompt='grab up the alphabet soup and place it in the basket'
+Query 1/1: Action query time = 0.660 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2628
+t=10: Selected seed 195 with value = 0.2628
+Query 1/1: Action query time = 0.611 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3162
+t=26: Selected seed 195 with value = 0.3162
+Query 1/1: Action query time = 0.611 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3708
+t=42: Selected seed 195 with value = 0.3708
+Query 1/1: Action query time = 0.610 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4432
+t=58: Selected seed 195 with value = 0.4432
+Query 1/1: Action query time = 0.610 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5003
+t=74: Selected seed 195 with value = 0.5003
+Query 1/1: Action query time = 0.610 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5876
+t=90: Selected seed 195 with value = 0.5876
+Query 1/1: Action query time = 0.611 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6846
+t=106: Selected seed 195 with value = 0.6846
+Query 1/1: Action query time = 0.610 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8005
+t=122: Selected seed 195 with value = 0.8005
+Query 1/1: Action query time = 0.610 sec
+t=138: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9334
+t=138: Selected seed 195 with value = 0.9334
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=8--success=True--task=pick_up_the_alphabet_soup_and_place_it_i.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=8--success=True--task=pick_up_the_alphabet_soup_and_place.mp4
+Success: True
+# episodes completed so far: 8
+# successes: 8 (100.0%)
+
+Task: pick up the alphabet soup and place it in the basket
+Starting episode 9... prompt_mode=synonym, prompt='grab up the alphabet soup and place it in the basket'
+Query 1/1: Action query time = 0.639 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2701
+t=10: Selected seed 195 with value = 0.2701
+Query 1/1: Action query time = 0.610 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3311
+t=26: Selected seed 195 with value = 0.3311
+Query 1/1: Action query time = 0.609 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3947
+t=42: Selected seed 195 with value = 0.3947
+Query 1/1: Action query time = 0.609 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4414
+t=58: Selected seed 195 with value = 0.4414
+Query 1/1: Action query time = 0.610 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5222
+t=74: Selected seed 195 with value = 0.5222
+Query 1/1: Action query time = 0.610 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6078
+t=90: Selected seed 195 with value = 0.6078
+Query 1/1: Action query time = 0.608 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7134
+t=106: Selected seed 195 with value = 0.7134
+Query 1/1: Action query time = 0.610 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8320
+t=122: Selected seed 195 with value = 0.8320
+Query 1/1: Action query time = 0.609 sec
+t=138: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9464
+t=138: Selected seed 195 with value = 0.9464
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=9--success=True--task=pick_up_the_alphabet_soup_and_place_it_i.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=9--success=True--task=pick_up_the_alphabet_soup_and_place.mp4
+Success: True
+# episodes completed so far: 9
+# successes: 9 (100.0%)
+
+Task: pick up the alphabet soup and place it in the basket
+Starting episode 10... prompt_mode=synonym, prompt='grab up the alphabet soup and place it in the basket'
+Query 1/1: Action query time = 0.643 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2541
+t=10: Selected seed 195 with value = 0.2541
+Query 1/1: Action query time = 0.610 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3124
+t=26: Selected seed 195 with value = 0.3124
+Query 1/1: Action query time = 0.609 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3591
+t=42: Selected seed 195 with value = 0.3591
+Query 1/1: Action query time = 0.609 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4326
+t=58: Selected seed 195 with value = 0.4326
+Query 1/1: Action query time = 0.610 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4957
+t=74: Selected seed 195 with value = 0.4957
+Query 1/1: Action query time = 0.609 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5747
+t=90: Selected seed 195 with value = 0.5747
+Query 1/1: Action query time = 0.611 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6809
+t=106: Selected seed 195 with value = 0.6809
+Query 1/1: Action query time = 0.609 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8010
+t=122: Selected seed 195 with value = 0.8010
+Query 1/1: Action query time = 0.609 sec
+t=138: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9256
+t=138: Selected seed 195 with value = 0.9256
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=10--success=True--task=pick_up_the_alphabet_soup_and_place_it_i.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=10--success=True--task=pick_up_the_alphabet_soup_and_place.mp4
+Success: True
+# episodes completed so far: 10
+# successes: 10 (100.0%)
+
+Task: pick up the alphabet soup and place it in the basket
+Starting episode 11... prompt_mode=synonym, prompt='grab up the alphabet soup and place it in the basket'
+Query 1/1: Action query time = 0.646 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2644
+t=10: Selected seed 195 with value = 0.2644
+Query 1/1: Action query time = 0.609 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3056
+t=26: Selected seed 195 with value = 0.3056
+Query 1/1: Action query time = 0.610 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3591
+t=42: Selected seed 195 with value = 0.3591
+Query 1/1: Action query time = 0.608 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4213
+t=58: Selected seed 195 with value = 0.4213
+Query 1/1: Action query time = 0.609 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4818
+t=74: Selected seed 195 with value = 0.4818
+Query 1/1: Action query time = 0.610 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5678
+t=90: Selected seed 195 with value = 0.5678
+Query 1/1: Action query time = 0.612 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6665
+t=106: Selected seed 195 with value = 0.6665
+Query 1/1: Action query time = 0.611 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7853
+t=122: Selected seed 195 with value = 0.7853
+Query 1/1: Action query time = 0.610 sec
+t=138: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9200
+t=138: Selected seed 195 with value = 0.9200
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=11--success=True--task=pick_up_the_alphabet_soup_and_place_it_i.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=11--success=True--task=pick_up_the_alphabet_soup_and_place.mp4
+Success: True
+# episodes completed so far: 11
+# successes: 11 (100.0%)
+
+Task: pick up the alphabet soup and place it in the basket
+Starting episode 12... prompt_mode=synonym, prompt='grab up the alphabet soup and place it in the basket'
+Query 1/1: Action query time = 0.662 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2421
+t=10: Selected seed 195 with value = 0.2421
+Query 1/1: Action query time = 0.611 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3179
+t=26: Selected seed 195 with value = 0.3179
+Query 1/1: Action query time = 0.610 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3701
+t=42: Selected seed 195 with value = 0.3701
+Query 1/1: Action query time = 0.611 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4371
+t=58: Selected seed 195 with value = 0.4371
+Query 1/1: Action query time = 0.611 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4807
+t=74: Selected seed 195 with value = 0.4807
+Query 1/1: Action query time = 0.610 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5659
+t=90: Selected seed 195 with value = 0.5659
+Query 1/1: Action query time = 0.611 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6614
+t=106: Selected seed 195 with value = 0.6614
+Query 1/1: Action query time = 0.610 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7753
+t=122: Selected seed 195 with value = 0.7753
+Query 1/1: Action query time = 0.612 sec
+t=138: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9071
+t=138: Selected seed 195 with value = 0.9071
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=12--success=True--task=pick_up_the_alphabet_soup_and_place_it_i.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=12--success=True--task=pick_up_the_alphabet_soup_and_place.mp4
+Success: True
+# episodes completed so far: 12
+# successes: 12 (100.0%)
+
+Task: pick up the alphabet soup and place it in the basket
+Starting episode 13... prompt_mode=synonym, prompt='grab up the alphabet soup and place it in the basket'
+Query 1/1: Action query time = 0.654 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2371
+t=10: Selected seed 195 with value = 0.2371
+Query 1/1: Action query time = 0.610 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3237
+t=26: Selected seed 195 with value = 0.3237
+Query 1/1: Action query time = 0.610 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3810
+t=42: Selected seed 195 with value = 0.3810
+Query 1/1: Action query time = 0.610 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4335
+t=58: Selected seed 195 with value = 0.4335
+Query 1/1: Action query time = 0.610 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4678
+t=74: Selected seed 195 with value = 0.4678
+Query 1/1: Action query time = 0.612 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5520
+t=90: Selected seed 195 with value = 0.5520
+Query 1/1: Action query time = 0.611 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6522
+t=106: Selected seed 195 with value = 0.6522
+Query 1/1: Action query time = 0.611 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7680
+t=122: Selected seed 195 with value = 0.7680
+Query 1/1: Action query time = 0.612 sec
+t=138: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8931
+t=138: Selected seed 195 with value = 0.8931
+Query 1/1: Action query time = 0.610 sec
+t=154: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 1.0000
+t=154: Selected seed 195 with value = 1.0000
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=13--success=True--task=pick_up_the_alphabet_soup_and_place_it_i.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=13--success=True--task=pick_up_the_alphabet_soup_and_place.mp4
+Success: True
+# episodes completed so far: 13
+# successes: 13 (100.0%)
+
+Task: pick up the alphabet soup and place it in the basket
+Starting episode 14... prompt_mode=synonym, prompt='grab up the alphabet soup and place it in the basket'
+Query 1/1: Action query time = 0.645 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2522
+t=10: Selected seed 195 with value = 0.2522
+Query 1/1: Action query time = 0.611 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3247
+t=26: Selected seed 195 with value = 0.3247
+Query 1/1: Action query time = 0.610 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3848
+t=42: Selected seed 195 with value = 0.3848
+Query 1/1: Action query time = 0.612 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4379
+t=58: Selected seed 195 with value = 0.4379
+Query 1/1: Action query time = 0.612 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4873
+t=74: Selected seed 195 with value = 0.4873
+Query 1/1: Action query time = 0.612 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5653
+t=90: Selected seed 195 with value = 0.5653
+Query 1/1: Action query time = 0.611 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6604
+t=106: Selected seed 195 with value = 0.6604
+Query 1/1: Action query time = 0.611 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7797
+t=122: Selected seed 195 with value = 0.7797
+Query 1/1: Action query time = 0.611 sec
+t=138: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9191
+t=138: Selected seed 195 with value = 0.9191
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=14--success=True--task=pick_up_the_alphabet_soup_and_place_it_i.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=14--success=True--task=pick_up_the_alphabet_soup_and_place.mp4
+Success: True
+# episodes completed so far: 14
+# successes: 14 (100.0%)
+
+Task: pick up the alphabet soup and place it in the basket
+Starting episode 15... prompt_mode=synonym, prompt='grab up the alphabet soup and place it in the basket'
+Query 1/1: Action query time = 0.641 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2673
+t=10: Selected seed 195 with value = 0.2673
+Query 1/1: Action query time = 0.611 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3228
+t=26: Selected seed 195 with value = 0.3228
+Query 1/1: Action query time = 0.610 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3617
+t=42: Selected seed 195 with value = 0.3617
+Query 1/1: Action query time = 0.610 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4179
+t=58: Selected seed 195 with value = 0.4179
+Query 1/1: Action query time = 0.610 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4909
+t=74: Selected seed 195 with value = 0.4909
+Query 1/1: Action query time = 0.611 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5708
+t=90: Selected seed 195 with value = 0.5708
+Query 1/1: Action query time = 0.611 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6723
+t=106: Selected seed 195 with value = 0.6723
+Query 1/1: Action query time = 0.610 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7790
+t=122: Selected seed 195 with value = 0.7790
+Query 1/1: Action query time = 0.610 sec
+t=138: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9215
+t=138: Selected seed 195 with value = 0.9215
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=15--success=True--task=pick_up_the_alphabet_soup_and_place_it_i.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=15--success=True--task=pick_up_the_alphabet_soup_and_place.mp4
+Success: True
+# episodes completed so far: 15
+# successes: 15 (100.0%)
+
+Task: pick up the alphabet soup and place it in the basket
+Starting episode 16... prompt_mode=synonym, prompt='grab up the alphabet soup and place it in the basket'
+Query 1/1: Action query time = 0.662 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2630
+t=10: Selected seed 195 with value = 0.2630
+Query 1/1: Action query time = 0.611 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3091
+t=26: Selected seed 195 with value = 0.3091
+Query 1/1: Action query time = 0.610 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3582
+t=42: Selected seed 195 with value = 0.3582
+Query 1/1: Action query time = 0.610 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4059
+t=58: Selected seed 195 with value = 0.4059
+Query 1/1: Action query time = 0.611 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4706
+t=74: Selected seed 195 with value = 0.4706
+Query 1/1: Action query time = 0.611 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5525
+t=90: Selected seed 195 with value = 0.5525
+Query 1/1: Action query time = 0.610 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6459
+t=106: Selected seed 195 with value = 0.6459
+Query 1/1: Action query time = 0.610 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7548
+t=122: Selected seed 195 with value = 0.7548
+Query 1/1: Action query time = 0.609 sec
+t=138: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8753
+t=138: Selected seed 195 with value = 0.8753
+Query 1/1: Action query time = 0.609 sec
+t=154: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 1.0000
+t=154: Selected seed 195 with value = 1.0000
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=16--success=True--task=pick_up_the_alphabet_soup_and_place_it_i.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=16--success=True--task=pick_up_the_alphabet_soup_and_place.mp4
+Success: True
+# episodes completed so far: 16
+# successes: 16 (100.0%)
+
+Task: pick up the alphabet soup and place it in the basket
+Starting episode 17... prompt_mode=synonym, prompt='grab up the alphabet soup and place it in the basket'
+Query 1/1: Action query time = 0.653 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2205
+t=10: Selected seed 195 with value = 0.2205
+Query 1/1: Action query time = 0.610 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2966
+t=26: Selected seed 195 with value = 0.2966
+Query 1/1: Action query time = 0.609 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3888
+t=42: Selected seed 195 with value = 0.3888
+Query 1/1: Action query time = 0.611 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4622
+t=58: Selected seed 195 with value = 0.4622
+Query 1/1: Action query time = 0.610 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5293
+t=74: Selected seed 195 with value = 0.5293
+Query 1/1: Action query time = 0.610 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6202
+t=90: Selected seed 195 with value = 0.6202
+Query 1/1: Action query time = 0.610 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7243
+t=106: Selected seed 195 with value = 0.7243
+Query 1/1: Action query time = 0.610 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8534
+t=122: Selected seed 195 with value = 0.8534
+Query 1/1: Action query time = 0.610 sec
+t=138: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9860
+t=138: Selected seed 195 with value = 0.9860
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=17--success=True--task=pick_up_the_alphabet_soup_and_place_it_i.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=17--success=True--task=pick_up_the_alphabet_soup_and_place.mp4
+Success: True
+# episodes completed so far: 17
+# successes: 17 (100.0%)
+
+Task: pick up the alphabet soup and place it in the basket
+Starting episode 18... prompt_mode=synonym, prompt='grab up the alphabet soup and place it in the basket'
+Query 1/1: Action query time = 0.654 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.1980
+t=10: Selected seed 195 with value = 0.1980
+Query 1/1: Action query time = 0.610 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2874
+t=26: Selected seed 195 with value = 0.2874
+Query 1/1: Action query time = 0.610 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3462
+t=42: Selected seed 195 with value = 0.3462
+Query 1/1: Action query time = 0.612 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3976
+t=58: Selected seed 195 with value = 0.3976
+Query 1/1: Action query time = 0.611 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4723
+t=74: Selected seed 195 with value = 0.4723
+Query 1/1: Action query time = 0.610 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5556
+t=90: Selected seed 195 with value = 0.5556
+Query 1/1: Action query time = 0.610 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6559
+t=106: Selected seed 195 with value = 0.6559
+Query 1/1: Action query time = 0.609 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7838
+t=122: Selected seed 195 with value = 0.7838
+Query 1/1: Action query time = 0.609 sec
+t=138: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9395
+t=138: Selected seed 195 with value = 0.9395
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=18--success=True--task=pick_up_the_alphabet_soup_and_place_it_i.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=18--success=True--task=pick_up_the_alphabet_soup_and_place.mp4
+Success: True
+# episodes completed so far: 18
+# successes: 18 (100.0%)
+
+Task: pick up the alphabet soup and place it in the basket
+Starting episode 19... prompt_mode=synonym, prompt='grab up the alphabet soup and place it in the basket'
+Query 1/1: Action query time = 0.653 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2379
+t=10: Selected seed 195 with value = 0.2379
+Query 1/1: Action query time = 0.611 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2760
+t=26: Selected seed 195 with value = 0.2760
+Query 1/1: Action query time = 0.609 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3736
+t=42: Selected seed 195 with value = 0.3736
+Query 1/1: Action query time = 0.609 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4343
+t=58: Selected seed 195 with value = 0.4343
+Query 1/1: Action query time = 0.608 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4919
+t=74: Selected seed 195 with value = 0.4919
+Query 1/1: Action query time = 0.610 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5793
+t=90: Selected seed 195 with value = 0.5793
+Query 1/1: Action query time = 0.610 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6843
+t=106: Selected seed 195 with value = 0.6843
+Query 1/1: Action query time = 0.609 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7955
+t=122: Selected seed 195 with value = 0.7955
+Query 1/1: Action query time = 0.610 sec
+t=138: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9422
+t=138: Selected seed 195 with value = 0.9422
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=19--success=True--task=pick_up_the_alphabet_soup_and_place_it_i.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=19--success=True--task=pick_up_the_alphabet_soup_and_place.mp4
+Success: True
+# episodes completed so far: 19
+# successes: 19 (100.0%)
+
+Task: pick up the alphabet soup and place it in the basket
+Starting episode 20... prompt_mode=synonym, prompt='grab up the alphabet soup and place it in the basket'
+Query 1/1: Action query time = 0.637 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2342
+t=10: Selected seed 195 with value = 0.2342
+Query 1/1: Action query time = 0.609 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2792
+t=26: Selected seed 195 with value = 0.2792
+Query 1/1: Action query time = 0.610 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3281
+t=42: Selected seed 195 with value = 0.3281
+Query 1/1: Action query time = 0.610 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3868
+t=58: Selected seed 195 with value = 0.3868
+Query 1/1: Action query time = 0.610 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4545
+t=74: Selected seed 195 with value = 0.4545
+Query 1/1: Action query time = 0.610 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5405
+t=90: Selected seed 195 with value = 0.5405
+Query 1/1: Action query time = 0.610 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6275
+t=106: Selected seed 195 with value = 0.6275
+Query 1/1: Action query time = 0.609 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7476
+t=122: Selected seed 195 with value = 0.7476
+Query 1/1: Action query time = 0.610 sec
+t=138: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8754
+t=138: Selected seed 195 with value = 0.8754
+Query 1/1: Action query time = 0.610 sec
+t=154: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9854
+t=154: Selected seed 195 with value = 0.9854
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=20--success=True--task=pick_up_the_alphabet_soup_and_place_it_i.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=20--success=True--task=pick_up_the_alphabet_soup_and_place.mp4
+Success: True
+# episodes completed so far: 20
+# successes: 20 (100.0%)
+Task 0 action entropy (KDE, 20 episodes): -8.8624 (bw_factor=0.4860, N=2801, D=7)
+  Prompt group entropy: H=-8.8624 (succ=20, fail=0) prompt='grab up the alphabet soup and place it in the basket'
+Current task success rate: 1.0
+Current total success rate: 1.0
+Using default initial states
+
+Task: pick up the cream cheese and place it in the basket
+Starting episode 1... prompt_mode=synonym, prompt='grab up the cream cheese and place it in the basket'
+Query 1/1: Action query time = 2.148 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2905
+t=10: Selected seed 195 with value = 0.2905
+Query 1/1: Action query time = 0.609 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3497
+t=26: Selected seed 195 with value = 0.3497
+Query 1/1: Action query time = 0.611 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4036
+t=42: Selected seed 195 with value = 0.4036
+Query 1/1: Action query time = 0.609 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4917
+t=58: Selected seed 195 with value = 0.4917
+Query 1/1: Action query time = 0.609 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5818
+t=74: Selected seed 195 with value = 0.5818
+Query 1/1: Action query time = 0.609 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6824
+t=90: Selected seed 195 with value = 0.6824
+Query 1/1: Action query time = 0.608 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7887
+t=106: Selected seed 195 with value = 0.7887
+Query 1/1: Action query time = 0.609 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9121
+t=122: Selected seed 195 with value = 0.9121
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=21--success=True--task=pick_up_the_cream_cheese_and_place_it_in.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=21--success=True--task=pick_up_the_cream_cheese_and_place_.mp4
+Success: True
+# episodes completed so far: 21
+# successes: 21 (100.0%)
+
+Task: pick up the cream cheese and place it in the basket
+Starting episode 2... prompt_mode=synonym, prompt='grab up the cream cheese and place it in the basket'
+Query 1/1: Action query time = 0.641 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3036
+t=10: Selected seed 195 with value = 0.3036
+Query 1/1: Action query time = 0.611 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3400
+t=26: Selected seed 195 with value = 0.3400
+Query 1/1: Action query time = 0.610 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3947
+t=42: Selected seed 195 with value = 0.3947
+Query 1/1: Action query time = 0.611 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4674
+t=58: Selected seed 195 with value = 0.4674
+Query 1/1: Action query time = 0.609 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5388
+t=74: Selected seed 195 with value = 0.5388
+Query 1/1: Action query time = 0.613 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6278
+t=90: Selected seed 195 with value = 0.6278
+Query 1/1: Action query time = 0.611 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7341
+t=106: Selected seed 195 with value = 0.7341
+Query 1/1: Action query time = 0.611 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8556
+t=122: Selected seed 195 with value = 0.8556
+Query 1/1: Action query time = 0.611 sec
+t=138: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 1.0000
+t=138: Selected seed 195 with value = 1.0000
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=22--success=True--task=pick_up_the_cream_cheese_and_place_it_in.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=22--success=True--task=pick_up_the_cream_cheese_and_place_.mp4
+Success: True
+# episodes completed so far: 22
+# successes: 22 (100.0%)
+
+Task: pick up the cream cheese and place it in the basket
+Starting episode 3... prompt_mode=synonym, prompt='grab up the cream cheese and place it in the basket'
+Query 1/1: Action query time = 0.658 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3154
+t=10: Selected seed 195 with value = 0.3154
+Query 1/1: Action query time = 0.610 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3540
+t=26: Selected seed 195 with value = 0.3540
+Query 1/1: Action query time = 0.610 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4016
+t=42: Selected seed 195 with value = 0.4016
+Query 1/1: Action query time = 0.610 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4755
+t=58: Selected seed 195 with value = 0.4755
+Query 1/1: Action query time = 0.610 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5740
+t=74: Selected seed 195 with value = 0.5740
+Query 1/1: Action query time = 0.610 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6717
+t=90: Selected seed 195 with value = 0.6717
+Query 1/1: Action query time = 0.613 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7800
+t=106: Selected seed 195 with value = 0.7800
+Query 1/1: Action query time = 0.610 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9233
+t=122: Selected seed 195 with value = 0.9233
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=23--success=True--task=pick_up_the_cream_cheese_and_place_it_in.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=23--success=True--task=pick_up_the_cream_cheese_and_place_.mp4
+Success: True
+# episodes completed so far: 23
+# successes: 23 (100.0%)
+
+Task: pick up the cream cheese and place it in the basket
+Starting episode 4... prompt_mode=synonym, prompt='grab up the cream cheese and place it in the basket'
+Query 1/1: Action query time = 0.656 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2704
+t=10: Selected seed 195 with value = 0.2704
+Query 1/1: Action query time = 0.609 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3483
+t=26: Selected seed 195 with value = 0.3483
+Query 1/1: Action query time = 0.609 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4113
+t=42: Selected seed 195 with value = 0.4113
+Query 1/1: Action query time = 0.610 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4854
+t=58: Selected seed 195 with value = 0.4854
+Query 1/1: Action query time = 0.611 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5719
+t=74: Selected seed 195 with value = 0.5719
+Query 1/1: Action query time = 0.611 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6669
+t=90: Selected seed 195 with value = 0.6669
+Query 1/1: Action query time = 0.610 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7800
+t=106: Selected seed 195 with value = 0.7800
+Query 1/1: Action query time = 0.609 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9026
+t=122: Selected seed 195 with value = 0.9026
+Query 1/1: Action query time = 0.610 sec
+t=138: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 1.0000
+t=138: Selected seed 195 with value = 1.0000
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=24--success=True--task=pick_up_the_cream_cheese_and_place_it_in.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=24--success=True--task=pick_up_the_cream_cheese_and_place_.mp4
+Success: True
+# episodes completed so far: 24
+# successes: 24 (100.0%)
+
+Task: pick up the cream cheese and place it in the basket
+Starting episode 5... prompt_mode=synonym, prompt='grab up the cream cheese and place it in the basket'
+Query 1/1: Action query time = 0.661 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2956
+t=10: Selected seed 195 with value = 0.2956
+Query 1/1: Action query time = 0.612 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3044
+t=26: Selected seed 195 with value = 0.3044
+Query 1/1: Action query time = 0.610 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3715
+t=42: Selected seed 195 with value = 0.3715
+Query 1/1: Action query time = 0.610 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4791
+t=58: Selected seed 195 with value = 0.4791
+Query 1/1: Action query time = 0.611 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5620
+t=74: Selected seed 195 with value = 0.5620
+Query 1/1: Action query time = 0.610 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6490
+t=90: Selected seed 195 with value = 0.6490
+Query 1/1: Action query time = 0.612 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7673
+t=106: Selected seed 195 with value = 0.7673
+Query 1/1: Action query time = 0.610 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9023
+t=122: Selected seed 195 with value = 0.9023
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=25--success=True--task=pick_up_the_cream_cheese_and_place_it_in.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=25--success=True--task=pick_up_the_cream_cheese_and_place_.mp4
+Success: True
+# episodes completed so far: 25
+# successes: 25 (100.0%)
+
+Task: pick up the cream cheese and place it in the basket
+Starting episode 6... prompt_mode=synonym, prompt='grab up the cream cheese and place it in the basket'
+Query 1/1: Action query time = 0.660 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2823
+t=10: Selected seed 195 with value = 0.2823
+Query 1/1: Action query time = 0.610 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3423
+t=26: Selected seed 195 with value = 0.3423
+Query 1/1: Action query time = 0.610 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4051
+t=42: Selected seed 195 with value = 0.4051
+Query 1/1: Action query time = 0.610 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4851
+t=58: Selected seed 195 with value = 0.4851
+Query 1/1: Action query time = 0.610 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5731
+t=74: Selected seed 195 with value = 0.5731
+Query 1/1: Action query time = 0.611 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6631
+t=90: Selected seed 195 with value = 0.6631
+Query 1/1: Action query time = 0.610 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7739
+t=106: Selected seed 195 with value = 0.7739
+Query 1/1: Action query time = 0.611 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9119
+t=122: Selected seed 195 with value = 0.9119
+Query 1/1: Action query time = 0.611 sec
+t=138: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 1.0000
+t=138: Selected seed 195 with value = 1.0000
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=26--success=True--task=pick_up_the_cream_cheese_and_place_it_in.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=26--success=True--task=pick_up_the_cream_cheese_and_place_.mp4
+Success: True
+# episodes completed so far: 26
+# successes: 26 (100.0%)
+
+Task: pick up the cream cheese and place it in the basket
+Starting episode 7... prompt_mode=synonym, prompt='grab up the cream cheese and place it in the basket'
+Query 1/1: Action query time = 0.636 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2835
+t=10: Selected seed 195 with value = 0.2835
+Query 1/1: Action query time = 0.610 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3587
+t=26: Selected seed 195 with value = 0.3587
+Query 1/1: Action query time = 0.610 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3977
+t=42: Selected seed 195 with value = 0.3977
+Query 1/1: Action query time = 0.610 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4906
+t=58: Selected seed 195 with value = 0.4906
+Query 1/1: Action query time = 0.609 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5787
+t=74: Selected seed 195 with value = 0.5787
+Query 1/1: Action query time = 0.611 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6811
+t=90: Selected seed 195 with value = 0.6811
+Query 1/1: Action query time = 0.610 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7992
+t=106: Selected seed 195 with value = 0.7992
+Query 1/1: Action query time = 0.610 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9443
+t=122: Selected seed 195 with value = 0.9443
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=27--success=True--task=pick_up_the_cream_cheese_and_place_it_in.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=27--success=True--task=pick_up_the_cream_cheese_and_place_.mp4
+Success: True
+# episodes completed so far: 27
+# successes: 27 (100.0%)
+
+Task: pick up the cream cheese and place it in the basket
+Starting episode 8... prompt_mode=synonym, prompt='grab up the cream cheese and place it in the basket'
+Query 1/1: Action query time = 0.641 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2887
+t=10: Selected seed 195 with value = 0.2887
+Query 1/1: Action query time = 0.610 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3610
+t=26: Selected seed 195 with value = 0.3610
+Query 1/1: Action query time = 0.623 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4174
+t=42: Selected seed 195 with value = 0.4174
+Query 1/1: Action query time = 0.609 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4970
+t=58: Selected seed 195 with value = 0.4970
+Query 1/1: Action query time = 0.614 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5684
+t=74: Selected seed 195 with value = 0.5684
+Query 1/1: Action query time = 0.610 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6761
+t=90: Selected seed 195 with value = 0.6761
+Query 1/1: Action query time = 0.610 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8079
+t=106: Selected seed 195 with value = 0.8079
+Query 1/1: Action query time = 0.609 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9544
+t=122: Selected seed 195 with value = 0.9544
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=28--success=True--task=pick_up_the_cream_cheese_and_place_it_in.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=28--success=True--task=pick_up_the_cream_cheese_and_place_.mp4
+Success: True
+# episodes completed so far: 28
+# successes: 28 (100.0%)
+
+Task: pick up the cream cheese and place it in the basket
+Starting episode 9... prompt_mode=synonym, prompt='grab up the cream cheese and place it in the basket'
+Query 1/1: Action query time = 0.647 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2586
+t=10: Selected seed 195 with value = 0.2586
+Query 1/1: Action query time = 0.611 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3194
+t=26: Selected seed 195 with value = 0.3194
+Query 1/1: Action query time = 0.609 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3394
+t=42: Selected seed 195 with value = 0.3394
+Query 1/1: Action query time = 0.610 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4846
+t=58: Selected seed 195 with value = 0.4846
+Query 1/1: Action query time = 0.610 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5615
+t=74: Selected seed 195 with value = 0.5615
+Query 1/1: Action query time = 0.610 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6708
+t=90: Selected seed 195 with value = 0.6708
+Query 1/1: Action query time = 0.612 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7800
+t=106: Selected seed 195 with value = 0.7800
+Query 1/1: Action query time = 0.611 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9180
+t=122: Selected seed 195 with value = 0.9180
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=29--success=True--task=pick_up_the_cream_cheese_and_place_it_in.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=29--success=True--task=pick_up_the_cream_cheese_and_place_.mp4
+Success: True
+# episodes completed so far: 29
+# successes: 29 (100.0%)
+
+Task: pick up the cream cheese and place it in the basket
+Starting episode 10... prompt_mode=synonym, prompt='grab up the cream cheese and place it in the basket'
+Query 1/1: Action query time = 0.635 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2888
+t=10: Selected seed 195 with value = 0.2888
+Query 1/1: Action query time = 0.610 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3409
+t=26: Selected seed 195 with value = 0.3409
+Query 1/1: Action query time = 0.610 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3899
+t=42: Selected seed 195 with value = 0.3899
+Query 1/1: Action query time = 0.609 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4662
+t=58: Selected seed 195 with value = 0.4662
+Query 1/1: Action query time = 0.609 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5726
+t=74: Selected seed 195 with value = 0.5726
+Query 1/1: Action query time = 0.611 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6931
+t=90: Selected seed 195 with value = 0.6931
+Query 1/1: Action query time = 0.610 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8018
+t=106: Selected seed 195 with value = 0.8018
+Query 1/1: Action query time = 0.610 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9158
+t=122: Selected seed 195 with value = 0.9158
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=30--success=True--task=pick_up_the_cream_cheese_and_place_it_in.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=30--success=True--task=pick_up_the_cream_cheese_and_place_.mp4
+Success: True
+# episodes completed so far: 30
+# successes: 30 (100.0%)
+
+Task: pick up the cream cheese and place it in the basket
+Starting episode 11... prompt_mode=synonym, prompt='grab up the cream cheese and place it in the basket'
+Query 1/1: Action query time = 0.653 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2591
+t=10: Selected seed 195 with value = 0.2591
+Query 1/1: Action query time = 0.609 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3517
+t=26: Selected seed 195 with value = 0.3517
+Query 1/1: Action query time = 0.611 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4069
+t=42: Selected seed 195 with value = 0.4069
+Query 1/1: Action query time = 0.610 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4945
+t=58: Selected seed 195 with value = 0.4945
+Query 1/1: Action query time = 0.610 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5666
+t=74: Selected seed 195 with value = 0.5666
+Query 1/1: Action query time = 0.609 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6757
+t=90: Selected seed 195 with value = 0.6757
+Query 1/1: Action query time = 0.610 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8048
+t=106: Selected seed 195 with value = 0.8048
+Query 1/1: Action query time = 0.610 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 1.0000
+t=122: Selected seed 195 with value = 1.0000
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=31--success=True--task=pick_up_the_cream_cheese_and_place_it_in.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=31--success=True--task=pick_up_the_cream_cheese_and_place_.mp4
+Success: True
+# episodes completed so far: 31
+# successes: 31 (100.0%)
+
+Task: pick up the cream cheese and place it in the basket
+Starting episode 12... prompt_mode=synonym, prompt='grab up the cream cheese and place it in the basket'
+Query 1/1: Action query time = 0.660 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3096
+t=10: Selected seed 195 with value = 0.3096
+Query 1/1: Action query time = 0.610 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3545
+t=26: Selected seed 195 with value = 0.3545
+Query 1/1: Action query time = 0.611 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4021
+t=42: Selected seed 195 with value = 0.4021
+Query 1/1: Action query time = 0.611 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4852
+t=58: Selected seed 195 with value = 0.4852
+Query 1/1: Action query time = 0.612 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5783
+t=74: Selected seed 195 with value = 0.5783
+Query 1/1: Action query time = 0.612 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6856
+t=90: Selected seed 195 with value = 0.6856
+Query 1/1: Action query time = 0.612 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7956
+t=106: Selected seed 195 with value = 0.7956
+Query 1/1: Action query time = 0.612 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9422
+t=122: Selected seed 195 with value = 0.9422
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=32--success=True--task=pick_up_the_cream_cheese_and_place_it_in.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=32--success=True--task=pick_up_the_cream_cheese_and_place_.mp4
+Success: True
+# episodes completed so far: 32
+# successes: 32 (100.0%)
+
+Task: pick up the cream cheese and place it in the basket
+Starting episode 13... prompt_mode=synonym, prompt='grab up the cream cheese and place it in the basket'
+Query 1/1: Action query time = 0.635 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2590
+t=10: Selected seed 195 with value = 0.2590
+Query 1/1: Action query time = 0.610 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3521
+t=26: Selected seed 195 with value = 0.3521
+Query 1/1: Action query time = 0.611 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4032
+t=42: Selected seed 195 with value = 0.4032
+Query 1/1: Action query time = 0.610 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4599
+t=58: Selected seed 195 with value = 0.4599
+Query 1/1: Action query time = 0.609 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5673
+t=74: Selected seed 195 with value = 0.5673
+Query 1/1: Action query time = 0.609 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6680
+t=90: Selected seed 195 with value = 0.6680
+Query 1/1: Action query time = 0.611 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7789
+t=106: Selected seed 195 with value = 0.7789
+Query 1/1: Action query time = 0.610 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9140
+t=122: Selected seed 195 with value = 0.9140
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=33--success=True--task=pick_up_the_cream_cheese_and_place_it_in.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=33--success=True--task=pick_up_the_cream_cheese_and_place_.mp4
+Success: True
+# episodes completed so far: 33
+# successes: 33 (100.0%)
+
+Task: pick up the cream cheese and place it in the basket
+Starting episode 14... prompt_mode=synonym, prompt='grab up the cream cheese and place it in the basket'
+Query 1/1: Action query time = 0.660 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3154
+t=10: Selected seed 195 with value = 0.3154
+Query 1/1: Action query time = 0.609 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3429
+t=26: Selected seed 195 with value = 0.3429
+Query 1/1: Action query time = 0.610 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4044
+t=42: Selected seed 195 with value = 0.4044
+Query 1/1: Action query time = 0.610 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4695
+t=58: Selected seed 195 with value = 0.4695
+Query 1/1: Action query time = 0.610 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5421
+t=74: Selected seed 195 with value = 0.5421
+Query 1/1: Action query time = 0.610 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6387
+t=90: Selected seed 195 with value = 0.6387
+Query 1/1: Action query time = 0.612 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7501
+t=106: Selected seed 195 with value = 0.7501
+Query 1/1: Action query time = 0.609 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8789
+t=122: Selected seed 195 with value = 0.8789
+Query 1/1: Action query time = 0.610 sec
+t=138: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 1.0000
+t=138: Selected seed 195 with value = 1.0000
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=34--success=True--task=pick_up_the_cream_cheese_and_place_it_in.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=34--success=True--task=pick_up_the_cream_cheese_and_place_.mp4
+Success: True
+# episodes completed so far: 34
+# successes: 34 (100.0%)
+
+Task: pick up the cream cheese and place it in the basket
+Starting episode 15... prompt_mode=synonym, prompt='grab up the cream cheese and place it in the basket'
+Query 1/1: Action query time = 0.649 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3151
+t=10: Selected seed 195 with value = 0.3151
+Query 1/1: Action query time = 0.611 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3668
+t=26: Selected seed 195 with value = 0.3668
+Query 1/1: Action query time = 0.609 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4357
+t=42: Selected seed 195 with value = 0.4357
+Query 1/1: Action query time = 0.609 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4880
+t=58: Selected seed 195 with value = 0.4880
+Query 1/1: Action query time = 0.609 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5845
+t=74: Selected seed 195 with value = 0.5845
+Query 1/1: Action query time = 0.611 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6708
+t=90: Selected seed 195 with value = 0.6708
+Query 1/1: Action query time = 0.610 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7954
+t=106: Selected seed 195 with value = 0.7954
+Query 1/1: Action query time = 0.612 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9164
+t=122: Selected seed 195 with value = 0.9164
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=35--success=True--task=pick_up_the_cream_cheese_and_place_it_in.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=35--success=True--task=pick_up_the_cream_cheese_and_place_.mp4
+Success: True
+# episodes completed so far: 35
+# successes: 35 (100.0%)
+
+Task: pick up the cream cheese and place it in the basket
+Starting episode 16... prompt_mode=synonym, prompt='grab up the cream cheese and place it in the basket'
+Query 1/1: Action query time = 0.657 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3026
+t=10: Selected seed 195 with value = 0.3026
+Query 1/1: Action query time = 0.611 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3748
+t=26: Selected seed 195 with value = 0.3748
+Query 1/1: Action query time = 0.609 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4316
+t=42: Selected seed 195 with value = 0.4316
+Query 1/1: Action query time = 0.610 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5116
+t=58: Selected seed 195 with value = 0.5116
+Query 1/1: Action query time = 0.610 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6026
+t=74: Selected seed 195 with value = 0.6026
+Query 1/1: Action query time = 0.611 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7058
+t=90: Selected seed 195 with value = 0.7058
+Query 1/1: Action query time = 0.609 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8229
+t=106: Selected seed 195 with value = 0.8229
+Query 1/1: Action query time = 0.609 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9763
+t=122: Selected seed 195 with value = 0.9763
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=36--success=True--task=pick_up_the_cream_cheese_and_place_it_in.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=36--success=True--task=pick_up_the_cream_cheese_and_place_.mp4
+Success: True
+# episodes completed so far: 36
+# successes: 36 (100.0%)
+
+Task: pick up the cream cheese and place it in the basket
+Starting episode 17... prompt_mode=synonym, prompt='grab up the cream cheese and place it in the basket'
+Query 1/1: Action query time = 0.653 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2544
+t=10: Selected seed 195 with value = 0.2544
+Query 1/1: Action query time = 0.610 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2633
+t=26: Selected seed 195 with value = 0.2633
+Query 1/1: Action query time = 0.611 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3919
+t=42: Selected seed 195 with value = 0.3919
+Query 1/1: Action query time = 0.611 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4714
+t=58: Selected seed 195 with value = 0.4714
+Query 1/1: Action query time = 0.610 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5424
+t=74: Selected seed 195 with value = 0.5424
+Query 1/1: Action query time = 0.610 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6365
+t=90: Selected seed 195 with value = 0.6365
+Query 1/1: Action query time = 0.610 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7463
+t=106: Selected seed 195 with value = 0.7463
+Query 1/1: Action query time = 0.610 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8785
+t=122: Selected seed 195 with value = 0.8785
+Query 1/1: Action query time = 0.610 sec
+t=138: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 1.0000
+t=138: Selected seed 195 with value = 1.0000
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=37--success=True--task=pick_up_the_cream_cheese_and_place_it_in.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=37--success=True--task=pick_up_the_cream_cheese_and_place_.mp4
+Success: True
+# episodes completed so far: 37
+# successes: 37 (100.0%)
+
+Task: pick up the cream cheese and place it in the basket
+Starting episode 18... prompt_mode=synonym, prompt='grab up the cream cheese and place it in the basket'
+Query 1/1: Action query time = 0.633 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3054
+t=10: Selected seed 195 with value = 0.3054
+Query 1/1: Action query time = 0.611 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3414
+t=26: Selected seed 195 with value = 0.3414
+Query 1/1: Action query time = 0.609 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3918
+t=42: Selected seed 195 with value = 0.3918
+Query 1/1: Action query time = 0.611 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4817
+t=58: Selected seed 195 with value = 0.4817
+Query 1/1: Action query time = 0.610 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5725
+t=74: Selected seed 195 with value = 0.5725
+Query 1/1: Action query time = 0.610 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6801
+t=90: Selected seed 195 with value = 0.6801
+Query 1/1: Action query time = 0.610 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7912
+t=106: Selected seed 195 with value = 0.7912
+Query 1/1: Action query time = 0.610 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9352
+t=122: Selected seed 195 with value = 0.9352
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=38--success=True--task=pick_up_the_cream_cheese_and_place_it_in.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=38--success=True--task=pick_up_the_cream_cheese_and_place_.mp4
+Success: True
+# episodes completed so far: 38
+# successes: 38 (100.0%)
+
+Task: pick up the cream cheese and place it in the basket
+Starting episode 19... prompt_mode=synonym, prompt='grab up the cream cheese and place it in the basket'
+Query 1/1: Action query time = 0.656 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2828
+t=10: Selected seed 195 with value = 0.2828
+Query 1/1: Action query time = 0.610 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3226
+t=26: Selected seed 195 with value = 0.3226
+Query 1/1: Action query time = 0.611 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4156
+t=42: Selected seed 195 with value = 0.4156
+Query 1/1: Action query time = 0.609 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5228
+t=58: Selected seed 195 with value = 0.5228
+Query 1/1: Action query time = 0.609 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6064
+t=74: Selected seed 195 with value = 0.6064
+Query 1/1: Action query time = 0.610 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7211
+t=90: Selected seed 195 with value = 0.7211
+Query 1/1: Action query time = 0.610 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8476
+t=106: Selected seed 195 with value = 0.8476
+Query 1/1: Action query time = 0.610 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9997
+t=122: Selected seed 195 with value = 0.9997
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=39--success=True--task=pick_up_the_cream_cheese_and_place_it_in.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=39--success=True--task=pick_up_the_cream_cheese_and_place_.mp4
+Success: True
+# episodes completed so far: 39
+# successes: 39 (100.0%)
+
+Task: pick up the cream cheese and place it in the basket
+Starting episode 20... prompt_mode=synonym, prompt='grab up the cream cheese and place it in the basket'
+Query 1/1: Action query time = 0.631 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3216
+t=10: Selected seed 195 with value = 0.3216
+Query 1/1: Action query time = 0.610 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3758
+t=26: Selected seed 195 with value = 0.3758
+Query 1/1: Action query time = 0.609 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4399
+t=42: Selected seed 195 with value = 0.4399
+Query 1/1: Action query time = 0.610 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5321
+t=58: Selected seed 195 with value = 0.5321
+Query 1/1: Action query time = 0.610 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5974
+t=74: Selected seed 195 with value = 0.5974
+Query 1/1: Action query time = 0.610 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6986
+t=90: Selected seed 195 with value = 0.6986
+Query 1/1: Action query time = 0.612 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8216
+t=106: Selected seed 195 with value = 0.8216
+Query 1/1: Action query time = 0.611 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 1.0000
+t=122: Selected seed 195 with value = 1.0000
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=40--success=True--task=pick_up_the_cream_cheese_and_place_it_in.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=40--success=True--task=pick_up_the_cream_cheese_and_place_.mp4
+Success: True
+# episodes completed so far: 40
+# successes: 40 (100.0%)
+Task 1 action entropy (KDE, 20 episodes): -8.1114 (bw_factor=0.4907, N=2519, D=7)
+  Prompt group entropy: H=-8.1114 (succ=20, fail=0) prompt='grab up the cream cheese and place it in the basket'
+Current task success rate: 1.0
+Current total success rate: 1.0
+Using default initial states
+
+Task: pick up the salad dressing and place it in the basket
+Starting episode 1... prompt_mode=synonym, prompt='grab up the salad dressing and place it in the basket'
+Query 1/1: Action query time = 2.436 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3120
+t=10: Selected seed 195 with value = 0.3120
+Query 1/1: Action query time = 0.609 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3452
+t=26: Selected seed 195 with value = 0.3452
+Query 1/1: Action query time = 0.609 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4407
+t=42: Selected seed 195 with value = 0.4407
+Query 1/1: Action query time = 0.609 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5340
+t=58: Selected seed 195 with value = 0.5340
+Query 1/1: Action query time = 0.611 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6216
+t=74: Selected seed 195 with value = 0.6216
+Query 1/1: Action query time = 0.609 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7385
+t=90: Selected seed 195 with value = 0.7385
+Query 1/1: Action query time = 0.610 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8639
+t=106: Selected seed 195 with value = 0.8639
+Query 1/1: Action query time = 0.609 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 1.0000
+t=122: Selected seed 195 with value = 1.0000
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=41--success=True--task=pick_up_the_salad_dressing_and_place_it_.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=41--success=True--task=pick_up_the_salad_dressing_and_plac.mp4
+Success: True
+# episodes completed so far: 41
+# successes: 41 (100.0%)
+
+Task: pick up the salad dressing and place it in the basket
+Starting episode 2... prompt_mode=synonym, prompt='grab up the salad dressing and place it in the basket'
+Query 1/1: Action query time = 0.658 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3142
+t=10: Selected seed 195 with value = 0.3142
+Query 1/1: Action query time = 0.609 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3648
+t=26: Selected seed 195 with value = 0.3648
+Query 1/1: Action query time = 0.609 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4278
+t=42: Selected seed 195 with value = 0.4278
+Query 1/1: Action query time = 0.612 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5205
+t=58: Selected seed 195 with value = 0.5205
+Query 1/1: Action query time = 0.609 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6562
+t=74: Selected seed 195 with value = 0.6562
+Query 1/1: Action query time = 0.610 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7538
+t=90: Selected seed 195 with value = 0.7538
+Query 1/1: Action query time = 0.609 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8877
+t=106: Selected seed 195 with value = 0.8877
+Query 1/1: Action query time = 0.609 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 1.0000
+t=122: Selected seed 195 with value = 1.0000
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=42--success=True--task=pick_up_the_salad_dressing_and_place_it_.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=42--success=True--task=pick_up_the_salad_dressing_and_plac.mp4
+Success: True
+# episodes completed so far: 42
+# successes: 42 (100.0%)
+
+Task: pick up the salad dressing and place it in the basket
+Starting episode 3... prompt_mode=synonym, prompt='grab up the salad dressing and place it in the basket'
+Query 1/1: Action query time = 0.634 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3751
+t=10: Selected seed 195 with value = 0.3751
+Query 1/1: Action query time = 0.610 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4460
+t=26: Selected seed 195 with value = 0.4460
+Query 1/1: Action query time = 0.609 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5234
+t=42: Selected seed 195 with value = 0.5234
+Query 1/1: Action query time = 0.608 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6144
+t=58: Selected seed 195 with value = 0.6144
+Query 1/1: Action query time = 0.610 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7202
+t=74: Selected seed 195 with value = 0.7202
+Query 1/1: Action query time = 0.610 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8428
+t=90: Selected seed 195 with value = 0.8428
+Query 1/1: Action query time = 0.610 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9858
+t=106: Selected seed 195 with value = 0.9858
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=43--success=True--task=pick_up_the_salad_dressing_and_place_it_.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=43--success=True--task=pick_up_the_salad_dressing_and_plac.mp4
+Success: True
+# episodes completed so far: 43
+# successes: 43 (100.0%)
+
+Task: pick up the salad dressing and place it in the basket
+Starting episode 4... prompt_mode=synonym, prompt='grab up the salad dressing and place it in the basket'
+Query 1/1: Action query time = 0.659 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2466
+t=10: Selected seed 195 with value = 0.2466
+Query 1/1: Action query time = 0.611 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3750
+t=26: Selected seed 195 with value = 0.3750
+Query 1/1: Action query time = 0.611 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4520
+t=42: Selected seed 195 with value = 0.4520
+Query 1/1: Action query time = 0.611 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5277
+t=58: Selected seed 195 with value = 0.5277
+Query 1/1: Action query time = 0.612 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6141
+t=74: Selected seed 195 with value = 0.6141
+Query 1/1: Action query time = 0.610 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7520
+t=90: Selected seed 195 with value = 0.7520
+Query 1/1: Action query time = 0.610 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8462
+t=106: Selected seed 195 with value = 0.8462
+Query 1/1: Action query time = 0.611 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9953
+t=122: Selected seed 195 with value = 0.9953
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=44--success=True--task=pick_up_the_salad_dressing_and_place_it_.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=44--success=True--task=pick_up_the_salad_dressing_and_plac.mp4
+Success: True
+# episodes completed so far: 44
+# successes: 44 (100.0%)
+
+Task: pick up the salad dressing and place it in the basket
+Starting episode 5... prompt_mode=synonym, prompt='grab up the salad dressing and place it in the basket'
+Query 1/1: Action query time = 0.654 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3330
+t=10: Selected seed 195 with value = 0.3330
+Query 1/1: Action query time = 0.611 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4193
+t=26: Selected seed 195 with value = 0.4193
+Query 1/1: Action query time = 0.610 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4720
+t=42: Selected seed 195 with value = 0.4720
+Query 1/1: Action query time = 0.611 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5550
+t=58: Selected seed 195 with value = 0.5550
+Query 1/1: Action query time = 0.610 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6477
+t=74: Selected seed 195 with value = 0.6477
+Query 1/1: Action query time = 0.611 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7592
+t=90: Selected seed 195 with value = 0.7592
+Query 1/1: Action query time = 0.611 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9054
+t=106: Selected seed 195 with value = 0.9054
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=45--success=True--task=pick_up_the_salad_dressing_and_place_it_.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=45--success=True--task=pick_up_the_salad_dressing_and_plac.mp4
+Success: True
+# episodes completed so far: 45
+# successes: 45 (100.0%)
+
+Task: pick up the salad dressing and place it in the basket
+Starting episode 6... prompt_mode=synonym, prompt='grab up the salad dressing and place it in the basket'
+Query 1/1: Action query time = 0.654 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3491
+t=10: Selected seed 195 with value = 0.3491
+Query 1/1: Action query time = 0.611 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4002
+t=26: Selected seed 195 with value = 0.4002
+Query 1/1: Action query time = 0.613 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4664
+t=42: Selected seed 195 with value = 0.4664
+Query 1/1: Action query time = 0.610 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5517
+t=58: Selected seed 195 with value = 0.5517
+Query 1/1: Action query time = 0.612 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6444
+t=74: Selected seed 195 with value = 0.6444
+Query 1/1: Action query time = 0.610 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7574
+t=90: Selected seed 195 with value = 0.7574
+Query 1/1: Action query time = 0.613 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8782
+t=106: Selected seed 195 with value = 0.8782
+Query 1/1: Action query time = 0.611 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 1.0000
+t=122: Selected seed 195 with value = 1.0000
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=46--success=True--task=pick_up_the_salad_dressing_and_place_it_.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=46--success=True--task=pick_up_the_salad_dressing_and_plac.mp4
+Success: True
+# episodes completed so far: 46
+# successes: 46 (100.0%)
+
+Task: pick up the salad dressing and place it in the basket
+Starting episode 7... prompt_mode=synonym, prompt='lift up the salad dressing and place it in the basket'
+Query 1/1: Action query time = 2.253 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3479
+t=10: Selected seed 195 with value = 0.3479
+Query 1/1: Action query time = 0.611 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4005
+t=26: Selected seed 195 with value = 0.4005
+Query 1/1: Action query time = 0.612 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4706
+t=42: Selected seed 195 with value = 0.4706
+Query 1/1: Action query time = 0.609 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5470
+t=58: Selected seed 195 with value = 0.5470
+Query 1/1: Action query time = 0.610 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6559
+t=74: Selected seed 195 with value = 0.6559
+Query 1/1: Action query time = 0.609 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7592
+t=90: Selected seed 195 with value = 0.7592
+Query 1/1: Action query time = 0.611 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8855
+t=106: Selected seed 195 with value = 0.8855
+Query 1/1: Action query time = 0.609 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 1.0000
+t=122: Selected seed 195 with value = 1.0000
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=47--success=True--task=pick_up_the_salad_dressing_and_place_it_.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=47--success=True--task=pick_up_the_salad_dressing_and_plac.mp4
+Success: True
+# episodes completed so far: 47
+# successes: 47 (100.0%)
+
+Task: pick up the salad dressing and place it in the basket
+Starting episode 8... prompt_mode=synonym, prompt='grab up the salad dressing and place it in the basket'
+Query 1/1: Action query time = 0.659 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3366
+t=10: Selected seed 195 with value = 0.3366
+Query 1/1: Action query time = 0.611 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4140
+t=26: Selected seed 195 with value = 0.4140
+Query 1/1: Action query time = 0.610 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4868
+t=42: Selected seed 195 with value = 0.4868
+Query 1/1: Action query time = 0.610 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5672
+t=58: Selected seed 195 with value = 0.5672
+Query 1/1: Action query time = 0.611 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6657
+t=74: Selected seed 195 with value = 0.6657
+Query 1/1: Action query time = 0.611 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7830
+t=90: Selected seed 195 with value = 0.7830
+Query 1/1: Action query time = 0.611 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9240
+t=106: Selected seed 195 with value = 0.9240
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=48--success=True--task=pick_up_the_salad_dressing_and_place_it_.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=48--success=True--task=pick_up_the_salad_dressing_and_plac.mp4
+Success: True
+# episodes completed so far: 48
+# successes: 48 (100.0%)
+
+Task: pick up the salad dressing and place it in the basket
+Starting episode 9... prompt_mode=synonym, prompt='grab up the salad dressing and place it in the basket'
+Query 1/1: Action query time = 0.650 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3378
+t=10: Selected seed 195 with value = 0.3378
+Query 1/1: Action query time = 0.610 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3998
+t=26: Selected seed 195 with value = 0.3998
+Query 1/1: Action query time = 0.609 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4778
+t=42: Selected seed 195 with value = 0.4778
+Query 1/1: Action query time = 0.610 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5389
+t=58: Selected seed 195 with value = 0.5389
+Query 1/1: Action query time = 0.610 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6507
+t=74: Selected seed 195 with value = 0.6507
+Query 1/1: Action query time = 0.610 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7569
+t=90: Selected seed 195 with value = 0.7569
+Query 1/1: Action query time = 0.609 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8838
+t=106: Selected seed 195 with value = 0.8838
+Query 1/1: Action query time = 0.609 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 1.0000
+t=122: Selected seed 195 with value = 1.0000
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=49--success=True--task=pick_up_the_salad_dressing_and_place_it_.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=49--success=True--task=pick_up_the_salad_dressing_and_plac.mp4
+Success: True
+# episodes completed so far: 49
+# successes: 49 (100.0%)
+
+Task: pick up the salad dressing and place it in the basket
+Starting episode 10... prompt_mode=synonym, prompt='grab up the salad dressing and place it in the basket'
+Query 1/1: Action query time = 0.657 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3345
+t=10: Selected seed 195 with value = 0.3345
+Query 1/1: Action query time = 0.611 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4050
+t=26: Selected seed 195 with value = 0.4050
+Query 1/1: Action query time = 0.610 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4616
+t=42: Selected seed 195 with value = 0.4616
+Query 1/1: Action query time = 0.610 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5556
+t=58: Selected seed 195 with value = 0.5556
+Query 1/1: Action query time = 0.610 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6446
+t=74: Selected seed 195 with value = 0.6446
+Query 1/1: Action query time = 0.611 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7503
+t=90: Selected seed 195 with value = 0.7503
+Query 1/1: Action query time = 0.610 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8724
+t=106: Selected seed 195 with value = 0.8724
+Query 1/1: Action query time = 0.611 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 1.0000
+t=122: Selected seed 195 with value = 1.0000
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=50--success=True--task=pick_up_the_salad_dressing_and_place_it_.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=50--success=True--task=pick_up_the_salad_dressing_and_plac.mp4
+Success: True
+# episodes completed so far: 50
+# successes: 50 (100.0%)
+
+Task: pick up the salad dressing and place it in the basket
+Starting episode 11... prompt_mode=synonym, prompt='grab up the salad dressing and place it in the basket'
+Query 1/1: Action query time = 0.637 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3376
+t=10: Selected seed 195 with value = 0.3376
+Query 1/1: Action query time = 0.612 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4005
+t=26: Selected seed 195 with value = 0.4005
+Query 1/1: Action query time = 0.610 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4658
+t=42: Selected seed 195 with value = 0.4658
+Query 1/1: Action query time = 0.610 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5471
+t=58: Selected seed 195 with value = 0.5471
+Query 1/1: Action query time = 0.610 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6248
+t=74: Selected seed 195 with value = 0.6248
+Query 1/1: Action query time = 0.610 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7518
+t=90: Selected seed 195 with value = 0.7518
+Query 1/1: Action query time = 0.611 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8792
+t=106: Selected seed 195 with value = 0.8792
+Query 1/1: Action query time = 0.611 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 1.0000
+t=122: Selected seed 195 with value = 1.0000
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=51--success=True--task=pick_up_the_salad_dressing_and_place_it_.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=51--success=True--task=pick_up_the_salad_dressing_and_plac.mp4
+Success: True
+# episodes completed so far: 51
+# successes: 51 (100.0%)
+
+Task: pick up the salad dressing and place it in the basket
+Starting episode 12... prompt_mode=synonym, prompt='grab up the salad dressing and place it in the basket'
+Query 1/1: Action query time = 0.633 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3285
+t=10: Selected seed 195 with value = 0.3285
+Query 1/1: Action query time = 0.611 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3792
+t=26: Selected seed 195 with value = 0.3792
+Query 1/1: Action query time = 0.612 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4664
+t=42: Selected seed 195 with value = 0.4664
+Query 1/1: Action query time = 0.610 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5247
+t=58: Selected seed 195 with value = 0.5247
+Query 1/1: Action query time = 0.610 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6629
+t=74: Selected seed 195 with value = 0.6629
+Query 1/1: Action query time = 0.611 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7620
+t=90: Selected seed 195 with value = 0.7620
+Query 1/1: Action query time = 0.611 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8701
+t=106: Selected seed 195 with value = 0.8701
+Query 1/1: Action query time = 0.611 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9943
+t=122: Selected seed 195 with value = 0.9943
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=52--success=True--task=pick_up_the_salad_dressing_and_place_it_.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=52--success=True--task=pick_up_the_salad_dressing_and_plac.mp4
+Success: True
+# episodes completed so far: 52
+# successes: 52 (100.0%)
+
+Task: pick up the salad dressing and place it in the basket
+Starting episode 13... prompt_mode=synonym, prompt='grab up the salad dressing and place it in the basket'
+Query 1/1: Action query time = 0.638 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3282
+t=10: Selected seed 195 with value = 0.3282
+Query 1/1: Action query time = 0.609 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3657
+t=26: Selected seed 195 with value = 0.3657
+Query 1/1: Action query time = 0.609 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4273
+t=42: Selected seed 195 with value = 0.4273
+Query 1/1: Action query time = 0.610 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5096
+t=58: Selected seed 195 with value = 0.5096
+Query 1/1: Action query time = 0.610 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5909
+t=74: Selected seed 195 with value = 0.5909
+Query 1/1: Action query time = 0.610 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6920
+t=90: Selected seed 195 with value = 0.6920
+Query 1/1: Action query time = 0.613 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8112
+t=106: Selected seed 195 with value = 0.8112
+Query 1/1: Action query time = 0.610 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9516
+t=122: Selected seed 195 with value = 0.9516
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=53--success=True--task=pick_up_the_salad_dressing_and_place_it_.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=53--success=True--task=pick_up_the_salad_dressing_and_plac.mp4
+Success: True
+# episodes completed so far: 53
+# successes: 53 (100.0%)
+
+Task: pick up the salad dressing and place it in the basket
+Starting episode 14... prompt_mode=synonym, prompt='grab up the salad dressing and place it in the basket'
+Query 1/1: Action query time = 0.646 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3434
+t=10: Selected seed 195 with value = 0.3434
+Query 1/1: Action query time = 0.609 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3970
+t=26: Selected seed 195 with value = 0.3970
+Query 1/1: Action query time = 0.610 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4688
+t=42: Selected seed 195 with value = 0.4688
+Query 1/1: Action query time = 0.610 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5507
+t=58: Selected seed 195 with value = 0.5507
+Query 1/1: Action query time = 0.610 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6230
+t=74: Selected seed 195 with value = 0.6230
+Query 1/1: Action query time = 0.609 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7468
+t=90: Selected seed 195 with value = 0.7468
+Query 1/1: Action query time = 0.610 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8788
+t=106: Selected seed 195 with value = 0.8788
+Query 1/1: Action query time = 0.611 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 1.0000
+t=122: Selected seed 195 with value = 1.0000
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=54--success=True--task=pick_up_the_salad_dressing_and_place_it_.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=54--success=True--task=pick_up_the_salad_dressing_and_plac.mp4
+Success: True
+# episodes completed so far: 54
+# successes: 54 (100.0%)
+
+Task: pick up the salad dressing and place it in the basket
+Starting episode 15... prompt_mode=synonym, prompt='grab up the salad dressing and place it in the basket'
+Query 1/1: Action query time = 0.644 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3296
+t=10: Selected seed 195 with value = 0.3296
+Query 1/1: Action query time = 0.611 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2405
+t=26: Selected seed 195 with value = 0.2405
+Query 1/1: Action query time = 0.610 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4542
+t=42: Selected seed 195 with value = 0.4542
+Query 1/1: Action query time = 0.611 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5417
+t=58: Selected seed 195 with value = 0.5417
+Query 1/1: Action query time = 0.611 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6309
+t=74: Selected seed 195 with value = 0.6309
+Query 1/1: Action query time = 0.611 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7441
+t=90: Selected seed 195 with value = 0.7441
+Query 1/1: Action query time = 0.611 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8953
+t=106: Selected seed 195 with value = 0.8953
+Query 1/1: Action query time = 0.611 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 1.0000
+t=122: Selected seed 195 with value = 1.0000
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=55--success=True--task=pick_up_the_salad_dressing_and_place_it_.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=55--success=True--task=pick_up_the_salad_dressing_and_plac.mp4
+Success: True
+# episodes completed so far: 55
+# successes: 55 (100.0%)
+
+Task: pick up the salad dressing and place it in the basket
+Starting episode 16... prompt_mode=synonym, prompt='grab up the salad dressing and place it in the basket'
+Query 1/1: Action query time = 0.660 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3401
+t=10: Selected seed 195 with value = 0.3401
+Query 1/1: Action query time = 0.611 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4040
+t=26: Selected seed 195 with value = 0.4040
+Query 1/1: Action query time = 0.610 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4753
+t=42: Selected seed 195 with value = 0.4753
+Query 1/1: Action query time = 0.611 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5545
+t=58: Selected seed 195 with value = 0.5545
+Query 1/1: Action query time = 0.610 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6554
+t=74: Selected seed 195 with value = 0.6554
+Query 1/1: Action query time = 0.612 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7421
+t=90: Selected seed 195 with value = 0.7421
+Query 1/1: Action query time = 0.611 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8551
+t=106: Selected seed 195 with value = 0.8551
+Query 1/1: Action query time = 0.613 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9628
+t=122: Selected seed 195 with value = 0.9628
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=56--success=True--task=pick_up_the_salad_dressing_and_place_it_.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=56--success=True--task=pick_up_the_salad_dressing_and_plac.mp4
+Success: True
+# episodes completed so far: 56
+# successes: 56 (100.0%)
+
+Task: pick up the salad dressing and place it in the basket
+Starting episode 17... prompt_mode=synonym, prompt='grab up the salad dressing and place it in the basket'
+Query 1/1: Action query time = 0.659 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3330
+t=10: Selected seed 195 with value = 0.3330
+Query 1/1: Action query time = 0.610 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3499
+t=26: Selected seed 195 with value = 0.3499
+Query 1/1: Action query time = 0.610 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4551
+t=42: Selected seed 195 with value = 0.4551
+Query 1/1: Action query time = 0.612 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5148
+t=58: Selected seed 195 with value = 0.5148
+Query 1/1: Action query time = 0.611 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5973
+t=74: Selected seed 195 with value = 0.5973
+Query 1/1: Action query time = 0.612 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7011
+t=90: Selected seed 195 with value = 0.7011
+Query 1/1: Action query time = 0.612 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8268
+t=106: Selected seed 195 with value = 0.8268
+Query 1/1: Action query time = 0.612 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 1.0000
+t=122: Selected seed 195 with value = 1.0000
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=57--success=True--task=pick_up_the_salad_dressing_and_place_it_.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=57--success=True--task=pick_up_the_salad_dressing_and_plac.mp4
+Success: True
+# episodes completed so far: 57
+# successes: 57 (100.0%)
+
+Task: pick up the salad dressing and place it in the basket
+Starting episode 18... prompt_mode=synonym, prompt='grab up the salad dressing and place it in the basket'
+Query 1/1: Action query time = 0.634 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3217
+t=10: Selected seed 195 with value = 0.3217
+Query 1/1: Action query time = 0.611 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3699
+t=26: Selected seed 195 with value = 0.3699
+Query 1/1: Action query time = 0.611 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4374
+t=42: Selected seed 195 with value = 0.4374
+Query 1/1: Action query time = 0.610 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5146
+t=58: Selected seed 195 with value = 0.5146
+Query 1/1: Action query time = 0.611 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6005
+t=74: Selected seed 195 with value = 0.6005
+Query 1/1: Action query time = 0.611 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7041
+t=90: Selected seed 195 with value = 0.7041
+Query 1/1: Action query time = 0.611 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.8166
+t=106: Selected seed 195 with value = 0.8166
+Query 1/1: Action query time = 0.610 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9583
+t=122: Selected seed 195 with value = 0.9583
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=58--success=True--task=pick_up_the_salad_dressing_and_place_it_.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=58--success=True--task=pick_up_the_salad_dressing_and_plac.mp4
+Success: True
+# episodes completed so far: 58
+# successes: 58 (100.0%)
+
+Task: pick up the salad dressing and place it in the basket
+Starting episode 19... prompt_mode=synonym, prompt='grab up the salad dressing and place it in the basket'
+Query 1/1: Action query time = 0.653 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2320
+t=10: Selected seed 195 with value = 0.2320
+Query 1/1: Action query time = 0.609 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.2567
+t=26: Selected seed 195 with value = 0.2567
+Query 1/1: Action query time = 0.611 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3021
+t=42: Selected seed 195 with value = 0.3021
+Query 1/1: Action query time = 0.609 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3634
+t=58: Selected seed 195 with value = 0.3634
+Query 1/1: Action query time = 0.611 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5770
+t=74: Selected seed 195 with value = 0.5770
+Query 1/1: Action query time = 0.610 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6771
+t=90: Selected seed 195 with value = 0.6771
+Query 1/1: Action query time = 0.610 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7985
+t=106: Selected seed 195 with value = 0.7985
+Query 1/1: Action query time = 0.610 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9379
+t=122: Selected seed 195 with value = 0.9379
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=59--success=True--task=pick_up_the_salad_dressing_and_place_it_.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=59--success=True--task=pick_up_the_salad_dressing_and_plac.mp4
+Success: True
+# episodes completed so far: 59
+# successes: 59 (100.0%)
+
+Task: pick up the salad dressing and place it in the basket
+Starting episode 20... prompt_mode=synonym, prompt='grab up the salad dressing and place it in the basket'
+Query 1/1: Action query time = 0.646 sec
+t=10: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.3375
+t=10: Selected seed 195 with value = 0.3375
+Query 1/1: Action query time = 0.612 sec
+t=26: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4045
+t=26: Selected seed 195 with value = 0.4045
+Query 1/1: Action query time = 0.610 sec
+t=42: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.4849
+t=42: Selected seed 195 with value = 0.4849
+Query 1/1: Action query time = 0.612 sec
+t=58: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.5687
+t=58: Selected seed 195 with value = 0.5687
+Query 1/1: Action query time = 0.611 sec
+t=74: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.6603
+t=74: Selected seed 195 with value = 0.6603
+Query 1/1: Action query time = 0.610 sec
+t=90: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.7750
+t=90: Selected seed 195 with value = 0.7750
+Query 1/1: Action query time = 0.609 sec
+t=106: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9017
+t=106: Selected seed 195 with value = 0.9017
+Query 1/1: Action query time = 0.609 sec
+t=122: Current base seed: 195
+Query 1/1 (seed 195): Predicted value = 0.9997
+t=122: Selected seed 195 with value = 0.9997
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--episode=60--success=True--task=pick_up_the_salad_dressing_and_place_it_.mp4
+Saved rollout MP4 at path ./rollouts/2026_02_19/2026_02_19-13_00_24--with_future_img--episode=60--success=True--task=pick_up_the_salad_dressing_and_plac.mp4
+Success: True
+# episodes completed so far: 60
+# successes: 60 (100.0%)
+Task 2 action entropy (KDE, 20 episodes): -9.2076 (bw_factor=0.4946, N=2309, D=7)
+  Prompt group entropy: H=-9.1535 (succ=19, fail=0) prompt='grab up the salad dressing and place it in the basket'
+  Prompt group entropy: H=-10.6394 (succ=1, fail=0) prompt='lift up the salad dressing and place it in the basket'
+Current task success rate: 1.0
+Current total success rate: 1.0
+Using default initial states
+
+Task: pick up the bbq sauce and place it in the basket
+Starting episode 1... prompt_mode=synonym, prompt='grab up the bbq sauce and place it in the basket'
