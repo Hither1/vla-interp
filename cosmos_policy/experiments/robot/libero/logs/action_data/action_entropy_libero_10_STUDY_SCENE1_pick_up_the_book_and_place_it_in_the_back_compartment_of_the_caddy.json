@@ -1,0 +1,37 @@
+{
+  "task_id": 5,
+  "task_description": "pick up the book and place it in the back compartment of the caddy",
+  "prompt_mode": "random",
+  "seed": 195,
+  "num_trials": 20,
+  "num_successes": 17,
+  "action_entropy": {
+    "action_entropy_kde": -9.954601358213761,
+    "mean_log_density": 9.954601358213761,
+    "std_log_density": 1.074868538715054,
+    "kde_bandwidth_factor": 0.45985051754862466,
+    "num_samples": 5143,
+    "num_episodes": 20,
+    "action_dim": 7
+  },
+  "action_entropy_by_prompt": {
+    "put the white mug on the plate and put the chocolate pudding to the right of the plate": {
+      "action_entropy_kde": -9.948388234999271,
+      "mean_log_density": 9.948388234999271,
+      "std_log_density": 1.0756675771196795,
+      "kde_bandwidth_factor": 0.4614692375158395,
+      "num_samples": 4948,
+      "num_episodes": 19,
+      "action_dim": 7
+    },
+    "put the white mug on the left plate and put the yellow and white mug on the right plate": {
+      "action_entropy_kde": -10.427347766982619,
+      "mean_log_density": 10.427347766982619,
+      "std_log_density": 0.42715541764436105,
+      "kde_bandwidth_factor": 0.6191773132208422,
+      "num_samples": 195,
+      "num_episodes": 1,
+      "action_dim": 7
+    }
+  }
+}

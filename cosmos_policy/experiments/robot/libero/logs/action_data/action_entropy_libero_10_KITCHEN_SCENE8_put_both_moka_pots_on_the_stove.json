@@ -1,0 +1,37 @@
+{
+  "task_id": 8,
+  "task_description": "put both moka pots on the stove",
+  "prompt_mode": "random",
+  "seed": 195,
+  "num_trials": 20,
+  "num_successes": 12,
+  "action_entropy": {
+    "action_entropy_kde": -9.024030532993967,
+    "mean_log_density": 9.024030532993967,
+    "std_log_density": 1.1091336806649557,
+    "kde_bandwidth_factor": 0.4380538364125547,
+    "num_samples": 8774,
+    "num_episodes": 20,
+    "action_dim": 7
+  },
+  "action_entropy_by_prompt": {
+    "pick up the book and place it in the back compartment of the caddy": {
+      "action_entropy_kde": -8.967669745097806,
+      "mean_log_density": 8.967669745097806,
+      "std_log_density": 1.081483865869318,
+      "kde_bandwidth_factor": 0.44049359114614306,
+      "num_samples": 8254,
+      "num_episodes": 19,
+      "action_dim": 7
+    },
+    "put the white mug on the left plate and put the yellow and white mug on the right plate": {
+      "action_entropy_kde": -10.874608622343493,
+      "mean_log_density": 10.874608622343493,
+      "std_log_density": 1.1172225829878968,
+      "kde_bandwidth_factor": 0.5663574336043536,
+      "num_samples": 520,
+      "num_episodes": 1,
+      "action_dim": 7
+    }
+  }
+}

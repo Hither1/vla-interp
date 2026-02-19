@@ -1,26 +1,26 @@
 {
   "task_id": 8,
   "task_description": "pick up the black bowl next to the plate and place it on the plate",
-  "prompt_mode": "empty",
+  "prompt_mode": "random",
   "seed": 195,
   "num_trials": 20,
-  "num_successes": 16,
+  "num_successes": 4,
   "action_entropy": {
-    "action_entropy_kde": -7.506134534571158,
-    "mean_log_density": 7.506134534571158,
-    "std_log_density": 1.0806144686720607,
-    "kde_bandwidth_factor": 0.4906435623769362,
-    "num_samples": 2521,
+    "action_entropy_kde": -6.552636836047712,
+    "mean_log_density": 6.552636836047712,
+    "std_log_density": 1.128745855861237,
+    "kde_bandwidth_factor": 0.47084398463890254,
+    "num_samples": 3966,
     "num_episodes": 20,
     "action_dim": 7
   },
   "action_entropy_by_prompt": {
-    "": {
-      "action_entropy_kde": -7.506134534571158,
-      "mean_log_density": 7.506134534571158,
-      "std_log_density": 1.0806144686720607,
-      "kde_bandwidth_factor": 0.4906435623769362,
-      "num_samples": 2521,
+    "pick up the black bowl on the ramekin and place it on the plate": {
+      "action_entropy_kde": -6.552636836047712,
+      "mean_log_density": 6.552636836047712,
+      "std_log_density": 1.128745855861237,
+      "kde_bandwidth_factor": 0.47084398463890254,
+      "num_samples": 3966,
       "num_episodes": 20,
       "action_dim": 7
     }

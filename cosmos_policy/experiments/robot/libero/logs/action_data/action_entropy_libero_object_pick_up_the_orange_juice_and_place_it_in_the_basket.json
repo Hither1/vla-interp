@@ -1,0 +1,37 @@
+{
+  "task_id": 9,
+  "task_description": "pick up the orange juice and place it in the basket",
+  "prompt_mode": "random",
+  "seed": 195,
+  "num_trials": 20,
+  "num_successes": 15,
+  "action_entropy": {
+    "action_entropy_kde": -9.156657324878907,
+    "mean_log_density": 9.156657324878907,
+    "std_log_density": 1.4515037778713336,
+    "kde_bandwidth_factor": 0.4812405768048599,
+    "num_samples": 3119,
+    "num_episodes": 20,
+    "action_dim": 7
+  },
+  "action_entropy_by_prompt": {
+    "pick up the tomato sauce and place it in the basket": {
+      "action_entropy_kde": -9.16676565824964,
+      "mean_log_density": 9.16676565824964,
+      "std_log_density": 1.0814145293718036,
+      "kde_bandwidth_factor": 0.508023744477553,
+      "num_samples": 1719,
+      "num_episodes": 15,
+      "action_dim": 7
+    },
+    "pick up the ketchup and place it in the basket": {
+      "action_entropy_kde": -11.222730919720828,
+      "mean_log_density": 11.222730919720828,
+      "std_log_density": 1.7931597567289548,
+      "kde_bandwidth_factor": 0.5175929596595776,
+      "num_samples": 1400,
+      "num_episodes": 5,
+      "action_dim": 7
+    }
+  }
+}

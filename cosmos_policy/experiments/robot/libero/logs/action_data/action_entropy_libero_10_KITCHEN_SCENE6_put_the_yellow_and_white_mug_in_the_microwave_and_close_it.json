@@ -1,0 +1,37 @@
+{
+  "task_id": 9,
+  "task_description": "put the yellow and white mug in the microwave and close it",
+  "prompt_mode": "random",
+  "seed": 195,
+  "num_trials": 20,
+  "num_successes": 20,
+  "action_entropy": {
+    "action_entropy_kde": -7.42246932585995,
+    "mean_log_density": 7.42246932585995,
+    "std_log_density": 1.190936570276895,
+    "kde_bandwidth_factor": 0.4585401362337522,
+    "num_samples": 5307,
+    "num_episodes": 20,
+    "action_dim": 7
+  },
+  "action_entropy_by_prompt": {
+    "pick up the book and place it in the back compartment of the caddy": {
+      "action_entropy_kde": -7.458361567858906,
+      "mean_log_density": 7.458361567858906,
+      "std_log_density": 1.1752232832717497,
+      "kde_bandwidth_factor": 0.4605974342172888,
+      "num_samples": 5052,
+      "num_episodes": 19,
+      "action_dim": 7
+    },
+    "put the white mug on the left plate and put the yellow and white mug on the right plate": {
+      "action_entropy_kde": -7.1474639611488655,
+      "mean_log_density": 7.1474639611488655,
+      "std_log_density": 0.560440827409227,
+      "kde_bandwidth_factor": 0.6042596850090062,
+      "num_samples": 255,
+      "num_episodes": 1,
+      "action_dim": 7
+    }
+  }
+}

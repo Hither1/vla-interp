@@ -1,27 +1,36 @@
 {
   "task_id": 1,
   "task_description": "pick up the cream cheese and place it in the basket",
-  "prompt_mode": "synonym",
+  "prompt_mode": "random",
   "seed": 195,
   "num_trials": 20,
-  "num_successes": 20,
+  "num_successes": 2,
   "action_entropy": {
-    "action_entropy_kde": -8.111439322505936,
-    "mean_log_density": 8.111439322505936,
-    "std_log_density": 0.9495598819088577,
-    "kde_bandwidth_factor": 0.4906789636243058,
-    "num_samples": 2519,
+    "action_entropy_kde": -12.233937998408935,
+    "mean_log_density": 12.233937998408935,
+    "std_log_density": 2.731823286650393,
+    "kde_bandwidth_factor": 0.45846950827590005,
+    "num_samples": 5316,
     "num_episodes": 20,
     "action_dim": 7
   },
   "action_entropy_by_prompt": {
-    "grab up the cream cheese and place it in the basket": {
-      "action_entropy_kde": -8.111439322505936,
-      "mean_log_density": 8.111439322505936,
-      "std_log_density": 0.9495598819088577,
-      "kde_bandwidth_factor": 0.4906789636243058,
-      "num_samples": 2519,
-      "num_episodes": 20,
+    "pick up the butter and place it in the basket": {
+      "action_entropy_kde": -12.592936222921919,
+      "mean_log_density": 12.592936222921919,
+      "std_log_density": 2.7498137729693153,
+      "kde_bandwidth_factor": 0.4595106349743148,
+      "num_samples": 5185,
+      "num_episodes": 19,
+      "action_dim": 7
+    },
+    "pick up the tomato sauce and place it in the basket": {
+      "action_entropy_kde": -8.669542843507875,
+      "mean_log_density": 8.669542843507875,
+      "std_log_density": 0.5698104565670978,
+      "kde_bandwidth_factor": 0.64197895471024,
+      "num_samples": 131,
+      "num_episodes": 1,
       "action_dim": 7
     }
   }
