@@ -79,6 +79,10 @@ vla-interp/
 └── sae/                        # Sparse autoencoder utilities
 ```
 
+## Generalization Experiments
+
+Results tracking language, visual, and policy perturbation experiments across all LIBERO suites and all four models (pi0.5, OpenVLA, Cosmos, DP): [generalization.md](generalization.md)
+
 ## Analysis Tools
 
 ### Attention Visualization

@@ -93,6 +93,8 @@ fi
 # ── Task suite list ────────────────────────────────────────────────────────────
 if [[ "$TASK_SUITE" == "all" ]]; then
     SUITES=(libero_spatial libero_object libero_goal libero_10)
+elif [[ "$TASK_SUITE" == "90_all" ]]; then
+    SUITES=(libero_90_obj libero_90_spa libero_90_act libero_90_com)
 else
     SUITES=("${TASK_SUITE}")
 fi

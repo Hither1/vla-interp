@@ -217,6 +217,7 @@ def compute_replan_consistency(action_log, replan_steps):
 
 
 def compute_action_entropy_kde(action_log, action_dim=7):
+
     actions = np.array([entry["action"] for entry in action_log])[:, :action_dim]
     H, D = actions.shape
     if H < D + 1:
@@ -323,13 +324,18 @@ def _quat2axisangle(quat):
 #     }
 
 
-def build_obs_dict(obs, task_language):
+def build_obs_dict(obs, task_language, vis_cfg=None):
+    img = np.ascontiguousarray(obs["agentview_image"].copy())
+    wrist_img = np.ascontiguousarray(obs["robot0_eye_in_hand_image"].copy())
+    if vis_cfg is not None and vis_cfg.mode != "none":
+        img = perturb_image(img, vis_cfg)
+        wrist_img = perturb_image(wrist_img, vis_cfg)
     return {
-        "observation/image": obs["agentview_image"].copy(),
-        "observation/wrist_image": obs["robot0_eye_in_hand_image"].copy(),
+        "observation/image": img,
+        "observation/wrist_image": wrist_img,
         "observation/state": np.concatenate([
             obs["robot0_eef_pos"],
-            quat2axisangle(obs["robot0_eef_quat"]),
+            _quat2axisangle(obs["robot0_eef_quat"]),
             obs["robot0_gripper_qpos"],
         ]).astype(np.float32),
         "prompt": task_language,
@@ -411,7 +417,7 @@ def eval_libero(args: Args) -> None:
     for task_id in tqdm.tqdm(range(num_tasks), desc="Tasks"):
         task = task_suite.get_task(task_id)
         initial_states = task_suite.get_task_init_states(task_id)
-        env, task_description = _get_libero_env(task, LIBERO_ENV_RESOLUTION, args.seed)
+        task_description = task.language
 
         task_episodes, task_successes = 0, 0
 
@@ -421,6 +427,9 @@ def eval_libero(args: Args) -> None:
                 prompt = args.custom_prompt
             logging.info(f"\nTask: {task_description} | Prompt: {prompt}")
 
+            # Create a fresh env per episode so MuJoCo/EGL state never carries over
+            # from a mid-episode exception into the next reset (causes C-level SIGABRT).
+            env, _ = _get_libero_env(task, LIBERO_ENV_RESOLUTION, args.seed)
             env.reset()
             obs = env.set_init_state(initial_states[episode_idx])
             episode_object_shifts = apply_object_shift(env, policy_cfg, policy_rng)
@@ -443,7 +452,7 @@ def eval_libero(args: Args) -> None:
 
                     is_new_chunk = not action_plan
                     if is_new_chunk:
-                        obs_dict = _build_obs_dict(obs, prompt, vis_cfg=vis_cfg)
+                        obs_dict = build_obs_dict(obs, prompt, vis_cfg=vis_cfg)
                         result = model.infer(obs_dict)
                         action_chunk = result["actions"]  # (horizon, 7)
                         action_plan.extend(action_chunk[:args.replan_steps])
@@ -476,6 +485,8 @@ def eval_libero(args: Args) -> None:
                 except Exception as e:
                     logging.error(f"Caught exception at t={t}: {e}")
                     break
+
+            env.close()
 
             task_episodes += 1
             total_episodes += 1
@@ -544,7 +555,6 @@ def eval_libero(args: Args) -> None:
             )
 
         logging.info(f"Task {task_id} success rate: {task_successes / max(task_episodes, 1):.3f}")
-        env.close()
 
     logging.info(
         f"Total success rate: {total_successes / max(total_episodes, 1):.3f} "
