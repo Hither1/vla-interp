@@ -1,27 +1,36 @@
 {
   "task_id": 9,
   "task_description": "put the wine bottle on the rack",
-  "prompt_mode": "random",
+  "prompt_mode": "shuffle",
   "seed": 195,
   "num_trials": 20,
-  "num_successes": 0,
+  "num_successes": 18,
   "action_entropy": {
-    "action_entropy_kde": -12.546570671544856,
-    "mean_log_density": 12.546570671544856,
-    "std_log_density": 1.2238632630696604,
-    "kde_bandwidth_factor": 0.4534523996540197,
-    "num_samples": 6000,
+    "action_entropy_kde": -6.246999395156731,
+    "mean_log_density": 6.246999395156731,
+    "std_log_density": 0.9052541114225058,
+    "kde_bandwidth_factor": 0.4823210165086189,
+    "num_samples": 3043,
     "num_episodes": 20,
     "action_dim": 7
   },
   "action_entropy_by_prompt": {
-    "push the plate to the front of the stove": {
-      "action_entropy_kde": -12.546570671544856,
-      "mean_log_density": 12.546570671544856,
-      "std_log_density": 1.2238632630696604,
-      "kde_bandwidth_factor": 0.4534523996540197,
-      "num_samples": 6000,
-      "num_episodes": 20,
+    "rack wine the bottle put the on": {
+      "action_entropy_kde": -6.243524917967106,
+      "mean_log_density": 6.243524917967106,
+      "std_log_density": 0.9043811369843423,
+      "kde_bandwidth_factor": 0.4843602927635503,
+      "num_samples": 2905,
+      "num_episodes": 19,
+      "action_dim": 7
+    },
+    "wine the put rack bottle the on": {
+      "action_entropy_kde": -6.1599297858151045,
+      "mean_log_density": 6.1599297858151045,
+      "std_log_density": 0.37552351173977616,
+      "kde_bandwidth_factor": 0.6389480331432511,
+      "num_samples": 138,
+      "num_episodes": 1,
       "action_dim": 7
     }
   }

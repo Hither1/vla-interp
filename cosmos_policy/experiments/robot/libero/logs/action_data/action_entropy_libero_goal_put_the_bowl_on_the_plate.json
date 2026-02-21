@@ -1,26 +1,26 @@
 {
   "task_id": 8,
   "task_description": "put the bowl on the plate",
-  "prompt_mode": "random",
+  "prompt_mode": "shuffle",
   "seed": 195,
   "num_trials": 20,
-  "num_successes": 0,
+  "num_successes": 20,
   "action_entropy": {
-    "action_entropy_kde": -12.590805593780896,
-    "mean_log_density": 12.590805593780896,
-    "std_log_density": 1.1798299068334457,
-    "kde_bandwidth_factor": 0.4534523996540197,
-    "num_samples": 6000,
+    "action_entropy_kde": -7.86188143883182,
+    "mean_log_density": 7.86188143883182,
+    "std_log_density": 0.8723397308722062,
+    "kde_bandwidth_factor": 0.5020469131383216,
+    "num_samples": 1958,
     "num_episodes": 20,
     "action_dim": 7
   },
   "action_entropy_by_prompt": {
-    "push the plate to the front of the stove": {
-      "action_entropy_kde": -12.590805593780896,
-      "mean_log_density": 12.590805593780896,
-      "std_log_density": 1.1798299068334457,
-      "kde_bandwidth_factor": 0.4534523996540197,
-      "num_samples": 6000,
+    "plate bowl the on put the": {
+      "action_entropy_kde": -7.86188143883182,
+      "mean_log_density": 7.86188143883182,
+      "std_log_density": 0.8723397308722062,
+      "kde_bandwidth_factor": 0.5020469131383216,
+      "num_samples": 1958,
       "num_episodes": 20,
       "action_dim": 7
     }

@@ -1,26 +1,26 @@
 {
   "task_id": 6,
   "task_description": "put the cream cheese in the bowl",
-  "prompt_mode": "random",
+  "prompt_mode": "shuffle",
   "seed": 195,
   "num_trials": 20,
-  "num_successes": 0,
+  "num_successes": 9,
   "action_entropy": {
-    "action_entropy_kde": -12.588785637256413,
-    "mean_log_density": 12.588785637256413,
-    "std_log_density": 1.2522244983924438,
-    "kde_bandwidth_factor": 0.4534523996540197,
-    "num_samples": 6000,
+    "action_entropy_kde": -8.459079110245966,
+    "mean_log_density": 8.459079110245966,
+    "std_log_density": 1.5132327098322826,
+    "kde_bandwidth_factor": 0.46913344132504053,
+    "num_samples": 4128,
     "num_episodes": 20,
     "action_dim": 7
   },
   "action_entropy_by_prompt": {
-    "push the plate to the front of the stove": {
-      "action_entropy_kde": -12.588785637256413,
-      "mean_log_density": 12.588785637256413,
-      "std_log_density": 1.2522244983924438,
-      "kde_bandwidth_factor": 0.4534523996540197,
-      "num_samples": 6000,
+    "bowl cream the cheese put the in": {
+      "action_entropy_kde": -8.459079110245966,
+      "mean_log_density": 8.459079110245966,
+      "std_log_density": 1.5132327098322826,
+      "kde_bandwidth_factor": 0.46913344132504053,
+      "num_samples": 4128,
       "num_episodes": 20,
       "action_dim": 7
     }

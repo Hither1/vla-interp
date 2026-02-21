@@ -1,36 +1,27 @@
 {
   "task_id": 0,
   "task_description": "put both the alphabet soup and the tomato sauce in the basket",
-  "prompt_mode": "random",
+  "prompt_mode": "shuffle",
   "seed": 195,
   "num_trials": 20,
-  "num_successes": 20,
+  "num_successes": 19,
   "action_entropy": {
-    "action_entropy_kde": -9.600460584405031,
-    "mean_log_density": 9.600460584405031,
-    "std_log_density": 1.0468930901117812,
-    "kde_bandwidth_factor": 0.45900640215635163,
-    "num_samples": 5248,
+    "action_entropy_kde": -8.643802335055003,
+    "mean_log_density": 8.643802335055003,
+    "std_log_density": 1.0438845176673046,
+    "kde_bandwidth_factor": 0.45703838244443096,
+    "num_samples": 5502,
     "num_episodes": 20,
     "action_dim": 7
   },
   "action_entropy_by_prompt": {
-    "put the white mug on the plate and put the chocolate pudding to the right of the plate": {
-      "action_entropy_kde": -9.6995389051538,
-      "mean_log_density": 9.6995389051538,
-      "std_log_density": 0.9044783347377061,
-      "kde_bandwidth_factor": 0.4695489010478171,
-      "num_samples": 4088,
-      "num_episodes": 16,
-      "action_dim": 7
-    },
-    "pick up the book and place it in the back compartment of the caddy": {
-      "action_entropy_kde": -9.569273969957074,
-      "mean_log_density": 9.569273969957074,
-      "std_log_density": 1.1029587039822615,
-      "kde_bandwidth_factor": 0.5265176206889621,
-      "num_samples": 1160,
-      "num_episodes": 4,
+    "the basket soup the the sauce both tomato in alphabet put and": {
+      "action_entropy_kde": -8.643802335055003,
+      "mean_log_density": 8.643802335055003,
+      "std_log_density": 1.0438845176673046,
+      "kde_bandwidth_factor": 0.45703838244443096,
+      "num_samples": 5502,
+      "num_episodes": 20,
       "action_dim": 7
     }
   }

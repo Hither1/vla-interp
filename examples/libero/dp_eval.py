@@ -42,6 +42,8 @@ import tqdm
 import tyro
 
 from dp_scratch.model import DiffusionPolicy
+from policy_perturbations import PolicyPerturbConfig, apply_object_shift, maybe_perturb_action
+from visual_perturbations import VisualPerturbConfig, perturb_image
 
 
 LIBERO_DUMMY_ACTION = [0.0] * 6 + [-1.0]
@@ -260,6 +262,30 @@ class Args:
     prompt_mode: str = "original"
     custom_prompt: str = ""
 
+    # ── Visual perturbation ──────────────────────────────────────────────
+    visual_perturb_mode: str = "none"
+    """Image-level perturbation mode: none | rotate | translate | rotate_translate."""
+    rotation_degrees: float = 30.0
+    """Rotation angle in degrees (CCW). Used with rotate / rotate_translate modes."""
+    translate_x_frac: float = 0.2
+    """Horizontal shift as fraction of image width (positive = right).
+    Used with translate / rotate_translate modes."""
+    translate_y_frac: float = 0.0
+    """Vertical shift as fraction of image height (positive = down).
+    Used with translate / rotate_translate modes."""
+
+    # ── Policy perturbation ───────────────────────────────────────────────────────────────────
+    policy_perturb_mode: str = "none"
+    """Policy-level perturbation mode: none | random_action | object_shift."""
+    random_action_prob: float = 0.25
+    """Probability of replacing policy action with random noise per step."""
+    random_action_scale: float = 1.0
+    """Scale of uniform random action noise: Uniform(-scale, scale)."""
+    object_shift_x_std: float = 0.05
+    """Std (metres) of Gaussian object shift along x-axis at episode start."""
+    object_shift_y_std: float = 0.0
+    """Std (metres) of Gaussian object shift along y-axis at episode start."""
+
 
 def _json_default(o):
     if isinstance(o, np.generic):
@@ -273,21 +299,40 @@ def _quat2axisangle(quat):
     return Rotation.from_quat(quat).as_rotvec().astype(np.float32)
 
 
-def _build_obs_dict(obs, prompt: str) -> dict:
-    """Convert raw LIBERO env observation to DiffusionPolicy input dict.
+# def _build_obs_dict(obs, prompt: str, vis_cfg: VisualPerturbConfig | None = None) -> dict:
+#     """Convert raw LIBERO env observation to DiffusionPolicy input dict.
 
-    Images are flipped 180° (both axes) to correct the upside-down
-    rendering from OffScreenRenderEnv — matching dp_scratch/eval.py.
-    """
+#     Images are flipped 180° (both axes) to correct the upside-down
+#     rendering from OffScreenRenderEnv — matching dp_scratch/eval.py.
+#     An optional visual perturbation is applied after the flip correction.
+#     """
+#     img = np.ascontiguousarray(obs["agentview_image"][::-1, ::-1])
+#     wrist_img = np.ascontiguousarray(obs["robot0_eye_in_hand_image"][::-1, ::-1])
+#     if vis_cfg is not None:
+#         img = perturb_image(img, vis_cfg)
+#         wrist_img = perturb_image(wrist_img, vis_cfg)
+#     return {
+#         "observation/image": img,
+#         "observation/wrist_image": wrist_img,
+#         "observation/state": np.concatenate([
+#             obs["robot0_eef_pos"],
+#             _quat2axisangle(obs["robot0_eef_quat"]),
+#             obs["robot0_gripper_qpos"],
+#         ]).astype(np.float32),
+#         "prompt": prompt,
+#     }
+
+
+def build_obs_dict(obs, task_language):
     return {
-        "observation/image": obs["agentview_image"][::-1, ::-1].copy(),
-        "observation/wrist_image": obs["robot0_eye_in_hand_image"][::-1, ::-1].copy(),
+        "observation/image": obs["agentview_image"].copy(),
+        "observation/wrist_image": obs["robot0_eye_in_hand_image"].copy(),
         "observation/state": np.concatenate([
             obs["robot0_eef_pos"],
-            _quat2axisangle(obs["robot0_eef_quat"]),
+            quat2axisangle(obs["robot0_eef_quat"]),
             obs["robot0_gripper_qpos"],
         ]).astype(np.float32),
-        "prompt": prompt,
+        "prompt": task_language,
     }
 
 
@@ -312,6 +357,24 @@ def eval_libero(args: Args) -> None:
 
     np.random.seed(args.seed)
     device = torch.device(args.device)
+
+    vis_cfg = VisualPerturbConfig(
+        mode=args.visual_perturb_mode,
+        rotation_degrees=args.rotation_degrees,
+        translate_x_frac=args.translate_x_frac,
+        translate_y_frac=args.translate_y_frac,
+    )
+    logging.info(f"Visual perturbation: {vis_cfg.as_dict()}")
+
+    policy_cfg = PolicyPerturbConfig(
+        mode=args.policy_perturb_mode,
+        random_action_prob=args.random_action_prob,
+        random_action_scale=args.random_action_scale,
+        object_shift_x_std=args.object_shift_x_std,
+        object_shift_y_std=args.object_shift_y_std,
+    )
+    policy_rng = np.random.default_rng(args.seed + 9999)
+    logging.info(f"Policy perturbation: {policy_cfg.as_dict()}")
 
     # ── Load DP model ────────────────────────────────────────────────────
     logging.info(f"Loading checkpoint: {args.ckpt}")
@@ -360,6 +423,7 @@ def eval_libero(args: Args) -> None:
 
             env.reset()
             obs = env.set_init_state(initial_states[episode_idx])
+            episode_object_shifts = apply_object_shift(env, policy_cfg, policy_rng)
 
             action_plan = collections.deque()
             action_log = []
@@ -379,22 +443,26 @@ def eval_libero(args: Args) -> None:
 
                     is_new_chunk = not action_plan
                     if is_new_chunk:
-                        obs_dict = _build_obs_dict(obs, prompt)
+                        obs_dict = _build_obs_dict(obs, prompt, vis_cfg=vis_cfg)
                         result = model.infer(obs_dict)
                         action_chunk = result["actions"]  # (horizon, 7)
                         action_plan.extend(action_chunk[:args.replan_steps])
 
-                    action = action_plan.popleft()
+                    policy_action = action_plan.popleft()
+                    action, action_was_perturbed = maybe_perturb_action(policy_action, policy_cfg, policy_rng)
                     obs, reward, done, info = env.step(action.tolist())
 
                     log_entry = {
                         "t": t,
-                        "kind": "policy",
+                        "kind": "random" if action_was_perturbed else "policy",
                         "action": np.asarray(action, dtype=np.float32).tolist(),
+                        "action_perturbed": bool(action_was_perturbed),
                         "reward": float(reward),
                         "done": bool(done),
                         "is_chunk_start": is_new_chunk,
                     }
+                    if action_was_perturbed:
+                        log_entry["policy_action"] = np.asarray(policy_action, dtype=np.float32).tolist()
                     if is_new_chunk:
                         log_entry["full_action_chunk"] = np.asarray(action_chunk, dtype=np.float32).tolist()
                     action_log.append(log_entry)
@@ -456,6 +524,9 @@ def eval_libero(args: Args) -> None:
                         "success": bool(done),
                         "model": "dp",
                         "replan_steps": args.replan_steps,
+                        "visual_perturbation": vis_cfg.as_dict(),
+                        "policy_perturbation": policy_cfg.as_dict(),
+                        "object_shifts": episode_object_shifts,
                         "actions": action_log,
                         "smoothness": smoothness_summary,
                         "replan_consistency": replan_summary,

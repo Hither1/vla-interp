@@ -32,6 +32,8 @@ from libero.libero.envs import OffScreenRenderEnv
 from openpi_client import image_tools
 from openpi_client import websocket_client_policy as _websocket_client_policy
 from scipy.stats import gaussian_kde
+from policy_perturbations import PolicyPerturbConfig, apply_object_shift, maybe_perturb_action
+from visual_perturbations import VisualPerturbConfig, perturb_image
 
 
 LIBERO_DUMMY_ACTION = [0.0] * 6 + [-1.0]
@@ -74,6 +76,30 @@ class Args:
 
     # Action entropy options
     entropy_action_dim: int = 7  # LIBERO action dims (x,y,z,rx,ry,rz,gripper)
+
+    # ── Visual perturbation ──────────────────────────────────────────────
+    visual_perturb_mode: str = "none"
+    """Image-level perturbation mode: none | rotate | translate | rotate_translate."""
+    rotation_degrees: float = 30.0
+    """Rotation angle in degrees (CCW). Used with rotate / rotate_translate modes."""
+    translate_x_frac: float = 0.2
+    """Horizontal shift as fraction of image width (positive = right).
+    Used with translate / rotate_translate modes."""
+    translate_y_frac: float = 0.0
+    """Vertical shift as fraction of image height (positive = down).
+    Used with translate / rotate_translate modes."""
+
+    # ── Policy perturbation ───────────────────────────────────────────────────────────────────
+    policy_perturb_mode: str = "none"
+    """Policy-level perturbation mode: none | random_action | object_shift."""
+    random_action_prob: float = 0.25
+    """Probability of replacing policy action with random noise per step."""
+    random_action_scale: float = 1.0
+    """Scale of uniform random action noise: Uniform(-scale, scale)."""
+    object_shift_x_std: float = 0.05
+    """Std (metres) of Gaussian object shift along x-axis at episode start."""
+    object_shift_y_std: float = 0.0
+    """Std (metres) of Gaussian object shift along y-axis at episode start."""
 
 
 # Synonym mappings for common LIBERO action verbs
@@ -403,6 +429,24 @@ def _get_max_steps(task_suite_name: str) -> int:
 def eval_libero(args: Args) -> None:
     np.random.seed(args.seed)
 
+    vis_cfg = VisualPerturbConfig(
+        mode=args.visual_perturb_mode,
+        rotation_degrees=args.rotation_degrees,
+        translate_x_frac=args.translate_x_frac,
+        translate_y_frac=args.translate_y_frac,
+    )
+    logging.info(f"Visual perturbation: {vis_cfg.as_dict()}")
+
+    policy_cfg = PolicyPerturbConfig(
+        mode=args.policy_perturb_mode,
+        random_action_prob=args.random_action_prob,
+        random_action_scale=args.random_action_scale,
+        object_shift_x_std=args.object_shift_x_std,
+        object_shift_y_std=args.object_shift_y_std,
+    )
+    policy_rng = np.random.default_rng(args.seed + 9999)
+    logging.info(f"Policy perturbation: {policy_cfg.as_dict()}")
+
     benchmark_dict = benchmark.get_benchmark_dict()
     task_suite = benchmark_dict[args.task_suite_name]()
     num_tasks_in_suite = task_suite.n_tasks
@@ -449,6 +493,7 @@ def eval_libero(args: Args) -> None:
             action_log: list[dict] = []
 
             obs = env.set_init_state(initial_states[episode_idx])
+            episode_object_shifts = apply_object_shift(env, policy_cfg, policy_rng)
 
             # Freeze the prompt ONCE per episode (so group entropy is well-defined).
             if args.prompt_mode == "custom":
@@ -482,6 +527,10 @@ def eval_libero(args: Args) -> None:
                     # rotate 180 degrees to match train preprocessing
                     img = np.ascontiguousarray(obs["agentview_image"][::-1, ::-1])
                     wrist_img = np.ascontiguousarray(obs["robot0_eye_in_hand_image"][::-1, ::-1])
+
+                    # Apply visual perturbation (on full-res image before resize)
+                    img = perturb_image(img, vis_cfg)
+                    wrist_img = perturb_image(wrist_img, vis_cfg)
 
                     img = image_tools.convert_to_uint8(image_tools.resize_with_pad(img, args.resize_size, args.resize_size))
                     wrist_img = image_tools.convert_to_uint8(
@@ -526,17 +575,21 @@ def eval_libero(args: Args) -> None:
                             )
                         action_plan.extend(action_chunk[: args.replan_steps])
 
-                    action = action_plan.popleft()
+                    policy_action = action_plan.popleft()
+                    action, action_was_perturbed = maybe_perturb_action(policy_action, policy_cfg, policy_rng)
                     obs, reward, done, info = env.step(action.tolist())
 
                     log_entry = {
                         "t": int(t),
-                        "kind": "policy",
+                        "kind": "random" if action_was_perturbed else "policy",
                         "action": np.asarray(action, dtype=np.float32).tolist(),
+                        "action_perturbed": bool(action_was_perturbed),
                         "reward": float(reward),
                         "done": bool(done),
                         "is_chunk_start": bool(is_new_chunk),
                     }
+                    if action_was_perturbed:
+                        log_entry["policy_action"] = np.asarray(policy_action, dtype=np.float32).tolist()
 
                     if is_new_chunk:
                         log_entry["full_action_chunk"] = np.asarray(action_chunk, dtype=np.float32).tolist()
@@ -628,6 +681,9 @@ def eval_libero(args: Args) -> None:
                         "prompt_used": str(episode_prompt),
                         "custom_prompt": str(args.custom_prompt) if args.prompt_mode == "custom" else "",
                         "success": bool(done),
+                        "visual_perturbation": vis_cfg.as_dict(),
+                        "policy_perturbation": policy_cfg.as_dict(),
+                        "object_shifts": episode_object_shifts,
                         "actions": action_log,
                         "smoothness": smoothness_summary,
                         "mmd": mmd_summary,

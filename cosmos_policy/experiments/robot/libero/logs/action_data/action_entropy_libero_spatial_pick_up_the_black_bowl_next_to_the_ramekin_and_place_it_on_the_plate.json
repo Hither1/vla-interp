@@ -1,27 +1,36 @@
 {
   "task_id": 1,
   "task_description": "pick up the black bowl next to the ramekin and place it on the plate",
-  "prompt_mode": "random",
+  "prompt_mode": "shuffle",
   "seed": 195,
   "num_trials": 20,
-  "num_successes": 0,
+  "num_successes": 12,
   "action_entropy": {
-    "action_entropy_kde": -9.062699993705703,
-    "mean_log_density": 9.062699993705703,
-    "std_log_density": 1.8405397626118227,
-    "kde_bandwidth_factor": 0.4664198547949176,
-    "num_samples": 4400,
+    "action_entropy_kde": -7.076410882451601,
+    "mean_log_density": 7.076410882451601,
+    "std_log_density": 0.9784336644018533,
+    "kde_bandwidth_factor": 0.4807526254319879,
+    "num_samples": 3154,
     "num_episodes": 20,
     "action_dim": 7
   },
   "action_entropy_by_prompt": {
-    "pick up the black bowl next to the cookie box and place it on the plate": {
-      "action_entropy_kde": -9.062699993705703,
-      "mean_log_density": 9.062699993705703,
-      "std_log_density": 1.8405397626118227,
-      "kde_bandwidth_factor": 0.4664198547949176,
-      "num_samples": 4400,
-      "num_episodes": 20,
+    "up to ramekin and plate bowl the the place the it black pick next on": {
+      "action_entropy_kde": -7.075483728356399,
+      "mean_log_density": 7.075483728356399,
+      "std_log_density": 0.943294218987433,
+      "kde_bandwidth_factor": 0.48369881194059355,
+      "num_samples": 2949,
+      "num_episodes": 18,
+      "action_dim": 7
+    },
+    "ramekin next place the on pick up plate the the it black to and bowl": {
+      "action_entropy_kde": -7.953737582133079,
+      "mean_log_density": 7.953737582133079,
+      "std_log_density": 0.7896814625276483,
+      "kde_bandwidth_factor": 0.6163686737655534,
+      "num_samples": 205,
+      "num_episodes": 2,
       "action_dim": 7
     }
   }

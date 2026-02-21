@@ -1,27 +1,36 @@
 {
   "task_id": 4,
   "task_description": "pick up the black bowl in the top drawer of the wooden cabinet and place it on the plate",
-  "prompt_mode": "random",
+  "prompt_mode": "shuffle",
   "seed": 195,
   "num_trials": 20,
-  "num_successes": 3,
+  "num_successes": 18,
   "action_entropy": {
-    "action_entropy_kde": -7.389018881105316,
-    "mean_log_density": 7.389018881105316,
-    "std_log_density": 0.9313533774453413,
-    "kde_bandwidth_factor": 0.46936139785988923,
-    "num_samples": 4106,
+    "action_entropy_kde": -7.1041766187270765,
+    "mean_log_density": 7.1041766187270765,
+    "std_log_density": 0.9809134823867097,
+    "kde_bandwidth_factor": 0.48833899690141064,
+    "num_samples": 2655,
     "num_episodes": 20,
     "action_dim": 7
   },
   "action_entropy_by_prompt": {
-    "pick up the black bowl next to the cookie box and place it on the plate": {
-      "action_entropy_kde": -7.389018881105316,
-      "mean_log_density": 7.389018881105316,
-      "std_log_density": 0.9313533774453413,
-      "kde_bandwidth_factor": 0.46936139785988923,
-      "num_samples": 4106,
-      "num_episodes": 20,
+    "the up drawer plate place on the bowl the in and of top the wooden black pick it cabinet": {
+      "action_entropy_kde": -7.124868630756721,
+      "mean_log_density": 7.124868630756721,
+      "std_log_density": 0.9724135697202113,
+      "kde_bandwidth_factor": 0.49032632321402625,
+      "num_samples": 2539,
+      "num_episodes": 19,
+      "action_dim": 7
+    },
+    "up the in plate pick the the the wooden drawer and of cabinet place top on black bowl it": {
+      "action_entropy_kde": -7.8199774788140815,
+      "mean_log_density": 7.8199774788140815,
+      "std_log_density": 0.417754964207847,
+      "kde_bandwidth_factor": 0.6491155319251816,
+      "num_samples": 116,
+      "num_episodes": 1,
       "action_dim": 7
     }
   }

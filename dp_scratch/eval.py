@@ -26,11 +26,24 @@ def quat2axisangle(quat):
     return Rotation.from_quat(quat).as_rotvec().astype(np.float32)
 
 
+# def build_obs_dict(obs, task_language):
+#     """Convert raw LIBERO env observation to policy input dict."""
+#     return {
+#         "observation/image": obs["agentview_image"][::-1, ::-1].copy(),
+#         "observation/wrist_image": obs["robot0_eye_in_hand_image"][::-1, ::-1].copy(),
+#         "observation/state": np.concatenate([
+#             obs["robot0_eef_pos"],
+#             quat2axisangle(obs["robot0_eef_quat"]),
+#             obs["robot0_gripper_qpos"],
+#         ]).astype(np.float32),
+#         "prompt": task_language,
+#     }
+
+
 def build_obs_dict(obs, task_language):
-    """Convert raw LIBERO env observation to policy input dict."""
     return {
-        "observation/image": obs["agentview_image"][::-1, ::-1].copy(),
-        "observation/wrist_image": obs["robot0_eye_in_hand_image"][::-1, ::-1].copy(),
+        "observation/image": obs["agentview_image"].copy(),
+        "observation/wrist_image": obs["robot0_eye_in_hand_image"].copy(),
         "observation/state": np.concatenate([
             obs["robot0_eef_pos"],
             quat2axisangle(obs["robot0_eef_quat"]),
@@ -38,7 +51,6 @@ def build_obs_dict(obs, task_language):
         ]).astype(np.float32),
         "prompt": task_language,
     }
-
 
 def evaluate_task(model, env, init_states, task_language, n_episodes, max_steps, replan_steps=8):
     """Run episodes for a single task and return per-episode success."""

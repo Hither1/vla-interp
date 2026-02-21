@@ -1,27 +1,36 @@
 {
   "task_id": 9,
   "task_description": "pick up the black bowl on the wooden cabinet and place it on the plate",
-  "prompt_mode": "random",
+  "prompt_mode": "shuffle",
   "seed": 195,
   "num_trials": 20,
-  "num_successes": 0,
+  "num_successes": 14,
   "action_entropy": {
-    "action_entropy_kde": -7.219991075658147,
-    "mean_log_density": 7.219991075658147,
-    "std_log_density": 1.1939480334651504,
-    "kde_bandwidth_factor": 0.4664198547949176,
-    "num_samples": 4400,
+    "action_entropy_kde": -7.11175047983004,
+    "mean_log_density": 7.11175047983004,
+    "std_log_density": 0.9194516484631282,
+    "kde_bandwidth_factor": 0.483683903670705,
+    "num_samples": 2950,
     "num_episodes": 20,
     "action_dim": 7
   },
   "action_entropy_by_prompt": {
-    "pick up the black bowl on the ramekin and place it on the plate": {
-      "action_entropy_kde": -7.219991075658147,
-      "mean_log_density": 7.219991075658147,
-      "std_log_density": 1.1939480334651504,
-      "kde_bandwidth_factor": 0.4664198547949176,
-      "num_samples": 4400,
-      "num_episodes": 20,
+    "up the cabinet and plate bowl the the place wooden it black pick on on": {
+      "action_entropy_kde": -7.108204042054496,
+      "mean_log_density": 7.108204042054496,
+      "std_log_density": 0.9016077272837666,
+      "kde_bandwidth_factor": 0.489098484925651,
+      "num_samples": 2610,
+      "num_episodes": 18,
+      "action_dim": 7
+    },
+    "cabinet on place the on pick up plate the wooden it black the and bowl": {
+      "action_entropy_kde": -7.491189829072276,
+      "mean_log_density": 7.491189829072276,
+      "std_log_density": 0.5509255826159899,
+      "kde_bandwidth_factor": 0.5886613919019368,
+      "num_samples": 340,
+      "num_episodes": 2,
       "action_dim": 7
     }
   }

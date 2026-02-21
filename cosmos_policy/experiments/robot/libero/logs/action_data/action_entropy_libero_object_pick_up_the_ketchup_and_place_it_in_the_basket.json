@@ -1,27 +1,36 @@
 {
   "task_id": 4,
   "task_description": "pick up the ketchup and place it in the basket",
-  "prompt_mode": "random",
+  "prompt_mode": "shuffle",
   "seed": 195,
   "num_trials": 20,
-  "num_successes": 14,
+  "num_successes": 18,
   "action_entropy": {
-    "action_entropy_kde": -8.829373599214499,
-    "mean_log_density": 8.829373599214499,
-    "std_log_density": 1.2529433399784877,
-    "kde_bandwidth_factor": 0.4654867491977182,
-    "num_samples": 4498,
+    "action_entropy_kde": -9.09103956478839,
+    "mean_log_density": 9.09103956478839,
+    "std_log_density": 1.1382180540793554,
+    "kde_bandwidth_factor": 0.4820481690185708,
+    "num_samples": 3062,
     "num_episodes": 20,
     "action_dim": 7
   },
   "action_entropy_by_prompt": {
-    "pick up the butter and place it in the basket": {
-      "action_entropy_kde": -8.829373599214499,
-      "mean_log_density": 8.829373599214499,
-      "std_log_density": 1.2529433399784877,
-      "kde_bandwidth_factor": 0.4654867491977182,
-      "num_samples": 4498,
-      "num_episodes": 20,
+    "the the and basket up it in ketchup pick place": {
+      "action_entropy_kde": -9.252238651659153,
+      "mean_log_density": 9.252238651659153,
+      "std_log_density": 1.100356227430867,
+      "kde_bandwidth_factor": 0.49087422018636573,
+      "num_samples": 2508,
+      "num_episodes": 17,
+      "action_dim": 7
+    },
+    "the place pick the up basket in ketchup it and": {
+      "action_entropy_kde": -8.839084563432403,
+      "mean_log_density": 8.839084563432403,
+      "std_log_density": 0.9185443222869246,
+      "kde_bandwidth_factor": 0.5631058269474798,
+      "num_samples": 554,
+      "num_episodes": 3,
       "action_dim": 7
     }
   }

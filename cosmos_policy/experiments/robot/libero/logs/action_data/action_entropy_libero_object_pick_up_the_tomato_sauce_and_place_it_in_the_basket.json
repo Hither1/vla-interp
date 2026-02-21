@@ -1,27 +1,36 @@
 {
   "task_id": 5,
   "task_description": "pick up the tomato sauce and place it in the basket",
-  "prompt_mode": "random",
+  "prompt_mode": "shuffle",
   "seed": 195,
   "num_trials": 20,
-  "num_successes": 0,
+  "num_successes": 20,
   "action_entropy": {
-    "action_entropy_kde": -9.521992406072103,
-    "mean_log_density": 9.521992406072103,
-    "std_log_density": 1.2052649057658043,
-    "kde_bandwidth_factor": 0.456305426883392,
-    "num_samples": 5600,
+    "action_entropy_kde": -8.176445278293487,
+    "mean_log_density": 8.176445278293487,
+    "std_log_density": 1.2145220321355747,
+    "kde_bandwidth_factor": 0.4903614506523884,
+    "num_samples": 2537,
     "num_episodes": 20,
     "action_dim": 7
   },
   "action_entropy_by_prompt": {
-    "pick up the butter and place it in the basket": {
-      "action_entropy_kde": -9.521992406072103,
-      "mean_log_density": 9.521992406072103,
-      "std_log_density": 1.2052649057658043,
-      "kde_bandwidth_factor": 0.456305426883392,
-      "num_samples": 5600,
-      "num_episodes": 20,
+    "sauce the the basket place up it in tomato pick and": {
+      "action_entropy_kde": -8.1846419548866,
+      "mean_log_density": 8.1846419548866,
+      "std_log_density": 1.2019672427313495,
+      "kde_bandwidth_factor": 0.49271193539766034,
+      "num_samples": 2407,
+      "num_episodes": 19,
+      "action_dim": 7
+    },
+    "in and pick the up basket it tomato place the sauce": {
+      "action_entropy_kde": -8.245449521456583,
+      "mean_log_density": 8.245449521456583,
+      "std_log_density": 0.5587748664921938,
+      "kde_bandwidth_factor": 0.6424263289759036,
+      "num_samples": 130,
+      "num_episodes": 1,
       "action_dim": 7
     }
   }

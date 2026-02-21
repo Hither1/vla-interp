@@ -1,27 +1,36 @@
 {
   "task_id": 6,
   "task_description": "put the white mug on the plate and put the chocolate pudding to the right of the plate",
-  "prompt_mode": "random",
+  "prompt_mode": "shuffle",
   "seed": 195,
   "num_trials": 20,
-  "num_successes": 14,
+  "num_successes": 18,
   "action_entropy": {
-    "action_entropy_kde": -9.18251439335703,
-    "mean_log_density": 9.18251439335703,
-    "std_log_density": 1.0197379420936654,
-    "kde_bandwidth_factor": 0.4488410872754217,
-    "num_samples": 6714,
+    "action_entropy_kde": -8.606832099494591,
+    "mean_log_density": 8.606832099494591,
+    "std_log_density": 0.9847713236259442,
+    "kde_bandwidth_factor": 0.4610895845797195,
+    "num_samples": 4993,
     "num_episodes": 20,
     "action_dim": 7
   },
   "action_entropy_by_prompt": {
-    "pick up the book and place it in the back compartment of the caddy": {
-      "action_entropy_kde": -9.18251439335703,
-      "mean_log_density": 9.18251439335703,
-      "std_log_density": 1.0197379420936654,
-      "kde_bandwidth_factor": 0.4488410872754217,
-      "num_samples": 6714,
-      "num_episodes": 20,
+    "the plate put chocolate right on white the plate the and the pudding mug put the of to": {
+      "action_entropy_kde": -8.4655116884655,
+      "mean_log_density": 8.4655116884655,
+      "std_log_density": 0.8512780832997415,
+      "kde_bandwidth_factor": 0.467623611633009,
+      "num_samples": 4277,
+      "num_episodes": 18,
+      "action_dim": 7
+    },
+    "right to the put the white the put chocolate plate pudding and the mug plate the on of": {
+      "action_entropy_kde": -9.608662031833441,
+      "mean_log_density": 9.608662031833441,
+      "std_log_density": 1.2836111767079705,
+      "kde_bandwidth_factor": 0.5501263565798684,
+      "num_samples": 716,
+      "num_episodes": 2,
       "action_dim": 7
     }
   }

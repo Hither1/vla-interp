@@ -1,27 +1,36 @@
 {
   "task_id": 2,
   "task_description": "pick up the black bowl from table center and place it on the plate",
-  "prompt_mode": "random",
+  "prompt_mode": "shuffle",
   "seed": 195,
   "num_trials": 20,
-  "num_successes": 2,
+  "num_successes": 20,
   "action_entropy": {
-    "action_entropy_kde": -8.316905486877637,
-    "mean_log_density": 8.316905486877637,
-    "std_log_density": 1.1743480689591024,
-    "kde_bandwidth_factor": 0.4688144694442018,
-    "num_samples": 4159,
+    "action_entropy_kde": -8.724641623784029,
+    "mean_log_density": 8.724641623784029,
+    "std_log_density": 0.8162205684256008,
+    "kde_bandwidth_factor": 0.504866934679462,
+    "num_samples": 1841,
     "num_episodes": 20,
     "action_dim": 7
   },
   "action_entropy_by_prompt": {
-    "pick up the black bowl next to the cookie box and place it on the plate": {
-      "action_entropy_kde": -8.316905486877637,
-      "mean_log_density": 8.316905486877637,
-      "std_log_density": 1.1743480689591024,
-      "kde_bandwidth_factor": 0.4688144694442018,
-      "num_samples": 4159,
-      "num_episodes": 20,
+    "and table bowl on the plate place up center it black pick from the": {
+      "action_entropy_kde": -8.73436330006925,
+      "mean_log_density": 8.73436330006925,
+      "std_log_density": 0.8090839100345485,
+      "kde_bandwidth_factor": 0.5073044892607544,
+      "num_samples": 1746,
+      "num_episodes": 19,
+      "action_dim": 7
+    },
+    "the on the from pick up plate and center it black table place bowl": {
+      "action_entropy_kde": -10.074121923856445,
+      "mean_log_density": 10.074121923856445,
+      "std_log_density": 0.39587253987672616,
+      "kde_bandwidth_factor": 0.6610083490135954,
+      "num_samples": 95,
+      "num_episodes": 1,
       "action_dim": 7
     }
   }

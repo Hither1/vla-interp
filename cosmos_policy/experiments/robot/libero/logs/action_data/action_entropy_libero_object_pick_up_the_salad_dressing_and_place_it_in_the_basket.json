@@ -1,27 +1,36 @@
 {
   "task_id": 2,
   "task_description": "pick up the salad dressing and place it in the basket",
-  "prompt_mode": "random",
+  "prompt_mode": "shuffle",
   "seed": 195,
   "num_trials": 20,
-  "num_successes": 0,
+  "num_successes": 18,
   "action_entropy": {
-    "action_entropy_kde": -9.636867134836463,
-    "mean_log_density": 9.636867134836463,
-    "std_log_density": 1.9333098090910432,
-    "kde_bandwidth_factor": 0.456305426883392,
-    "num_samples": 5600,
+    "action_entropy_kde": -9.145729418648422,
+    "mean_log_density": 9.145729418648422,
+    "std_log_density": 1.1991434703432555,
+    "kde_bandwidth_factor": 0.4887254099204998,
+    "num_samples": 2632,
     "num_episodes": 20,
     "action_dim": 7
   },
   "action_entropy_by_prompt": {
-    "pick up the butter and place it in the basket": {
-      "action_entropy_kde": -9.636867134836463,
-      "mean_log_density": 9.636867134836463,
-      "std_log_density": 1.9333098090910432,
-      "kde_bandwidth_factor": 0.456305426883392,
-      "num_samples": 5600,
-      "num_episodes": 20,
+    "dressing the the basket place up it in salad pick and": {
+      "action_entropy_kde": -9.123221194639592,
+      "mean_log_density": 9.123221194639592,
+      "std_log_density": 1.1947462443854466,
+      "kde_bandwidth_factor": 0.4929920241878678,
+      "num_samples": 2392,
+      "num_episodes": 18,
+      "action_dim": 7
+    },
+    "in and pick the up basket it salad place the dressing": {
+      "action_entropy_kde": -9.244600297167795,
+      "mean_log_density": 9.244600297167795,
+      "std_log_density": 0.7109757270631096,
+      "kde_bandwidth_factor": 0.607599153090355,
+      "num_samples": 240,
+      "num_episodes": 2,
       "action_dim": 7
     }
   }

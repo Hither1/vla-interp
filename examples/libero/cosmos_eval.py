@@ -105,6 +105,8 @@ from cosmos_policy.experiments.robot.cosmos_utils import (
 
 from libero.libero import benchmark, get_libero_path
 from libero.libero.envs import OffScreenRenderEnv
+from policy_perturbations import PolicyPerturbConfig, apply_object_shift, maybe_perturb_action
+from visual_perturbations import VisualPerturbConfig, perturb_image
 
 
 LIBERO_DUMMY_ACTION = [0.0] * 6 + [-1.0]
@@ -336,6 +338,30 @@ class Args:
     prompt_mode: str = "original"
     custom_prompt: str = ""
 
+    # ── Visual perturbation ──────────────────────────────────────────────
+    visual_perturb_mode: str = "none"
+    """Image-level perturbation mode: none | rotate | translate | rotate_translate."""
+    rotation_degrees: float = 30.0
+    """Rotation angle in degrees (CCW). Used with rotate / rotate_translate modes."""
+    translate_x_frac: float = 0.2
+    """Horizontal shift as fraction of image width (positive = right).
+    Used with translate / rotate_translate modes."""
+    translate_y_frac: float = 0.0
+    """Vertical shift as fraction of image height (positive = down).
+    Used with translate / rotate_translate modes."""
+
+    # ── Policy perturbation ───────────────────────────────────────────────────────────────────
+    policy_perturb_mode: str = "none"
+    """Policy-level perturbation mode: none | random_action | object_shift."""
+    random_action_prob: float = 0.25
+    """Probability of replacing policy action with random noise per step."""
+    random_action_scale: float = 1.0
+    """Scale of uniform random action noise: Uniform(-scale, scale)."""
+    object_shift_x_std: float = 0.05
+    """Std (metres) of Gaussian object shift along x-axis at episode start."""
+    object_shift_y_std: float = 0.0
+    """Std (metres) of Gaussian object shift along y-axis at episode start."""
+
 
 def _json_default(o):
     if isinstance(o, np.generic):
@@ -379,22 +405,29 @@ def _get_libero_env(task, resolution, seed):
     return env, task_description
 
 
-def _prepare_observation(obs, flip_images: bool = True):
+def _prepare_observation(obs, flip_images: bool = True, vis_cfg: VisualPerturbConfig | None = None):
     """Prepare an observation dict for Cosmos get_action().
 
     Cosmos expects:
         primary_image: (H, W, 3) uint8 — third-person camera
         wrist_image:   (H, W, 3) uint8 — wrist camera
         proprio:       (9,) float — [gripper_qpos(2), eef_pos(3), eef_quat(4)]
+
+    The flip correction is applied first, then the optional visual perturbation.
     """
     img = obs["agentview_image"]
     wrist_img = obs["robot0_eye_in_hand_image"]
     if flip_images:
         img = np.flipud(img)
         wrist_img = np.flipud(wrist_img)
+    img = np.ascontiguousarray(img)
+    wrist_img = np.ascontiguousarray(wrist_img)
+    if vis_cfg is not None:
+        img = perturb_image(img, vis_cfg)
+        wrist_img = perturb_image(wrist_img, vis_cfg)
     return {
-        "primary_image": np.ascontiguousarray(img),
-        "wrist_image": np.ascontiguousarray(wrist_img),
+        "primary_image": img,
+        "wrist_image": wrist_img,
         "proprio": np.concatenate((
             obs["robot0_gripper_qpos"],
             obs["robot0_eef_pos"],
@@ -407,6 +440,24 @@ def _prepare_observation(obs, flip_images: bool = True):
 
 def eval_libero(args: Args) -> None:
     np.random.seed(args.seed)
+
+    vis_cfg = VisualPerturbConfig(
+        mode=args.visual_perturb_mode,
+        rotation_degrees=args.rotation_degrees,
+        translate_x_frac=args.translate_x_frac,
+        translate_y_frac=args.translate_y_frac,
+    )
+    logging.info(f"Visual perturbation: {vis_cfg.as_dict()}")
+
+    policy_cfg = PolicyPerturbConfig(
+        mode=args.policy_perturb_mode,
+        random_action_prob=args.random_action_prob,
+        random_action_scale=args.random_action_scale,
+        object_shift_x_std=args.object_shift_x_std,
+        object_shift_y_std=args.object_shift_y_std,
+    )
+    policy_rng = np.random.default_rng(args.seed + 9999)
+    logging.info(f"Policy perturbation: {policy_cfg.as_dict()}")
 
     # ── Build Cosmos config and load model ───────────────────────────────
     cfg = _build_cosmos_cfg(args)
@@ -453,6 +504,7 @@ def eval_libero(args: Args) -> None:
 
             env.reset()
             obs = env.set_init_state(initial_states[episode_idx])
+            episode_object_shifts = apply_object_shift(env, policy_cfg, policy_rng)
 
             action_plan = collections.deque()
             action_log = []
@@ -468,7 +520,7 @@ def eval_libero(args: Args) -> None:
                         t += 1
                         continue
 
-                    observation = _prepare_observation(obs, flip_images=args.flip_images)
+                    observation = _prepare_observation(obs, flip_images=args.flip_images, vis_cfg=vis_cfg)
                     replay_images.append(observation["primary_image"])
 
                     is_new_chunk = not action_plan
@@ -489,17 +541,21 @@ def eval_libero(args: Args) -> None:
                         )
                         action_plan.extend(action_chunk[: args.num_open_loop_steps])
 
-                    action = action_plan.popleft()
+                    policy_action = action_plan.popleft()
+                    action, action_was_perturbed = maybe_perturb_action(policy_action, policy_cfg, policy_rng)
                     obs, reward, done, info = env.step(action.tolist())
 
                     log_entry = {
                         "t": t,
-                        "kind": "policy",
+                        "kind": "random" if action_was_perturbed else "policy",
                         "action": np.asarray(action, dtype=np.float32).tolist(),
+                        "action_perturbed": bool(action_was_perturbed),
                         "reward": reward,
                         "done": done,
                         "is_chunk_start": is_new_chunk,
                     }
+                    if action_was_perturbed:
+                        log_entry["policy_action"] = np.asarray(policy_action, dtype=np.float32).tolist()
                     if is_new_chunk:
                         log_entry["full_action_chunk"] = np.asarray(action_chunk, dtype=np.float32).tolist()
                     action_log.append(log_entry)
@@ -560,6 +616,9 @@ def eval_libero(args: Args) -> None:
                         "prompt": prompt,
                         "success": bool(done),
                         "model": "cosmos",
+                        "visual_perturbation": vis_cfg.as_dict(),
+                        "policy_perturbation": policy_cfg.as_dict(),
+                        "object_shifts": episode_object_shifts,
                         "actions": action_log,
                         "smoothness": smoothness_summary,
                         "replan_consistency": replan_summary,

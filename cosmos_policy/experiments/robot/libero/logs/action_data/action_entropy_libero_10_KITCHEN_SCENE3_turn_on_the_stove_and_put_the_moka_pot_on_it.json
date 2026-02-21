@@ -1,36 +1,27 @@
 {
   "task_id": 2,
   "task_description": "turn on the stove and put the moka pot on it",
-  "prompt_mode": "random",
+  "prompt_mode": "shuffle",
   "seed": 195,
   "num_trials": 20,
-  "num_successes": 19,
+  "num_successes": 20,
   "action_entropy": {
-    "action_entropy_kde": -7.536989300344159,
-    "mean_log_density": 7.536989300344159,
-    "std_log_density": 0.999845639324432,
-    "kde_bandwidth_factor": 0.4579942195242883,
-    "num_samples": 5377,
+    "action_entropy_kde": -7.144661146031032,
+    "mean_log_density": 7.144661146031032,
+    "std_log_density": 0.9048166459170122,
+    "kde_bandwidth_factor": 0.4631768186315645,
+    "num_samples": 4751,
     "num_episodes": 20,
     "action_dim": 7
   },
   "action_entropy_by_prompt": {
-    "put the white mug on the plate and put the chocolate pudding to the right of the plate": {
-      "action_entropy_kde": -7.493433713772234,
-      "mean_log_density": 7.493433713772234,
-      "std_log_density": 0.9649238500795853,
-      "kde_bandwidth_factor": 0.4649541700683122,
-      "num_samples": 4555,
-      "num_episodes": 18,
-      "action_dim": 7
-    },
-    "pick up the book and place it in the back compartment of the caddy": {
-      "action_entropy_kde": -8.35505955430264,
-      "mean_log_density": 8.35505955430264,
-      "std_log_density": 1.0997692372873247,
-      "kde_bandwidth_factor": 0.54326490813256,
-      "num_samples": 822,
-      "num_episodes": 2,
+    "and on the it the on moka pot stove turn put": {
+      "action_entropy_kde": -7.144661146031032,
+      "mean_log_density": 7.144661146031032,
+      "std_log_density": 0.9048166459170122,
+      "kde_bandwidth_factor": 0.4631768186315645,
+      "num_samples": 4751,
+      "num_episodes": 20,
       "action_dim": 7
     }
   }

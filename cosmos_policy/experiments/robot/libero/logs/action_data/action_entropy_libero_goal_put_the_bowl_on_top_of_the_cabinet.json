@@ -1,26 +1,26 @@
 {
   "task_id": 4,
   "task_description": "put the bowl on top of the cabinet",
-  "prompt_mode": "random",
+  "prompt_mode": "shuffle",
   "seed": 195,
   "num_trials": 20,
-  "num_successes": 0,
+  "num_successes": 20,
   "action_entropy": {
-    "action_entropy_kde": -12.215440561878237,
-    "mean_log_density": 12.215440561878237,
-    "std_log_density": 2.593316791453218,
-    "kde_bandwidth_factor": 0.4534523996540197,
-    "num_samples": 6000,
+    "action_entropy_kde": -8.185753699968929,
+    "mean_log_density": 8.185753699968929,
+    "std_log_density": 0.8467550837647333,
+    "kde_bandwidth_factor": 0.5058761537858959,
+    "num_samples": 1801,
     "num_episodes": 20,
     "action_dim": 7
   },
   "action_entropy_by_prompt": {
-    "put the cream cheese in the bowl": {
-      "action_entropy_kde": -12.215440561878237,
-      "mean_log_density": 12.215440561878237,
-      "std_log_density": 2.593316791453218,
-      "kde_bandwidth_factor": 0.4534523996540197,
-      "num_samples": 6000,
+    "the bowl the cabinet on put of top": {
+      "action_entropy_kde": -8.185753699968929,
+      "mean_log_density": 8.185753699968929,
+      "std_log_density": 0.8467550837647333,
+      "kde_bandwidth_factor": 0.5058761537858959,
+      "num_samples": 1801,
       "num_episodes": 20,
       "action_dim": 7
     }

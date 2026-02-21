@@ -1,27 +1,36 @@
 {
   "task_id": 3,
   "task_description": "open the top drawer and put the bowl inside",
-  "prompt_mode": "random",
+  "prompt_mode": "shuffle",
   "seed": 195,
   "num_trials": 20,
-  "num_successes": 0,
+  "num_successes": 8,
   "action_entropy": {
-    "action_entropy_kde": -11.8147866630254,
-    "mean_log_density": 11.8147866630254,
-    "std_log_density": 2.4080792461416416,
-    "kde_bandwidth_factor": 0.4534523996540197,
-    "num_samples": 6000,
+    "action_entropy_kde": -7.736029669808279,
+    "mean_log_density": 7.736029669808279,
+    "std_log_density": 1.127209329522116,
+    "kde_bandwidth_factor": 0.46114839596466356,
+    "num_samples": 4986,
     "num_episodes": 20,
     "action_dim": 7
   },
   "action_entropy_by_prompt": {
-    "put the cream cheese in the bowl": {
-      "action_entropy_kde": -11.8147866630254,
-      "mean_log_density": 11.8147866630254,
-      "std_log_density": 2.4080792461416416,
-      "kde_bandwidth_factor": 0.4534523996540197,
-      "num_samples": 6000,
-      "num_episodes": 20,
+    "bowl top the and inside the drawer open put": {
+      "action_entropy_kde": -7.833179288791891,
+      "mean_log_density": 7.833179288791891,
+      "std_log_density": 1.1195426711688288,
+      "kde_bandwidth_factor": 0.46526161300569907,
+      "num_samples": 4522,
+      "num_episodes": 18,
+      "action_dim": 7
+    },
+    "top bowl open inside put drawer the the and": {
+      "action_entropy_kde": -7.082515972933238,
+      "mean_log_density": 7.082515972933238,
+      "std_log_density": 0.7215780225842029,
+      "kde_bandwidth_factor": 0.5722545764273306,
+      "num_samples": 464,
+      "num_episodes": 2,
       "action_dim": 7
     }
   }
