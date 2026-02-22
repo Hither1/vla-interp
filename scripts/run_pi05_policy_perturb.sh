@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=24
 #SBATCH --mem=240G
 #SBATCH --account=kempner_grads
-#SBATCH --partition=kempner
+#SBATCH --partition=kempner_h100 
 #SBATCH --time=18:00:00
 #SBATCH --mail-user=csu@g.harvard.edu
 #SBATCH --mail-type=END
@@ -100,14 +100,14 @@ mkdir -p "${WORKDIR}/logs"
 # ── Server lifecycle helpers ──────────────────────────────────────────────────
 wait_for_server() {
     echo "Waiting for policy server on port ${PORT}..."
-    for i in {1..60}; do
+    for i in {1..300}; do
         if nc -z localhost "${PORT}" 2>/dev/null; then
-            echo "Server is up (${i}s)."
+            echo "Server is up ($((i * 2))s)."
             return 0
         fi
         sleep 2
     done
-    echo "ERROR: Policy server failed to start within 120s."
+    echo "ERROR: Policy server failed to start within 600s."
     exit 1
 }
 
@@ -143,7 +143,7 @@ echo "============================================================"
 echo ""
 echo "Starting policy server..."
 SERVER_LOG="${WORKDIR}/logs/pi05_server_${SLURM_JOB_ID:-0}.log"
-python "${WORKDIR}/scripts/serve_policy.py" --env "${ENV_NAME}" \
+PYTHONUNBUFFERED=1 python "${WORKDIR}/scripts/serve_policy.py" --env "${ENV_NAME}" \
     > "${SERVER_LOG}" 2>&1 &
 SERVER_PID=$!
 wait_for_server
