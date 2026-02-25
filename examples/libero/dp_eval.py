@@ -242,7 +242,7 @@ def compute_action_entropy_kde(action_log, action_dim=7):
 @dataclasses.dataclass
 class Args:
     # ── Checkpoint ───────────────────────────────────────────────────────
-    ckpt: str = ""
+    ckpt: str = "dp_scratch/ckpt_300.pt"
 
     # ── Action prediction ────────────────────────────────────────────────
     replan_steps: int = 8

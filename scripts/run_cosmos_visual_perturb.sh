@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=24
 #SBATCH --mem=240G
 #SBATCH --account=kempner_grads
-#SBATCH --partition=kempner
+#SBATCH --partition=kempner_h100
 #SBATCH --time=16:00:00
 #SBATCH --mail-user=csu@g.harvard.edu
 #SBATCH --mail-type=END
@@ -76,8 +76,8 @@ NUM_DENOISING_STEPS_ACTION="${NUM_DENOISING_STEPS_ACTION:-5}"
 # Visual perturbation
 # mode: none | rotate | translate | rotate_translate
 VISUAL_PERTURB_MODE="${VISUAL_PERTURB_MODE:-none}"
-ROTATION_DEGREES="${ROTATION_DEGREES:-30.0}"
-TRANSLATE_X_FRAC="${TRANSLATE_X_FRAC:-0.2}"
+ROTATION_DEGREES="${ROTATION_DEGREES:-0.0}"
+TRANSLATE_X_FRAC="${TRANSLATE_X_FRAC:-0.0}"
 TRANSLATE_Y_FRAC="${TRANSLATE_Y_FRAC:-0.0}"
 
 # LIBERO settings

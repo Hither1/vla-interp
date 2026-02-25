@@ -54,13 +54,13 @@ export HF_HOME=/n/netscratch/sham_lab/Lab/chloe00/huggingface
 export TRANSFORMERS_CACHE=/n/netscratch/sham_lab/Lab/chloe00/huggingface
 
 # ── DP checkpoint ─────────────────────────────────────────────────────────────
-CKPT="${CKPT:-}"  # Required: set via env var, e.g. CKPT=checkpoints/dp/ckpt_300.pt
+CKPT="${CKPT:-dp_scratch/ckpt_300.pt}"  # Required: set via env var, e.g. CKPT=checkpoints/dp/ckpt_300.pt
 
 # Policy perturbation
 POLICY_PERTURB_MODE="${POLICY_PERTURB_MODE:-none}"
-RANDOM_ACTION_PROB="${RANDOM_ACTION_PROB:-0.25}"
+RANDOM_ACTION_PROB="${RANDOM_ACTION_PROB:-0.0}"
 RANDOM_ACTION_SCALE="${RANDOM_ACTION_SCALE:-1.0}"
-OBJECT_SHIFT_X_STD="${OBJECT_SHIFT_X_STD:-0.05}"
+OBJECT_SHIFT_X_STD="${OBJECT_SHIFT_X_STD:-0.0}"
 OBJECT_SHIFT_Y_STD="${OBJECT_SHIFT_Y_STD:-0.0}"
 
 REPLAN_STEPS="${REPLAN_STEPS:-8}"
@@ -119,7 +119,6 @@ for SUITE in "${SUITES[@]}"; do
     mkdir -p "${VIDEO_OUT}"
 
     python "${WORKDIR}/examples/libero/dp_eval.py" \
-        --ckpt "${CKPT}" \
         --task-suite-name "${SUITE}" \
         --num-trials-per-task "${NUM_TRIALS}" \
         --seed "${SEED}" \

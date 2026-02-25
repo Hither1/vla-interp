@@ -423,6 +423,8 @@ def _get_max_steps(task_suite_name: str) -> int:
         return 520
     if task_suite_name == "libero_90":
         return 400
+    if task_suite_name in ("libero_90_obj", "libero_90_spa", "libero_90_act", "libero_90_com"):
+        return 400
     raise ValueError(f"Unknown task suite: {task_suite_name}")
 
 

@@ -34,8 +34,45 @@ TASK_SUITE="${TASK_SUITE:-libero_10}"
 TASK_ID="${TASK_ID:-}"  # Empty means all tasks
 NUM_EPISODES="${NUM_EPISODES:-5}"
 LAYERS="${LAYERS:-0 8 17 25 26 27}"
-OUTPUT_DIR="${OUTPUT_DIR:-results/attention_ratio_${TASK_SUITE}}"
 SAVE_VIZ="${SAVE_VIZ:-}"
+
+# Visual perturbation
+# mode: none | rotate | translate | rotate_translate
+VISUAL_PERTURB_MODE="${VISUAL_PERTURB_MODE:-none}"
+ROTATION_DEGREES="${ROTATION_DEGREES:-0.0}"
+TRANSLATE_X_FRAC="${TRANSLATE_X_FRAC:-0.0}"
+TRANSLATE_Y_FRAC="${TRANSLATE_Y_FRAC:-0.0}"
+
+# Policy perturbation
+# mode: none | random_action | object_shift
+POLICY_PERTURB_MODE="${POLICY_PERTURB_MODE:-none}"
+RANDOM_ACTION_PROB="${RANDOM_ACTION_PROB:-0.0}"
+RANDOM_ACTION_SCALE="${RANDOM_ACTION_SCALE:-1.0}"
+OBJECT_SHIFT_X_STD="${OBJECT_SHIFT_X_STD:-0.0}"
+OBJECT_SHIFT_Y_STD="${OBJECT_SHIFT_Y_STD:-0.0}"
+
+# Derived perturbation tags
+if [[ "$VISUAL_PERTURB_MODE" == "none" ]]; then
+    VIS_TAG="none"
+elif [[ "$VISUAL_PERTURB_MODE" == "rotate" ]]; then
+    VIS_TAG="rotate_${ROTATION_DEGREES}deg"
+elif [[ "$VISUAL_PERTURB_MODE" == "translate" ]]; then
+    VIS_TAG="translate_x${TRANSLATE_X_FRAC}_y${TRANSLATE_Y_FRAC}"
+else
+    VIS_TAG="rotate_${ROTATION_DEGREES}deg_translate_x${TRANSLATE_X_FRAC}_y${TRANSLATE_Y_FRAC}"
+fi
+
+if [[ "$POLICY_PERTURB_MODE" == "none" ]]; then
+    POL_TAG="none"
+elif [[ "$POLICY_PERTURB_MODE" == "random_action" ]]; then
+    POL_TAG="random_action_p${RANDOM_ACTION_PROB}_s${RANDOM_ACTION_SCALE}"
+elif [[ "$POLICY_PERTURB_MODE" == "object_shift" ]]; then
+    POL_TAG="object_shift_x${OBJECT_SHIFT_X_STD}_y${OBJECT_SHIFT_Y_STD}"
+else
+    POL_TAG="${POLICY_PERTURB_MODE}"
+fi
+
+OUTPUT_DIR="${OUTPUT_DIR:-results/attention/ratio_pi05/${TASK_SUITE}/vis_${VIS_TAG}__pol_${POL_TAG}}"
 
 # Script directory (handle SLURM execution)
 if [ -n "$SLURM_SUBMIT_DIR" ]; then
@@ -55,6 +92,15 @@ echo "Episodes:     $NUM_EPISODES"
 echo "Layers:       $LAYERS"
 echo "Output:       $OUTPUT_DIR"
 echo "Save Viz:     ${SAVE_VIZ:-no}"
+echo "Visual perturb: $VISUAL_PERTURB_MODE ($VIS_TAG)"
+echo "  rotation_degrees:  $ROTATION_DEGREES"
+echo "  translate_x_frac:  $TRANSLATE_X_FRAC"
+echo "  translate_y_frac:  $TRANSLATE_Y_FRAC"
+echo "Policy perturb: $POLICY_PERTURB_MODE ($POL_TAG)"
+echo "  random_action_prob:   $RANDOM_ACTION_PROB"
+echo "  random_action_scale:  $RANDOM_ACTION_SCALE"
+echo "  object_shift_x_std:   $OBJECT_SHIFT_X_STD"
+echo "  object_shift_y_std:   $OBJECT_SHIFT_Y_STD"
 echo "========================================="
 echo
 
@@ -64,6 +110,15 @@ CMD="python $PROJECT_ROOT/analysis/attention/evaluate_attention_ratio.py \
   --task-suite $TASK_SUITE \
   --num-episodes $NUM_EPISODES \
   --layers $LAYERS \
+  --visual-perturb-mode $VISUAL_PERTURB_MODE \
+  --rotation-degrees $ROTATION_DEGREES \
+  --translate-x-frac $TRANSLATE_X_FRAC \
+  --translate-y-frac $TRANSLATE_Y_FRAC \
+  --policy-perturb-mode $POLICY_PERTURB_MODE \
+  --random-action-prob $RANDOM_ACTION_PROB \
+  --random-action-scale $RANDOM_ACTION_SCALE \
+  --object-shift-x-std $OBJECT_SHIFT_X_STD \
+  --object-shift-y-std $OBJECT_SHIFT_Y_STD \
   --output-dir $OUTPUT_DIR"
 
 # Add task ID if specified

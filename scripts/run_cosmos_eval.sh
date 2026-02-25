@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=24
 #SBATCH --mem=240G
 #SBATCH --account=kempner_grads
-#SBATCH --partition=kempner
+#SBATCH --partition=kempner_h100
 #SBATCH --time=16:30:00
 #SBATCH --mail-user=csu@g.harvard.edu
 #SBATCH --mail-type=END

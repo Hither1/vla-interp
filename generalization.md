@@ -39,6 +39,30 @@ Conditions: **original** | **empty** (no prompt) | **shuffle** (shuffled words) 
 | | random | — | — | — | — |
 | | synonym | — | — | — | — |
 | | opposite | — | — | — | — |
+| LIBERO-90-Object | original | — | — | — | — |
+| | empty | — | — | — | — |
+| | shuffle | — | — | — | — |
+| | random | — | — | — | — |
+| | synonym | — | — | — | — |
+| | opposite | — | — | — | — |
+| LIBERO-90-Spatial | original | — | — | — | — |
+| | empty | — | — | — | — |
+| | shuffle | — | — | — | — |
+| | random | — | — | — | — |
+| | synonym | — | — | — | — |
+| | opposite | — | — | — | — |
+| LIBERO-90-Act | original | — | — | — | — |
+| | empty | — | — | — | — |
+| | shuffle | — | — | — | — |
+| | random | — | — | — | — |
+| | synonym | — | — | — | — |
+| | opposite | — | — | — | — |
+| LIBERO-90-Com | original | — | — | — | — |
+| | empty | — | — | — | — |
+| | shuffle | — | — | — | — |
+| | random | — | — | — | — |
+| | synonym | — | — | — | — |
+| | opposite | — | — | — | — |
 
 ### Action Entropy (↓)
 
@@ -153,6 +177,22 @@ Conditions: **original** | **rotate 30°** | **translate 20% right** | **rotate 
 | | rotate 30° | — | — | — | — |
 | | translate 20% | — | — | — | — |
 | | rotate+translate | — | — | — | — |
+| LIBERO-90-Object | original | — | — | — | — |
+| | rotate 30° | — | — | — | — |
+| | translate 20% | — | — | — | — |
+| | rotate+translate | — | — | — | — |
+| LIBERO-90-Spatial | original | — | — | — | — |
+| | rotate 30° | — | — | — | — |
+| | translate 20% | — | — | — | — |
+| | rotate+translate | — | — | — | — |
+| LIBERO-90-Act | original | — | — | — | — |
+| | rotate 30° | — | — | — | — |
+| | translate 20% | — | — | — | — |
+| | rotate+translate | — | — | — | — |
+| LIBERO-90-Com | original | — | — | — | — |
+| | rotate 30° | — | — | — | — |
+| | translate 20% | — | — | — | — |
+| | rotate+translate | — | — | — | — |
 
 ### Action Entropy (↓)
 
@@ -237,6 +277,18 @@ Conditions: **original** | **random action 25%** (random action replacement, p=0
 | | random action 25% | — | — | — | — |
 | | object shift x | — | — | — | — |
 | LIBERO-Goal | original | — | — | — | — |
+| | random action 25% | — | — | — | — |
+| | object shift x | — | — | — | — |
+| LIBERO-90-Object | original | — | — | — | — |
+| | random action 25% | — | — | — | — |
+| | object shift x | — | — | — | — |
+| LIBERO-90-Spatial | original | — | — | — | — |
+| | random action 25% | — | — | — | — |
+| | object shift x | — | — | — | — |
+| LIBERO-90-Act | original | — | — | — | — |
+| | random action 25% | — | — | — | — |
+| | object shift x | — | — | — | — |
+| LIBERO-90-Com | original | — | — | — | — |
 | | random action 25% | — | — | — | — |
 | | object shift x | — | — | — | — |
 

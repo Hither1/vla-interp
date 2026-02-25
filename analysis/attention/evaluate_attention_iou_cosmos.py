@@ -35,6 +35,10 @@ _COSMOS_POLICY_DIR = str(pathlib.Path(__file__).resolve().parent.parent.parent /
 if _COSMOS_POLICY_DIR not in sys.path:
     sys.path.insert(0, _COSMOS_POLICY_DIR)
 
+_LIBERO_EXAMPLES_DIR = str(pathlib.Path(__file__).resolve().parent.parent.parent / "examples" / "libero")
+if _LIBERO_EXAMPLES_DIR not in sys.path:
+    sys.path.insert(0, _LIBERO_EXAMPLES_DIR)
+
 # Mock transformer_engine if not available
 from unittest.mock import MagicMock
 
@@ -92,6 +96,8 @@ from cosmos_policy.experiments.robot.cosmos_utils import (
 
 from libero.libero import benchmark, get_libero_path
 from libero.libero.envs.env_wrapper import SegmentationRenderEnv
+from policy_perturbations import PolicyPerturbConfig, apply_object_shift, maybe_perturb_action
+from visual_perturbations import VisualPerturbConfig, perturb_image
 
 from attention_iou import (
     compute_attention_object_iou,
@@ -510,15 +516,20 @@ def _get_segmentation_env(task, resolution, seed):
     return env, task.language
 
 
-def _prepare_observation(obs, flip_images: bool = True):
+def _prepare_observation(obs, flip_images: bool = True, vis_cfg: Optional[VisualPerturbConfig] = None):
     img = obs["agentview_image"]
     wrist_img = obs["robot0_eye_in_hand_image"]
     if flip_images:
         img = np.flipud(img)
         wrist_img = np.flipud(wrist_img)
+    img = np.ascontiguousarray(img)
+    wrist_img = np.ascontiguousarray(wrist_img)
+    if vis_cfg is not None:
+        img = perturb_image(img, vis_cfg)
+        wrist_img = perturb_image(wrist_img, vis_cfg)
     return {
-        "primary_image": np.ascontiguousarray(img),
-        "wrist_image": np.ascontiguousarray(wrist_img),
+        "primary_image": img,
+        "wrist_image": wrist_img,
         "proprio": np.concatenate(
             (obs["robot0_gripper_qpos"], obs["robot0_eef_pos"], obs["robot0_eef_quat"])
         ),
@@ -585,9 +596,15 @@ def run_episode(
     debug_dump_first_replan: bool,
     # metric
     metric: str = "iou",
+    # perturbations
+    vis_cfg: Optional[VisualPerturbConfig] = None,
+    policy_cfg: Optional[PolicyPerturbConfig] = None,
+    policy_rng: Optional[np.random.Generator] = None,
 ) -> Dict:
     obs = env.reset()
     obs = env.set_init_state(initial_state)
+    if policy_cfg is not None and policy_rng is not None:
+        apply_object_shift(env, policy_cfg, policy_rng)
 
     obj_of_interest = env.obj_of_interest
     object_ids = {}
@@ -644,7 +661,7 @@ def run_episode(
             t += 1
             continue
 
-        observation = _prepare_observation(obs, flip_images=True)
+        observation = _prepare_observation(obs, flip_images=True, vis_cfg=vis_cfg)
         agentview_for_viz = observation["primary_image"]
         wrist_for_viz = observation["wrist_image"]
 
@@ -881,9 +898,11 @@ def run_episode(
             #             plt.close(fig2)
 
         action = action_plan.popleft()
-        if isinstance(action, np.ndarray):
-            action = action.tolist()
-        obs, reward, done, info = env.step(action)
+        if not isinstance(action, np.ndarray):
+            action = np.asarray(action, dtype=np.float32)
+        if policy_cfg is not None and policy_rng is not None:
+            action, _ = maybe_perturb_action(action, policy_cfg, policy_rng)
+        obs, reward, done, info = env.step(action.tolist())
 
         if done:
             break
@@ -995,6 +1014,30 @@ def main():
     parser.add_argument("--debug-dump-first-replan", action="store_true",
                         help="Dump attention call summary + shape debug to JSON on first replan.")
 
+    # Visual perturbation
+    parser.add_argument("--visual-perturb-mode", type=str, default="none",
+                        choices=["none", "rotate", "translate", "rotate_translate"],
+                        help="Image-level perturbation mode.")
+    parser.add_argument("--rotation-degrees", type=float, default=0.0,
+                        help="CCW rotation in degrees (rotate / rotate_translate modes).")
+    parser.add_argument("--translate-x-frac", type=float, default=0.0,
+                        help="Horizontal shift as fraction of image width (positive = right).")
+    parser.add_argument("--translate-y-frac", type=float, default=0.0,
+                        help="Vertical shift as fraction of image height (positive = down).")
+
+    # Policy perturbation
+    parser.add_argument("--policy-perturb-mode", type=str, default="none",
+                        choices=["none", "random_action", "object_shift"],
+                        help="Policy-level perturbation mode.")
+    parser.add_argument("--random-action-prob", type=float, default=0.0,
+                        help="Probability of replacing policy action with random noise per step.")
+    parser.add_argument("--random-action-scale", type=float, default=1.0,
+                        help="Scale of uniform random action noise: Uniform(-scale, scale).")
+    parser.add_argument("--object-shift-x-std", type=float, default=0.0,
+                        help="Std (metres) of Gaussian object shift along x at episode start.")
+    parser.add_argument("--object-shift-y-std", type=float, default=0.0,
+                        help="Std (metres) of Gaussian object shift along y at episode start.")
+
     # Output
     parser.add_argument("--output-dir", type=str, default="outputs_iou_cosmos")
     parser.add_argument("--save-viz", action="store_true")
@@ -1005,6 +1048,23 @@ def main():
     for tm in args.threshold_methods:
         method, value = tm.rsplit("_", 1)
         threshold_methods.append((method, float(value)))
+
+    vis_cfg = VisualPerturbConfig(
+        mode=args.visual_perturb_mode,
+        rotation_degrees=args.rotation_degrees,
+        translate_x_frac=args.translate_x_frac,
+        translate_y_frac=args.translate_y_frac,
+    )
+    policy_cfg = PolicyPerturbConfig(
+        mode=args.policy_perturb_mode,
+        random_action_prob=args.random_action_prob,
+        random_action_scale=args.random_action_scale,
+        object_shift_x_std=args.object_shift_x_std,
+        object_shift_y_std=args.object_shift_y_std,
+    )
+    policy_rng = np.random.default_rng(args.seed + 9999)
+    log.info(f"Visual perturbation: {vis_cfg.as_dict()}")
+    log.info(f"Policy perturbation: {policy_cfg.as_dict()}")
 
     max_steps = TASK_MAX_STEPS[args.task_suite]
 
@@ -1072,6 +1132,9 @@ def main():
                 debug_shapes=args.debug_shapes,
                 debug_dump_first_replan=args.debug_dump_first_replan,
                 metric=args.metric,
+                vis_cfg=vis_cfg,
+                policy_cfg=policy_cfg,
+                policy_rng=policy_rng,
             )
 
             result["task_id"] = task_id
@@ -1116,7 +1179,12 @@ def main():
         serializable_results.append(entry)
 
     results_path = os.path.join(args.output_dir, f"iou_results_{args.task_suite}.json")
-    output_data = {"metric": args.metric, "results": serializable_results}
+    output_data = {
+        "metric": args.metric,
+        "visual_perturbation": vis_cfg.as_dict(),
+        "policy_perturbation": policy_cfg.as_dict(),
+        "results": serializable_results,
+    }
     with open(results_path, "w") as f:
         json.dump(output_data, f, indent=2, default=_json_default)
     log.info(f"\nResults saved to {results_path}")

@@ -45,6 +45,8 @@ from libero.libero import benchmark, get_libero_path
 from libero.libero.envs import OffScreenRenderEnv
 
 from dp_scratch.model import DiffusionPolicy, IMAGENET_MEAN, IMAGENET_STD, _to_tensor_img
+from policy_perturbations import PolicyPerturbConfig, apply_object_shift, maybe_perturb_action
+from visual_perturbations import VisualPerturbConfig, perturb_image
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -68,10 +70,14 @@ def _quat2axisangle(quat: np.ndarray) -> np.ndarray:
     return Rotation.from_quat(quat).as_rotvec().astype(np.float32)
 
 
-def _build_dp_tensors(obs: dict, model: DiffusionPolicy, device: torch.device):
+def _build_dp_tensors(obs: dict, model: DiffusionPolicy, device: torch.device,
+                      vis_cfg: Optional["VisualPerturbConfig"] = None):
     """Convert raw LIBERO env obs to model input tensors (no flip, matches dp_eval.py)."""
     img = np.ascontiguousarray(obs["agentview_image"].copy())
     wrist = np.ascontiguousarray(obs["robot0_eye_in_hand_image"].copy())
+    if vis_cfg is not None and vis_cfg.mode != "none":
+        img = perturb_image(img, vis_cfg)
+        wrist = perturb_image(wrist, vis_cfg)
 
     img_t = _to_tensor_img(img).to(device)          # (3, 224, 224)
     wrist_t = _to_tensor_img(wrist).to(device)       # (3, 224, 224)
@@ -208,9 +214,15 @@ def run_episode(
     device: torch.device,
     replan_steps: int,
     t_frac: float,
+    vis_cfg: Optional["VisualPerturbConfig"] = None,
+    policy_cfg: Optional["PolicyPerturbConfig"] = None,
+    policy_rng: Optional[np.random.Generator] = None,
 ) -> Dict:
     obs = env.reset()
     obs = env.set_init_state(initial_state)
+
+    if policy_cfg is not None and policy_rng is not None:
+        apply_object_shift(env, policy_cfg, policy_rng)
 
     action_plan: collections.deque = collections.deque()
     step_ratio_results: List[Dict] = []
@@ -225,7 +237,7 @@ def run_episode(
 
         is_replan = not action_plan
         if is_replan:
-            images, state_t = _build_dp_tensors(obs, model, device)
+            images, state_t = _build_dp_tensors(obs, model, device, vis_cfg=vis_cfg)
             task_idx = torch.tensor(
                 [model._prompt_to_idx(task_description)], dtype=torch.long, device=device
             )
@@ -252,6 +264,8 @@ def run_episode(
             action_plan.extend(action_chunk[:replan_steps])
 
         action = action_plan.popleft()
+        if policy_cfg is not None and policy_rng is not None:
+            action, _ = maybe_perturb_action(np.asarray(action, dtype=np.float32), policy_cfg, policy_rng)
         obs, reward, done, info = env.step(action.tolist())
 
         if done:
@@ -315,6 +329,21 @@ def main():
     parser.add_argument("--num-episodes", type=int, default=5)
     parser.add_argument("--seed", type=int, default=7)
 
+    # Visual perturbation
+    parser.add_argument("--visual-perturb-mode", type=str, default="none",
+                        choices=["none", "rotate", "translate", "rotate_translate"])
+    parser.add_argument("--rotation-degrees", type=float, default=0.0)
+    parser.add_argument("--translate-x-frac", type=float, default=0.0)
+    parser.add_argument("--translate-y-frac", type=float, default=0.0)
+
+    # Policy perturbation
+    parser.add_argument("--policy-perturb-mode", type=str, default="none",
+                        choices=["none", "random_action", "object_shift"])
+    parser.add_argument("--random-action-prob", type=float, default=0.0)
+    parser.add_argument("--random-action-scale", type=float, default=1.0)
+    parser.add_argument("--object-shift-x-std", type=float, default=0.0)
+    parser.add_argument("--object-shift-y-std", type=float, default=0.0)
+
     # Output
     parser.add_argument("--output-dir", type=str, default="results/attention_ratio_dp")
 
@@ -322,6 +351,23 @@ def main():
 
     device = torch.device(args.device)
     max_steps = TASK_MAX_STEPS[args.task_suite]
+
+    vis_cfg = VisualPerturbConfig(
+        mode=args.visual_perturb_mode,
+        rotation_degrees=args.rotation_degrees,
+        translate_x_frac=args.translate_x_frac,
+        translate_y_frac=args.translate_y_frac,
+    )
+    policy_cfg = PolicyPerturbConfig(
+        mode=args.policy_perturb_mode,
+        random_action_prob=args.random_action_prob,
+        random_action_scale=args.random_action_scale,
+        object_shift_x_std=args.object_shift_x_std,
+        object_shift_y_std=args.object_shift_y_std,
+    )
+    policy_rng = np.random.default_rng(args.seed + 9999)
+    log.info(f"Visual perturbation: {vis_cfg.as_dict()}")
+    log.info(f"Policy perturbation: {policy_cfg.as_dict()}")
 
     log.info("Loading Diffusion Policy checkpoint...")
     ckpt = torch.load(args.ckpt, map_location=device, weights_only=False)
@@ -364,10 +410,15 @@ def main():
                 device=device,
                 replan_steps=args.replan_steps,
                 t_frac=args.t_frac,
+                vis_cfg=vis_cfg,
+                policy_cfg=policy_cfg,
+                policy_rng=policy_rng,
             )
             result["task_id"] = task_id
             result["episode_idx"] = ep_idx
             result["task_description"] = task_description
+            result["visual_perturbation"] = vis_cfg.as_dict()
+            result["policy_perturbation"] = policy_cfg.as_dict()
             all_results.append(result)
 
             log.info(

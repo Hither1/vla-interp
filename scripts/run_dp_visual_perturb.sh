@@ -64,8 +64,8 @@ CKPT="${CKPT:-dp_scratch/ckpt_300.pt}"
 # Visual perturbation
 # mode: none | rotate | translate | rotate_translate
 VISUAL_PERTURB_MODE="${VISUAL_PERTURB_MODE:-none}"
-ROTATION_DEGREES="${ROTATION_DEGREES:-30.0}"
-TRANSLATE_X_FRAC="${TRANSLATE_X_FRAC:-0.2}"
+ROTATION_DEGREES="${ROTATION_DEGREES:-0.0}"
+TRANSLATE_X_FRAC="${TRANSLATE_X_FRAC:-0.0}"
 TRANSLATE_Y_FRAC="${TRANSLATE_Y_FRAC:-0.0}"
 
 # LIBERO settings

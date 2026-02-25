@@ -63,9 +63,9 @@ RESIZE_SIZE="${RESIZE_SIZE:-224}"
 # Policy perturbation
 # mode: none | random_action | object_shift
 POLICY_PERTURB_MODE="${POLICY_PERTURB_MODE:-none}"
-RANDOM_ACTION_PROB="${RANDOM_ACTION_PROB:-0.25}"
+RANDOM_ACTION_PROB="${RANDOM_ACTION_PROB:-0.0}"
 RANDOM_ACTION_SCALE="${RANDOM_ACTION_SCALE:-1.0}"
-OBJECT_SHIFT_X_STD="${OBJECT_SHIFT_X_STD:-0.05}"
+OBJECT_SHIFT_X_STD="${OBJECT_SHIFT_X_STD:-0.0}"
 OBJECT_SHIFT_Y_STD="${OBJECT_SHIFT_Y_STD:-0.0}"
 
 # LIBERO settings
@@ -98,29 +98,29 @@ fi
 mkdir -p "${WORKDIR}/logs"
 
 # ── Server lifecycle helpers ──────────────────────────────────────────────────
-wait_for_server() {
-    echo "Waiting for policy server on port ${PORT}..."
-    for i in {1..300}; do
-        if nc -z localhost "${PORT}" 2>/dev/null; then
-            echo "Server is up ($((i * 2))s)."
-            return 0
-        fi
-        sleep 2
-    done
-    echo "ERROR: Policy server failed to start within 600s."
-    exit 1
-}
+# wait_for_server() {
+#     echo "Waiting for policy server on port ${PORT}..."
+#     for i in {1..300}; do
+#         if nc -z localhost "${PORT}" 2>/dev/null; then
+#             echo "Server is up ($((i * 2))s)."
+#             return 0
+#         fi
+#         sleep 2
+#     done
+#     echo "ERROR: Policy server failed to start within 600s."
+#     exit 1
+# }
 
-kill_server() {
-    if [[ -n "${SERVER_PID:-}" ]]; then
-        echo "Stopping policy server (PID=${SERVER_PID})..."
-        kill "${SERVER_PID}" 2>/dev/null || true
-        wait "${SERVER_PID}" 2>/dev/null || true
-        unset SERVER_PID
-    fi
-}
+# kill_server() {
+#     if [[ -n "${SERVER_PID:-}" ]]; then
+#         echo "Stopping policy server (PID=${SERVER_PID})..."
+#         kill "${SERVER_PID}" 2>/dev/null || true
+#         wait "${SERVER_PID}" 2>/dev/null || true
+#         unset SERVER_PID
+#     fi
+# }
 
-trap kill_server EXIT
+# trap kill_server EXIT
 
 # ── Print config ──────────────────────────────────────────────────────────────
 echo "============================================================"
@@ -140,13 +140,13 @@ echo "Prompt mode:         ${PROMPT_MODE}"
 echo "============================================================"
 
 # ── Start policy server ───────────────────────────────────────────────────────
-echo ""
-echo "Starting policy server..."
-SERVER_LOG="${WORKDIR}/logs/pi05_server_${SLURM_JOB_ID:-0}.log"
-PYTHONUNBUFFERED=1 python "${WORKDIR}/scripts/serve_policy.py" --env "${ENV_NAME}" \
-    > "${SERVER_LOG}" 2>&1 &
-SERVER_PID=$!
-wait_for_server
+# echo ""
+# echo "Starting policy server..."
+# SERVER_LOG="${WORKDIR}/logs/pi05_server_${SLURM_JOB_ID:-0}.log"
+# PYTHONUNBUFFERED=1 python "${WORKDIR}/scripts/serve_policy.py" --env "${ENV_NAME}" \
+#     > "${SERVER_LOG}" 2>&1 &
+# SERVER_PID=$!
+# wait_for_server
 
 # ── Evaluate each suite ───────────────────────────────────────────────────────
 for SUITE in "${SUITES[@]}"; do
@@ -157,27 +157,26 @@ for SUITE in "${SUITES[@]}"; do
     mkdir -p "${VIDEO_OUT}"
 
     python "${WORKDIR}/examples/libero/main.py" \
-        --host "0.0.0.0" \
-        --port "${PORT}" \
-        --task-suite-name "${SUITE}" \
-        --num-trials-per-task "${NUM_TRIALS}" \
-        --seed "${SEED}" \
-        --replan-steps "${REPLAN_STEPS}" \
-        --resize-size "${RESIZE_SIZE}" \
-        --prompt-mode "${PROMPT_MODE}" \
-        --custom-prompt "${CUSTOM_PROMPT}" \
-        --policy-perturb-mode "${POLICY_PERTURB_MODE}" \
-        --random-action-prob "${RANDOM_ACTION_PROB}" \
-        --random-action-scale "${RANDOM_ACTION_SCALE}" \
-        --object-shift-x-std "${OBJECT_SHIFT_X_STD}" \
-        --object-shift-y-std "${OBJECT_SHIFT_Y_STD}" \
-        --video-out-path "${VIDEO_OUT}" \
+        --args.port "${PORT}" \
+        --args.task-suite-name "${SUITE}" \
+        --args.num-trials-per-task "${NUM_TRIALS}" \
+        --args.seed "${SEED}" \
+        --args.replan-steps "${REPLAN_STEPS}" \
+        --args.resize-size "${RESIZE_SIZE}" \
+        --args.prompt-mode "${PROMPT_MODE}" \
+        --args.custom-prompt "${CUSTOM_PROMPT}" \
+        --args.policy-perturb-mode "${POLICY_PERTURB_MODE}" \
+        --args.random-action-prob "${RANDOM_ACTION_PROB}" \
+        --args.random-action-scale "${RANDOM_ACTION_SCALE}" \
+        --args.object-shift-x-std "${OBJECT_SHIFT_X_STD}" \
+        --args.object-shift-y-std "${OBJECT_SHIFT_Y_STD}" \
+        --args.video-out-path "${VIDEO_OUT}" \
         2>&1 | tee "${WORKDIR}/logs/pi05_${SUITE}_${PERTURB_TAG}_${SLURM_JOB_ID:-0}.log"
 
     echo "Finished: ${SUITE}"
 done
 
-kill_server
+# kill_server
 
 echo ""
 echo "============================================================"

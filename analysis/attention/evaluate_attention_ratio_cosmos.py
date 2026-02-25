@@ -33,9 +33,16 @@ from unittest.mock import MagicMock
 import numpy as np
 
 # ── Path setup ────────────────────────────────────────────────────────────────
-_COSMOS_POLICY_DIR = str(pathlib.Path(__file__).resolve().parent.parent.parent / "third_party" / "cosmos-policy")
+_SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
+_PROJECT_ROOT = _SCRIPT_DIR.parent.parent
+
+_COSMOS_POLICY_DIR = str(_PROJECT_ROOT / "third_party" / "cosmos-policy")
 if _COSMOS_POLICY_DIR not in sys.path:
     sys.path.insert(0, _COSMOS_POLICY_DIR)
+
+_LIBERO_EVAL_DIR = str(_PROJECT_ROOT / "examples" / "libero")
+if _LIBERO_EVAL_DIR not in sys.path:
+    sys.path.insert(0, _LIBERO_EVAL_DIR)
 
 # Mock transformer_engine if not available
 try:
@@ -91,6 +98,8 @@ from cosmos_policy.experiments.robot.cosmos_utils import (
 
 from libero.libero import benchmark, get_libero_path
 from libero.libero.envs import SubprocVectorEnv
+from policy_perturbations import PolicyPerturbConfig, apply_object_shift, maybe_perturb_action
+from visual_perturbations import VisualPerturbConfig, perturb_image
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -441,16 +450,21 @@ def _get_libero_env(task, resolution, seed):
     return env, task.language
 
 
-def _prepare_observation(obs, flip_images: bool = True):
+def _prepare_observation(obs, flip_images: bool = True, vis_cfg: Optional[VisualPerturbConfig] = None):
     """Prepare observation for Cosmos policy."""
     img = obs["agentview_image"]
     wrist_img = obs["robot0_eye_in_hand_image"]
     if flip_images:
         img = np.flipud(img)
         wrist_img = np.flipud(wrist_img)
+    img = np.ascontiguousarray(img)
+    wrist_img = np.ascontiguousarray(wrist_img)
+    if vis_cfg is not None:
+        img = perturb_image(img, vis_cfg)
+        wrist_img = perturb_image(wrist_img, vis_cfg)
     return {
-        "primary_image": np.ascontiguousarray(img),
-        "wrist_image": np.ascontiguousarray(wrist_img),
+        "primary_image": img,
+        "wrist_image": wrist_img,
         "proprio": np.concatenate(
             (obs["robot0_gripper_qpos"], obs["robot0_eef_pos"], obs["robot0_eef_quat"])
         ),
@@ -504,10 +518,16 @@ def run_episode(
     query_frame: str,
     visual_frame: str,
     text_frame: str,
+    vis_cfg: Optional[VisualPerturbConfig] = None,
+    policy_cfg: Optional[PolicyPerturbConfig] = None,
+    policy_rng: Optional[np.random.Generator] = None,
 ) -> Dict:
     """Run one episode and track visual/linguistic attention ratios."""
     obs = env.reset()
     obs = env.set_init_state(initial_state)
+
+    if policy_cfg is not None and policy_rng is not None:
+        apply_object_shift(env, policy_cfg, policy_rng)
 
     action_plan = collections.deque()
     step_ratio_results = []
@@ -521,7 +541,7 @@ def run_episode(
             t += 1
             continue
 
-        observation = _prepare_observation(obs, flip_images=True)
+        observation = _prepare_observation(obs, flip_images=True, vis_cfg=vis_cfg)
 
         is_replan = not action_plan
         if is_replan:
@@ -607,10 +627,12 @@ def run_episode(
                             f"ratio={m['ratio']:.3f}, visual={m['visual_mass']:.3f}, linguistic={m['linguistic_mass']:.3f}"
                         )
 
-        action = action_plan.popleft()
-        if isinstance(action, np.ndarray):
-            action = action.tolist()
-        obs, reward, done, info = env.step(action)
+        policy_action = action_plan.popleft()
+        if policy_cfg is not None and policy_rng is not None:
+            action, _ = maybe_perturb_action(np.asarray(policy_action, dtype=np.float32), policy_cfg, policy_rng)
+        else:
+            action = np.asarray(policy_action, dtype=np.float32)
+        obs, reward, done, info = env.step(action.tolist())
 
         if done:
             break
@@ -668,12 +690,46 @@ def main():
     parser.add_argument("--visual-frame", type=str, default="curr_last")
     parser.add_argument("--text-frame", type=str, default="frame0")
 
+    # Visual perturbation
+    parser.add_argument("--visual-perturb-mode", type=str, default="none",
+                        choices=["none", "rotate", "translate", "rotate_translate"],
+                        help="Image-level perturbation mode.")
+    parser.add_argument("--rotation-degrees", type=float, default=0.0)
+    parser.add_argument("--translate-x-frac", type=float, default=0.0)
+    parser.add_argument("--translate-y-frac", type=float, default=0.0)
+
+    # Policy perturbation
+    parser.add_argument("--policy-perturb-mode", type=str, default="none",
+                        choices=["none", "random_action", "object_shift"],
+                        help="Policy-level perturbation mode.")
+    parser.add_argument("--random-action-prob", type=float, default=0.25)
+    parser.add_argument("--random-action-scale", type=float, default=1.0)
+    parser.add_argument("--object-shift-x-std", type=float, default=0.0)
+    parser.add_argument("--object-shift-y-std", type=float, default=0.0)
+
     # Output
     parser.add_argument("--output-dir", type=str, default="results/attention_ratio_cosmos")
 
     args = parser.parse_args()
 
     max_steps = TASK_MAX_STEPS[args.task_suite]
+
+    vis_cfg = VisualPerturbConfig(
+        mode=args.visual_perturb_mode,
+        rotation_degrees=args.rotation_degrees,
+        translate_x_frac=args.translate_x_frac,
+        translate_y_frac=args.translate_y_frac,
+    )
+    policy_cfg = PolicyPerturbConfig(
+        mode=args.policy_perturb_mode,
+        random_action_prob=args.random_action_prob,
+        random_action_scale=args.random_action_scale,
+        object_shift_x_std=args.object_shift_x_std,
+        object_shift_y_std=args.object_shift_y_std,
+    )
+    policy_rng = np.random.default_rng(args.seed + 9999)
+    log.info(f"Visual perturbation: {vis_cfg.as_dict()}")
+    log.info(f"Policy perturbation: {policy_cfg.as_dict()}")
 
     log.info("Loading Cosmos model...")
     cfg = _build_cosmos_cfg(args)
@@ -727,11 +783,16 @@ def main():
                 query_frame=args.query_frame,
                 visual_frame=args.visual_frame,
                 text_frame=args.text_frame,
+                vis_cfg=vis_cfg,
+                policy_cfg=policy_cfg,
+                policy_rng=policy_rng,
             )
 
             result["task_id"] = task_id
             result["episode_idx"] = ep_idx
             result["task_description"] = task_description
+            result["visual_perturbation"] = vis_cfg.as_dict()
+            result["policy_perturbation"] = policy_cfg.as_dict()
             all_results.append(result)
 
         env.close()

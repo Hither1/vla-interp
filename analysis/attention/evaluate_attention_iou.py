@@ -52,9 +52,12 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
-# Add src to path
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(_PROJECT_ROOT, "src"))
+# Add repo root, examples/libero (for perturbation modules), and this directory to path
+_REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
+_ATTN_DIR = pathlib.Path(__file__).resolve().parent
+for _p in [str(_REPO_ROOT / "examples" / "libero"), str(_ATTN_DIR)]:
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 from libero.libero import benchmark  # noqa: E402
 from libero.libero import get_libero_path  # noqa: E402
@@ -83,6 +86,12 @@ from attention_iou import (  # noqa: E402
     visualize_iou_over_episode,
     find_segmentation_key,
     DEFAULT_THRESHOLD_METHODS,
+)
+from visual_perturbations import VisualPerturbConfig, perturb_image  # noqa: E402
+from policy_perturbations import (  # noqa: E402
+    PolicyPerturbConfig,
+    apply_object_shift,
+    maybe_perturb_action,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -259,6 +268,9 @@ def run_episode(
     num_image_tokens: int = 256,
     threshold_methods=None,
     metric: str = "iou",
+    vis_cfg: Optional["VisualPerturbConfig"] = None,
+    policy_cfg: Optional["PolicyPerturbConfig"] = None,
+    policy_rng: Optional[np.random.Generator] = None,
 ) -> Dict:
     """Run one episode, recording attention + segmentation IoU at each replan step."""
     if threshold_methods is None:
@@ -266,6 +278,9 @@ def run_episode(
 
     obs = env.reset()
     obs = env.set_init_state(initial_state)
+
+    if policy_cfg is not None and policy_rng is not None:
+        apply_object_shift(env, policy_cfg, policy_rng)
 
     obj_of_interest = env.obj_of_interest
     object_ids = {}
@@ -335,6 +350,11 @@ def run_episode(
         wrist_resized = image_tools.convert_to_uint8(
             image_tools.resize_with_pad(wrist, MODEL_INPUT_RESOLUTION, MODEL_INPUT_RESOLUTION)
         )
+
+        if vis_cfg is not None and vis_cfg.mode != "none":
+            agentview_resized = perturb_image(agentview_resized, vis_cfg)
+            wrist_resized = perturb_image(wrist_resized, vis_cfg)
+
         replay_images.append(agentview_resized)
 
         is_replan = not action_plan
@@ -449,6 +469,8 @@ def run_episode(
                         )
 
         action = action_plan.popleft()
+        if policy_cfg is not None and policy_rng is not None:
+            action, _ = maybe_perturb_action(np.asarray(action, dtype=np.float32), policy_cfg, policy_rng)
         obs, reward, done, info = env.step(action.tolist())
 
         if done:
@@ -554,6 +576,21 @@ def main():
              "(attention mass on GT region / total attention, no thresholding).",
     )
 
+    # Visual perturbation
+    parser.add_argument("--visual-perturb-mode", type=str, default="none",
+                        choices=["none", "rotate", "translate", "rotate_translate"])
+    parser.add_argument("--rotation-degrees", type=float, default=0.0)
+    parser.add_argument("--translate-x-frac", type=float, default=0.0)
+    parser.add_argument("--translate-y-frac", type=float, default=0.0)
+
+    # Policy perturbation
+    parser.add_argument("--policy-perturb-mode", type=str, default="none",
+                        choices=["none", "random_action", "object_shift"])
+    parser.add_argument("--random-action-prob", type=float, default=0.0)
+    parser.add_argument("--random-action-scale", type=float, default=1.0)
+    parser.add_argument("--object-shift-x-std", type=float, default=0.0)
+    parser.add_argument("--object-shift-y-std", type=float, default=0.0)
+
     # Output
     parser.add_argument("--output-dir", type=str, default="outputs_iou")
     parser.add_argument("--save-viz", action="store_true", help="Save per-step IoU visualizations (slow, disk-heavy)")
@@ -561,6 +598,23 @@ def main():
     args = parser.parse_args()
 
     pi05 = not args.no_pi05
+
+    vis_cfg = VisualPerturbConfig(
+        mode=args.visual_perturb_mode,
+        rotation_degrees=args.rotation_degrees,
+        translate_x_frac=args.translate_x_frac,
+        translate_y_frac=args.translate_y_frac,
+    )
+    policy_cfg = PolicyPerturbConfig(
+        mode=args.policy_perturb_mode,
+        random_action_prob=args.random_action_prob,
+        random_action_scale=args.random_action_scale,
+        object_shift_x_std=args.object_shift_x_std,
+        object_shift_y_std=args.object_shift_y_std,
+    )
+    policy_rng = np.random.default_rng(args.seed + 9999)
+    log.info(f"Visual perturbation: {vis_cfg.as_dict()}")
+    log.info(f"Policy perturbation: {policy_cfg.as_dict()}")
 
     # Parse threshold methods
     threshold_methods = []
@@ -636,11 +690,16 @@ def main():
                 num_image_tokens=args.num_image_tokens,
                 threshold_methods=threshold_methods,
                 metric=args.metric,
+                vis_cfg=vis_cfg,
+                policy_cfg=policy_cfg,
+                policy_rng=policy_rng,
             )
 
             result["task_id"] = task_id
             result["episode_idx"] = ep_idx
             result["task_description"] = task_description
+            result["visual_perturbation"] = vis_cfg.as_dict()
+            result["policy_perturbation"] = policy_cfg.as_dict()
             all_results.append(result)
 
             # Log episode summary (prefer averaged summary if present)

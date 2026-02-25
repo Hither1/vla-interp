@@ -68,8 +68,8 @@ RESIZE_SIZE="${RESIZE_SIZE:-224}"
 # Visual perturbation
 # mode: none | rotate | translate | rotate_translate
 VISUAL_PERTURB_MODE="${VISUAL_PERTURB_MODE:-none}"
-ROTATION_DEGREES="${ROTATION_DEGREES:-30.0}"
-TRANSLATE_X_FRAC="${TRANSLATE_X_FRAC:-0.2}"
+ROTATION_DEGREES="${ROTATION_DEGREES:-0.0}"
+TRANSLATE_X_FRAC="${TRANSLATE_X_FRAC:-0.0}"
 TRANSLATE_Y_FRAC="${TRANSLATE_Y_FRAC:-0.0}"
 
 # LIBERO settings
@@ -102,29 +102,29 @@ fi
 mkdir -p "${WORKDIR}/logs"
 
 # ── Server lifecycle helpers ──────────────────────────────────────────────────
-wait_for_server() {
-    echo "Waiting for policy server on port ${PORT}..."
-    for i in {1..60}; do
-        if nc -z localhost "${PORT}" 2>/dev/null; then
-            echo "Server is up (${i}s)."
-            return 0
-        fi
-        sleep 2
-    done
-    echo "ERROR: Policy server failed to start within 120s."
-    exit 1
-}
+# wait_for_server() {
+#     echo "Waiting for policy server on port ${PORT}..."
+#     for i in {1..60}; do
+#         if nc -z localhost "${PORT}" 2>/dev/null; then
+#             echo "Server is up (${i}s)."
+#             return 0
+#         fi
+#         sleep 2
+#     done
+#     echo "ERROR: Policy server failed to start within 120s."
+#     exit 1
+# }
 
-kill_server() {
-    if [[ -n "${SERVER_PID:-}" ]]; then
-        echo "Stopping policy server (PID=${SERVER_PID})..."
-        kill "${SERVER_PID}" 2>/dev/null || true
-        wait "${SERVER_PID}" 2>/dev/null || true
-        unset SERVER_PID
-    fi
-}
+# kill_server() {
+#     if [[ -n "${SERVER_PID:-}" ]]; then
+#         echo "Stopping policy server (PID=${SERVER_PID})..."
+#         kill "${SERVER_PID}" 2>/dev/null || true
+#         wait "${SERVER_PID}" 2>/dev/null || true
+#         unset SERVER_PID
+#     fi
+# }
 
-trap kill_server EXIT
+# trap kill_server EXIT
 
 # ── Print config ──────────────────────────────────────────────────────────────
 echo "============================================================"
@@ -143,13 +143,13 @@ echo "Prompt mode:         ${PROMPT_MODE}"
 echo "============================================================"
 
 # ── Start policy server (shared across all suites) ───────────────────────────
-echo ""
-echo "Starting policy server..."
-SERVER_LOG="${WORKDIR}/logs/pi05_server_${SLURM_JOB_ID:-0}.log"
-python "${WORKDIR}/scripts/serve_policy.py" --env "${ENV_NAME}" \
-    > "${SERVER_LOG}" 2>&1 &
-SERVER_PID=$!
-wait_for_server
+# echo ""
+# echo "Starting policy server..."
+# SERVER_LOG="${WORKDIR}/logs/pi05_server_${SLURM_JOB_ID:-0}.log"
+# python "${WORKDIR}/scripts/serve_policy.py" --env "${ENV_NAME}" \
+#     > "${SERVER_LOG}" 2>&1 &
+# SERVER_PID=$!
+# wait_for_server
 
 # ── Evaluate each suite ───────────────────────────────────────────────────────
 for SUITE in "${SUITES[@]}"; do
@@ -160,27 +160,27 @@ for SUITE in "${SUITES[@]}"; do
     mkdir -p "${VIDEO_OUT}"
 
     python "${WORKDIR}/examples/libero/main.py" \
-        --host "0.0.0.0" \
-        --port "${PORT}" \
-        --task-suite-name "${SUITE}" \
-        --num-trials-per-task "${NUM_TRIALS}" \
-        --seed "${SEED}" \
-        --replan-steps "${REPLAN_STEPS}" \
-        --resize-size "${RESIZE_SIZE}" \
-        --prompt-mode "${PROMPT_MODE}" \
-        --custom-prompt "${CUSTOM_PROMPT}" \
-        --visual-perturb-mode "${VISUAL_PERTURB_MODE}" \
-        --rotation-degrees "${ROTATION_DEGREES}" \
-        --translate-x-frac "${TRANSLATE_X_FRAC}" \
-        --translate-y-frac "${TRANSLATE_Y_FRAC}" \
-        --video-out-path "${VIDEO_OUT}" \
+        --args.host "0.0.0.0" \
+        --args.port "${PORT}" \
+        --args.task-suite-name "${SUITE}" \
+        --args.num-trials-per-task "${NUM_TRIALS}" \
+        --args.seed "${SEED}" \
+        --args.replan-steps "${REPLAN_STEPS}" \
+        --args.resize-size "${RESIZE_SIZE}" \
+        --args.prompt-mode "${PROMPT_MODE}" \
+        --args.custom-prompt "${CUSTOM_PROMPT}" \
+        --args.visual-perturb-mode "${VISUAL_PERTURB_MODE}" \
+        --args.rotation-degrees "${ROTATION_DEGREES}" \
+        --args.translate-x-frac "${TRANSLATE_X_FRAC}" \
+        --args.translate-y-frac "${TRANSLATE_Y_FRAC}" \
+        --args.video-out-path "${VIDEO_OUT}" \
         2>&1 | tee "${WORKDIR}/logs/pi05_${SUITE}_${PERTURB_TAG}_${SLURM_JOB_ID:-0}.log"
 
     echo "Finished: ${SUITE}"
 done
 
 # ── Shutdown ──────────────────────────────────────────────────────────────────
-kill_server
+# kill_server
 
 echo ""
 echo "============================================================"

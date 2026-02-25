@@ -46,9 +46,12 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
-# Add src to path
+# Add src and examples/libero to path
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(_PROJECT_ROOT, "src"))
+_LIBERO_EVAL_DIR = os.path.join(_PROJECT_ROOT, "examples", "libero")
+if _LIBERO_EVAL_DIR not in sys.path:
+    sys.path.insert(0, _LIBERO_EVAL_DIR)
 
 from libero.libero import benchmark  # noqa: E402
 from libero.libero import get_libero_path  # noqa: E402
@@ -67,6 +70,12 @@ from visualize_attention import (  # noqa: E402
     disable_attention_recording,
     get_recorded_attention_weights,
     extract_image_attention,
+)
+from visual_perturbations import VisualPerturbConfig, perturb_image  # noqa: E402
+from policy_perturbations import (  # noqa: E402
+    PolicyPerturbConfig,
+    apply_object_shift,
+    maybe_perturb_action,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -438,11 +447,17 @@ def run_episode(
     output_dir: str = "results/attention_ratio",
     episode_prefix: str = "ep",
     num_image_tokens: int = 256,
+    vis_cfg: Optional["VisualPerturbConfig"] = None,
+    policy_cfg: Optional["PolicyPerturbConfig"] = None,
+    policy_rng: Optional[np.random.Generator] = None,
 ) -> Dict:
     """Run one episode, recording visual/linguistic attention ratios at each replan step."""
 
     obs = env.reset()
     obs = env.set_init_state(initial_state)
+
+    if policy_cfg is not None and policy_rng is not None:
+        apply_object_shift(env, policy_cfg, policy_rng)
 
     action_plan = collections.deque()
     step_ratio_results: List[Dict] = []
@@ -466,6 +481,10 @@ def run_episode(
         wrist_resized = image_tools.convert_to_uint8(
             image_tools.resize_with_pad(wrist, MODEL_INPUT_RESOLUTION, MODEL_INPUT_RESOLUTION)
         )
+
+        if vis_cfg is not None and vis_cfg.mode != "none":
+            agentview_resized = perturb_image(agentview_resized, vis_cfg)
+            wrist_resized = perturb_image(wrist_resized, vis_cfg)
 
         is_replan = not action_plan
         if is_replan:
@@ -543,6 +562,8 @@ def run_episode(
                         )
 
         action = action_plan.popleft()
+        if policy_cfg is not None and policy_rng is not None:
+            action, _ = maybe_perturb_action(np.asarray(action, dtype=np.float32), policy_cfg, policy_rng)
         obs, reward, done, info = env.step(action.tolist())
 
         if done:
@@ -632,6 +653,21 @@ def main():
     parser.add_argument("--layers", type=int, nargs="+", default=[15, 16, 17], help="Transformer layers to analyze")
     parser.add_argument("--num-image-tokens", type=int, default=256)
 
+    # Visual perturbation
+    parser.add_argument("--visual-perturb-mode", type=str, default="none",
+                        choices=["none", "rotate", "translate", "rotate_translate"])
+    parser.add_argument("--rotation-degrees", type=float, default=0.0)
+    parser.add_argument("--translate-x-frac", type=float, default=0.0)
+    parser.add_argument("--translate-y-frac", type=float, default=0.0)
+
+    # Policy perturbation
+    parser.add_argument("--policy-perturb-mode", type=str, default="none",
+                        choices=["none", "random_action", "object_shift"])
+    parser.add_argument("--random-action-prob", type=float, default=0.0)
+    parser.add_argument("--random-action-scale", type=float, default=1.0)
+    parser.add_argument("--object-shift-x-std", type=float, default=0.0)
+    parser.add_argument("--object-shift-y-std", type=float, default=0.0)
+
     # Output
     parser.add_argument("--output-dir", type=str, default="results/attention_ratio")
     parser.add_argument("--save-viz", action="store_true", help="Save per-step ratio visualizations")
@@ -640,6 +676,23 @@ def main():
 
     pi05 = not args.no_pi05
     max_steps = TASK_MAX_STEPS[args.task_suite]
+
+    vis_cfg = VisualPerturbConfig(
+        mode=args.visual_perturb_mode,
+        rotation_degrees=args.rotation_degrees,
+        translate_x_frac=args.translate_x_frac,
+        translate_y_frac=args.translate_y_frac,
+    )
+    policy_cfg = PolicyPerturbConfig(
+        mode=args.policy_perturb_mode,
+        random_action_prob=args.random_action_prob,
+        random_action_scale=args.random_action_scale,
+        object_shift_x_std=args.object_shift_x_std,
+        object_shift_y_std=args.object_shift_y_std,
+    )
+    policy_rng = np.random.default_rng(args.seed + 9999)
+    log.info(f"Visual perturbation: {vis_cfg.as_dict()}")
+    log.info(f"Policy perturbation: {policy_cfg.as_dict()}")
 
     log.info("Loading model from checkpoint...")
     model, cfg, state_dim = load_model_from_checkpoint(
@@ -698,11 +751,16 @@ def main():
                 output_dir=args.output_dir,
                 episode_prefix=episode_prefix,
                 num_image_tokens=args.num_image_tokens,
+                vis_cfg=vis_cfg,
+                policy_cfg=policy_cfg,
+                policy_rng=policy_rng,
             )
 
             result["task_id"] = task_id
             result["episode_idx"] = ep_idx
             result["task_description"] = task_description
+            result["visual_perturbation"] = vis_cfg.as_dict()
+            result["policy_perturbation"] = policy_cfg.as_dict()
             all_results.append(result)
 
             # Log episode summary
