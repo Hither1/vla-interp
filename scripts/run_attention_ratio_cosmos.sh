@@ -32,6 +32,15 @@ CKPT_PATH="${CKPT_PATH:-nvidia/Cosmos-Policy-LIBERO-Predict2-2B}"
 CONFIG_NAME="${CONFIG_NAME:-cosmos_predict2_2b_480p_libero__inference_only}"
 TASK_SUITE="${TASK_SUITE:-libero_10}"
 TASK_ID="${TASK_ID:-}"  # Empty means all tasks
+
+# Expand TASK_SUITE into array of suites to run
+if [ "${TASK_SUITE}" = "all" ]; then
+    SUITES=(libero_spatial libero_object libero_goal libero_10)
+elif [ "${TASK_SUITE}" = "90_all" ]; then
+    SUITES=(libero_90_obj libero_90_spa libero_90_act libero_90_com)
+else
+    SUITES=("${TASK_SUITE}")
+fi
 NUM_EPISODES="${NUM_EPISODES:-5}"
 
 # Frame selection for Cosmos (important!)
@@ -79,8 +88,6 @@ else
     POL_TAG="none"
 fi
 
-OUTPUT_DIR="${OUTPUT_DIR:-results/attention_ratio_cosmos_${TASK_SUITE}/vis_${VIS_TAG}__pol_${POL_TAG}}"
-
 # Script directory (handle SLURM execution)
 if [ -n "$SLURM_SUBMIT_DIR" ]; then
     PROJECT_ROOT="$SLURM_SUBMIT_DIR"
@@ -89,92 +96,96 @@ else
     PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 fi
 
-echo "========================================="
-echo "Cosmos Visual/Linguistic Attention Ratio"
-echo "========================================="
-echo "Checkpoint:    $CKPT_PATH"
-echo "Config:        $CONFIG_NAME"
-echo "Task Suite:    $TASK_SUITE"
-echo "Task ID:       ${TASK_ID:-all}"
-echo "Episodes:      $NUM_EPISODES"
-echo "Query Frame:   $QUERY_FRAME"
-echo "Visual Frame:  $VISUAL_FRAME"
-echo "Text Frame:    $TEXT_FRAME"
-echo "Visual perturb: $VISUAL_PERTURB_MODE ($VIS_TAG)"
-echo "  rotation_degrees:  $ROTATION_DEGREES"
-echo "  translate_x_frac:  $TRANSLATE_X_FRAC"
-echo "  translate_y_frac:  $TRANSLATE_Y_FRAC"
-echo "Policy perturb: $POLICY_PERTURB_MODE ($POL_TAG)"
-echo "  random_action_prob:   $RANDOM_ACTION_PROB"
-echo "  random_action_scale:  $RANDOM_ACTION_SCALE"
-echo "  object_shift_x_std:   $OBJECT_SHIFT_X_STD"
-echo "  object_shift_y_std:   $OBJECT_SHIFT_Y_STD"
-echo "Output:        $OUTPUT_DIR"
-echo "========================================="
-echo
+for SUITE in "${SUITES[@]}"; do
+    OUTPUT_DIR="results/attention_ratio_cosmos_${SUITE}/vis_${VIS_TAG}__pol_${POL_TAG}"
 
-# Build command
-CMD="python $PROJECT_ROOT/analysis/attention/evaluate_attention_ratio_cosmos.py \
-  --ckpt-path $CKPT_PATH \
-  --config-name $CONFIG_NAME \
-  --task-suite $TASK_SUITE \
-  --num-episodes $NUM_EPISODES \
-  --query-frame $QUERY_FRAME \
-  --visual-frame $VISUAL_FRAME \
-  --text-frame $TEXT_FRAME \
-  --visual-perturb-mode $VISUAL_PERTURB_MODE \
-  --rotation-degrees $ROTATION_DEGREES \
-  --translate-x-frac $TRANSLATE_X_FRAC \
-  --translate-y-frac $TRANSLATE_Y_FRAC \
-  --policy-perturb-mode $POLICY_PERTURB_MODE \
-  --random-action-prob $RANDOM_ACTION_PROB \
-  --random-action-scale $RANDOM_ACTION_SCALE \
-  --object-shift-x-std $OBJECT_SHIFT_X_STD \
-  --object-shift-y-std $OBJECT_SHIFT_Y_STD \
-  --output-dir $OUTPUT_DIR"
-
-# Add task ID if specified
-if [ -n "$TASK_ID" ]; then
-  CMD="$CMD --task-id $TASK_ID"
-fi
-
-echo "Running: $CMD"
-echo
-
-# Run evaluation
-$CMD
-
-echo
-echo "========================================="
-echo "Evaluation Complete!"
-echo "========================================="
-echo "Results saved to: $OUTPUT_DIR"
-echo
-
-# Parse results if they exist
-RESULTS_FILE="$OUTPUT_DIR/attention_ratio_results_${TASK_SUITE}.json"
-if [ -f "$RESULTS_FILE" ]; then
-  echo "Generating analysis..."
-  python "$PROJECT_ROOT/analysis/attention/parse_attention_ratio_results.py" \
-    --results "$RESULTS_FILE" \
-    --output "$OUTPUT_DIR/summary.txt" \
-    --output-dir "$OUTPUT_DIR/analysis" \
-    --plot-all
-
-  echo
-  echo "Analysis saved to: $OUTPUT_DIR/analysis/"
-  echo "Summary saved to: $OUTPUT_DIR/summary.txt"
-  echo
-
-  # Display summary
-  if [ -f "$OUTPUT_DIR/summary.txt" ]; then
     echo "========================================="
-    echo "SUMMARY"
+    echo "Cosmos Visual/Linguistic Attention Ratio"
     echo "========================================="
-    cat "$OUTPUT_DIR/summary.txt"
+    echo "Checkpoint:    $CKPT_PATH"
+    echo "Config:        $CONFIG_NAME"
+    echo "Task Suite:    $SUITE"
+    echo "Task ID:       ${TASK_ID:-all}"
+    echo "Episodes:      $NUM_EPISODES"
+    echo "Query Frame:   $QUERY_FRAME"
+    echo "Visual Frame:  $VISUAL_FRAME"
+    echo "Text Frame:    $TEXT_FRAME"
+    echo "Visual perturb: $VISUAL_PERTURB_MODE ($VIS_TAG)"
+    echo "  rotation_degrees:  $ROTATION_DEGREES"
+    echo "  translate_x_frac:  $TRANSLATE_X_FRAC"
+    echo "  translate_y_frac:  $TRANSLATE_Y_FRAC"
+    echo "Policy perturb: $POLICY_PERTURB_MODE ($POL_TAG)"
+    echo "  random_action_prob:   $RANDOM_ACTION_PROB"
+    echo "  random_action_scale:  $RANDOM_ACTION_SCALE"
+    echo "  object_shift_x_std:   $OBJECT_SHIFT_X_STD"
+    echo "  object_shift_y_std:   $OBJECT_SHIFT_Y_STD"
+    echo "Output:        $OUTPUT_DIR"
     echo "========================================="
-  fi
-fi
+    echo
+
+    # Build command
+    CMD="python $PROJECT_ROOT/analysis/attention/evaluate_attention_ratio_cosmos.py \
+      --ckpt-path $CKPT_PATH \
+      --config-name $CONFIG_NAME \
+      --task-suite $SUITE \
+      --num-episodes $NUM_EPISODES \
+      --query-frame $QUERY_FRAME \
+      --visual-frame $VISUAL_FRAME \
+      --text-frame $TEXT_FRAME \
+      --visual-perturb-mode $VISUAL_PERTURB_MODE \
+      --rotation-degrees $ROTATION_DEGREES \
+      --translate-x-frac $TRANSLATE_X_FRAC \
+      --translate-y-frac $TRANSLATE_Y_FRAC \
+      --policy-perturb-mode $POLICY_PERTURB_MODE \
+      --random-action-prob $RANDOM_ACTION_PROB \
+      --random-action-scale $RANDOM_ACTION_SCALE \
+      --object-shift-x-std $OBJECT_SHIFT_X_STD \
+      --object-shift-y-std $OBJECT_SHIFT_Y_STD \
+      --output-dir $OUTPUT_DIR"
+
+    # Add task ID if specified
+    if [ -n "$TASK_ID" ]; then
+      CMD="$CMD --task-id $TASK_ID"
+    fi
+
+    echo "Running: $CMD"
+    echo
+
+    # Run evaluation
+    $CMD
+
+    echo
+    echo "========================================="
+    echo "Evaluation Complete!"
+    echo "========================================="
+    echo "Results saved to: $OUTPUT_DIR"
+    echo
+
+    # Parse results if they exist
+    RESULTS_FILE="$OUTPUT_DIR/attention_ratio_results_${SUITE}.json"
+    if [ -f "$RESULTS_FILE" ]; then
+      echo "Generating analysis..."
+      python "$PROJECT_ROOT/analysis/attention/parse_attention_ratio_results.py" \
+        --results "$RESULTS_FILE" \
+        --output "$OUTPUT_DIR/summary.txt" \
+        --output-dir "$OUTPUT_DIR/analysis" \
+        --plot-all
+
+      echo
+      echo "Analysis saved to: $OUTPUT_DIR/analysis/"
+      echo "Summary saved to: $OUTPUT_DIR/summary.txt"
+      echo
+
+      # Display summary
+      if [ -f "$OUTPUT_DIR/summary.txt" ]; then
+        echo "========================================="
+        echo "SUMMARY"
+        echo "========================================="
+        cat "$OUTPUT_DIR/summary.txt"
+        echo "========================================="
+      fi
+    fi
+done
 
 echo
 echo "Done!"

@@ -31,6 +31,15 @@ export MUJOCO_GL=egl
 # ── Configuration (override via environment or edit here) ────────────────────
 TASK_SUITE="${TASK_SUITE:-libero_10}"
 TASK_ID="${TASK_ID:-}"           # Leave empty to run all tasks
+
+# Expand TASK_SUITE into array of suites to run
+if [ "${TASK_SUITE}" = "all" ]; then
+    SUITES=(libero_spatial libero_object libero_goal libero_10)
+elif [ "${TASK_SUITE}" = "90_all" ]; then
+    SUITES=(libero_90_obj libero_90_spa libero_90_act libero_90_com)
+else
+    SUITES=("${TASK_SUITE}")
+fi
 NUM_EPISODES="${NUM_EPISODES:-5}"
 CHECKPOINT="${CHECKPOINT:-$HOME/.cache/openpi/openpi-assets/checkpoints/pi05_libero}"
 SAVE_VIZ="${SAVE_VIZ:-0}"   # set to 1 for per-step visualizations (slow, disk-heavy)
@@ -86,24 +95,8 @@ else
     PERTURB_TAG="none"
 fi
 
-OUTPUT_DIR="${OUTPUT_DIR:-${WORKDIR}/results/attention/iou_pi05/${TASK_SUITE}_seed${SEED}_perturb_${PERTURB_TAG}}"
-
 # ── Run ──────────────────────────────────────────────────────────────────────
-mkdir -p logs "${OUTPUT_DIR}"
-
-echo "============================================================"
-echo "Job ID:        ${SLURM_JOB_ID:-local}"
-echo "Task suite:    $TASK_SUITE"
-echo "Task ID:       ${TASK_ID:-all}"
-echo "Num episodes:  $NUM_EPISODES"
-echo "Checkpoint:    $CHECKPOINT"
-echo "Seed:          $SEED"
-echo "Save viz:      $SAVE_VIZ"
-echo "Visual perturbation: ${VISUAL_PERTURB_MODE} (rotation=${ROTATION_DEGREES} tx=${TRANSLATE_X_FRAC} ty=${TRANSLATE_Y_FRAC})"
-echo "Policy perturbation: ${POLICY_PERTURB_MODE} (prob=${RANDOM_ACTION_PROB} scale=${RANDOM_ACTION_SCALE} ox=${OBJECT_SHIFT_X_STD} oy=${OBJECT_SHIFT_Y_STD})"
-echo "Perturbation tag: ${PERTURB_TAG}"
-echo "Output dir:    $OUTPUT_DIR"
-echo "============================================================"
+mkdir -p logs
 
 TASK_ID_FLAG=""
 if [ -n "${TASK_ID}" ]; then
@@ -115,24 +108,43 @@ if [[ "$SAVE_VIZ" == "1" ]]; then
     VIZ_FLAG="--save-viz"
 fi
 
-python "${WORKDIR}/analysis/attention/evaluate_attention_iou.py" \
-    --checkpoint "$CHECKPOINT" \
-    --task-suite "$TASK_SUITE" \
-    --num-episodes "$NUM_EPISODES" \
-    --seed "$SEED" \
-    --metric attention_ratio \
-    --visual-perturb-mode "${VISUAL_PERTURB_MODE}" \
-    --rotation-degrees "${ROTATION_DEGREES}" \
-    --translate-x-frac "${TRANSLATE_X_FRAC}" \
-    --translate-y-frac "${TRANSLATE_Y_FRAC}" \
-    --policy-perturb-mode "${POLICY_PERTURB_MODE}" \
-    --random-action-prob "${RANDOM_ACTION_PROB}" \
-    --random-action-scale "${RANDOM_ACTION_SCALE}" \
-    --object-shift-x-std "${OBJECT_SHIFT_X_STD}" \
-    --object-shift-y-std "${OBJECT_SHIFT_Y_STD}" \
-    --output-dir "${OUTPUT_DIR}" \
-    ${TASK_ID_FLAG} \
-    ${VIZ_FLAG}
+for SUITE in "${SUITES[@]}"; do
+    OUTPUT_DIR="${WORKDIR}/results/attention/iou_pi05/${SUITE}_seed${SEED}_perturb_${PERTURB_TAG}"
+    mkdir -p "${OUTPUT_DIR}"
 
-echo
-echo "Done. Results saved to ${OUTPUT_DIR}/iou_results_${TASK_SUITE}.json"
+    echo "============================================================"
+    echo "Job ID:        ${SLURM_JOB_ID:-local}"
+    echo "Task suite:    $SUITE"
+    echo "Task ID:       ${TASK_ID:-all}"
+    echo "Num episodes:  $NUM_EPISODES"
+    echo "Checkpoint:    $CHECKPOINT"
+    echo "Seed:          $SEED"
+    echo "Save viz:      $SAVE_VIZ"
+    echo "Visual perturbation: ${VISUAL_PERTURB_MODE} (rotation=${ROTATION_DEGREES} tx=${TRANSLATE_X_FRAC} ty=${TRANSLATE_Y_FRAC})"
+    echo "Policy perturbation: ${POLICY_PERTURB_MODE} (prob=${RANDOM_ACTION_PROB} scale=${RANDOM_ACTION_SCALE} ox=${OBJECT_SHIFT_X_STD} oy=${OBJECT_SHIFT_Y_STD})"
+    echo "Perturbation tag: ${PERTURB_TAG}"
+    echo "Output dir:    $OUTPUT_DIR"
+    echo "============================================================"
+
+    python "${WORKDIR}/analysis/attention/evaluate_attention_iou.py" \
+        --checkpoint "$CHECKPOINT" \
+        --task-suite "$SUITE" \
+        --num-episodes "$NUM_EPISODES" \
+        --seed "$SEED" \
+        --metric attention_ratio \
+        --visual-perturb-mode "${VISUAL_PERTURB_MODE}" \
+        --rotation-degrees "${ROTATION_DEGREES}" \
+        --translate-x-frac "${TRANSLATE_X_FRAC}" \
+        --translate-y-frac "${TRANSLATE_Y_FRAC}" \
+        --policy-perturb-mode "${POLICY_PERTURB_MODE}" \
+        --random-action-prob "${RANDOM_ACTION_PROB}" \
+        --random-action-scale "${RANDOM_ACTION_SCALE}" \
+        --object-shift-x-std "${OBJECT_SHIFT_X_STD}" \
+        --object-shift-y-std "${OBJECT_SHIFT_Y_STD}" \
+        --output-dir "${OUTPUT_DIR}" \
+        ${TASK_ID_FLAG} \
+        ${VIZ_FLAG}
+
+    echo
+    echo "Done. Results saved to ${OUTPUT_DIR}/iou_results_${SUITE}.json"
+done

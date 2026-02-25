@@ -32,6 +32,15 @@ export LIBERO_CONFIG_PATH=/n/netscratch/sham_lab/Lab/chloe00/libero
 CHECKPOINT="${CHECKPOINT:-$HOME/.cache/openpi/openpi-assets/checkpoints/pi05_libero}"
 TASK_SUITE="${TASK_SUITE:-libero_10}"
 TASK_ID="${TASK_ID:-}"  # Empty means all tasks
+
+# Expand TASK_SUITE into array of suites to run
+if [ "${TASK_SUITE}" = "all" ]; then
+    SUITES=(libero_spatial libero_object libero_goal libero_10)
+elif [ "${TASK_SUITE}" = "90_all" ]; then
+    SUITES=(libero_90_obj libero_90_spa libero_90_act libero_90_com)
+else
+    SUITES=("${TASK_SUITE}")
+fi
 NUM_EPISODES="${NUM_EPISODES:-5}"
 LAYERS="${LAYERS:-0 8 17 25 26 27}"
 SAVE_VIZ="${SAVE_VIZ:-}"
@@ -72,8 +81,6 @@ else
     POL_TAG="${POLICY_PERTURB_MODE}"
 fi
 
-OUTPUT_DIR="${OUTPUT_DIR:-results/attention/ratio_pi05/${TASK_SUITE}/vis_${VIS_TAG}__pol_${POL_TAG}}"
-
 # Script directory (handle SLURM execution)
 if [ -n "$SLURM_SUBMIT_DIR" ]; then
     PROJECT_ROOT="$SLURM_SUBMIT_DIR"
@@ -82,92 +89,96 @@ else
     PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 fi
 
-echo "========================================="
-echo "Visual/Linguistic Attention Ratio Eval"
-echo "========================================="
-echo "Checkpoint:   $CHECKPOINT"
-echo "Task Suite:   $TASK_SUITE"
-echo "Task ID:      ${TASK_ID:-all}"
-echo "Episodes:     $NUM_EPISODES"
-echo "Layers:       $LAYERS"
-echo "Output:       $OUTPUT_DIR"
-echo "Save Viz:     ${SAVE_VIZ:-no}"
-echo "Visual perturb: $VISUAL_PERTURB_MODE ($VIS_TAG)"
-echo "  rotation_degrees:  $ROTATION_DEGREES"
-echo "  translate_x_frac:  $TRANSLATE_X_FRAC"
-echo "  translate_y_frac:  $TRANSLATE_Y_FRAC"
-echo "Policy perturb: $POLICY_PERTURB_MODE ($POL_TAG)"
-echo "  random_action_prob:   $RANDOM_ACTION_PROB"
-echo "  random_action_scale:  $RANDOM_ACTION_SCALE"
-echo "  object_shift_x_std:   $OBJECT_SHIFT_X_STD"
-echo "  object_shift_y_std:   $OBJECT_SHIFT_Y_STD"
-echo "========================================="
-echo
+for SUITE in "${SUITES[@]}"; do
+    OUTPUT_DIR="results/attention/ratio_pi05/${SUITE}/vis_${VIS_TAG}__pol_${POL_TAG}"
 
-# Build command
-CMD="python $PROJECT_ROOT/analysis/attention/evaluate_attention_ratio.py \
-  --checkpoint $CHECKPOINT \
-  --task-suite $TASK_SUITE \
-  --num-episodes $NUM_EPISODES \
-  --layers $LAYERS \
-  --visual-perturb-mode $VISUAL_PERTURB_MODE \
-  --rotation-degrees $ROTATION_DEGREES \
-  --translate-x-frac $TRANSLATE_X_FRAC \
-  --translate-y-frac $TRANSLATE_Y_FRAC \
-  --policy-perturb-mode $POLICY_PERTURB_MODE \
-  --random-action-prob $RANDOM_ACTION_PROB \
-  --random-action-scale $RANDOM_ACTION_SCALE \
-  --object-shift-x-std $OBJECT_SHIFT_X_STD \
-  --object-shift-y-std $OBJECT_SHIFT_Y_STD \
-  --output-dir $OUTPUT_DIR"
-
-# Add task ID if specified
-if [ -n "$TASK_ID" ]; then
-  CMD="$CMD --task-id $TASK_ID"
-fi
-
-# Add save-viz flag if requested
-if [ -n "$SAVE_VIZ" ]; then
-  CMD="$CMD --save-viz"
-fi
-
-echo "Running: $CMD"
-echo
-
-# Run evaluation
-$CMD
-
-echo
-echo "========================================="
-echo "Evaluation Complete!"
-echo "========================================="
-echo "Results saved to: $OUTPUT_DIR"
-echo
-
-# Parse results if they exist
-RESULTS_FILE="$OUTPUT_DIR/attention_ratio_results_${TASK_SUITE}.json"
-if [ -f "$RESULTS_FILE" ]; then
-  echo "Generating analysis..."
-  python "$PROJECT_ROOT/analysis/attention/parse_attention_ratio_results.py" \
-    --results "$RESULTS_FILE" \
-    --output "$OUTPUT_DIR/summary.txt" \
-    --output-dir "$OUTPUT_DIR/analysis/attention" \
-    --plot-all
-
-  echo
-  echo "Analysis saved to: $OUTPUT_DIR/analysis/"
-  echo "Summary saved to: $OUTPUT_DIR/summary.txt"
-  echo
-
-  # Display summary
-  if [ -f "$OUTPUT_DIR/summary.txt" ]; then
     echo "========================================="
-    echo "SUMMARY"
+    echo "Visual/Linguistic Attention Ratio Eval"
     echo "========================================="
-    cat "$OUTPUT_DIR/summary.txt"
+    echo "Checkpoint:   $CHECKPOINT"
+    echo "Task Suite:   $SUITE"
+    echo "Task ID:      ${TASK_ID:-all}"
+    echo "Episodes:     $NUM_EPISODES"
+    echo "Layers:       $LAYERS"
+    echo "Output:       $OUTPUT_DIR"
+    echo "Save Viz:     ${SAVE_VIZ:-no}"
+    echo "Visual perturb: $VISUAL_PERTURB_MODE ($VIS_TAG)"
+    echo "  rotation_degrees:  $ROTATION_DEGREES"
+    echo "  translate_x_frac:  $TRANSLATE_X_FRAC"
+    echo "  translate_y_frac:  $TRANSLATE_Y_FRAC"
+    echo "Policy perturb: $POLICY_PERTURB_MODE ($POL_TAG)"
+    echo "  random_action_prob:   $RANDOM_ACTION_PROB"
+    echo "  random_action_scale:  $RANDOM_ACTION_SCALE"
+    echo "  object_shift_x_std:   $OBJECT_SHIFT_X_STD"
+    echo "  object_shift_y_std:   $OBJECT_SHIFT_Y_STD"
     echo "========================================="
-  fi
-fi
+    echo
+
+    # Build command
+    CMD="python $PROJECT_ROOT/analysis/attention/evaluate_attention_ratio.py \
+      --checkpoint $CHECKPOINT \
+      --task-suite $SUITE \
+      --num-episodes $NUM_EPISODES \
+      --layers $LAYERS \
+      --visual-perturb-mode $VISUAL_PERTURB_MODE \
+      --rotation-degrees $ROTATION_DEGREES \
+      --translate-x-frac $TRANSLATE_X_FRAC \
+      --translate-y-frac $TRANSLATE_Y_FRAC \
+      --policy-perturb-mode $POLICY_PERTURB_MODE \
+      --random-action-prob $RANDOM_ACTION_PROB \
+      --random-action-scale $RANDOM_ACTION_SCALE \
+      --object-shift-x-std $OBJECT_SHIFT_X_STD \
+      --object-shift-y-std $OBJECT_SHIFT_Y_STD \
+      --output-dir $OUTPUT_DIR"
+
+    # Add task ID if specified
+    if [ -n "$TASK_ID" ]; then
+      CMD="$CMD --task-id $TASK_ID"
+    fi
+
+    # Add save-viz flag if requested
+    if [ -n "$SAVE_VIZ" ]; then
+      CMD="$CMD --save-viz"
+    fi
+
+    echo "Running: $CMD"
+    echo
+
+    # Run evaluation
+    $CMD
+
+    echo
+    echo "========================================="
+    echo "Evaluation Complete!"
+    echo "========================================="
+    echo "Results saved to: $OUTPUT_DIR"
+    echo
+
+    # Parse results if they exist
+    RESULTS_FILE="$OUTPUT_DIR/attention_ratio_results_${SUITE}.json"
+    if [ -f "$RESULTS_FILE" ]; then
+      echo "Generating analysis..."
+      python "$PROJECT_ROOT/analysis/attention/parse_attention_ratio_results.py" \
+        --results "$RESULTS_FILE" \
+        --output "$OUTPUT_DIR/summary.txt" \
+        --output-dir "$OUTPUT_DIR/analysis/attention" \
+        --plot-all
+
+      echo
+      echo "Analysis saved to: $OUTPUT_DIR/analysis/"
+      echo "Summary saved to: $OUTPUT_DIR/summary.txt"
+      echo
+
+      # Display summary
+      if [ -f "$OUTPUT_DIR/summary.txt" ]; then
+        echo "========================================="
+        echo "SUMMARY"
+        echo "========================================="
+        cat "$OUTPUT_DIR/summary.txt"
+        echo "========================================="
+      fi
+    fi
+done
 
 echo
 echo "Done!"

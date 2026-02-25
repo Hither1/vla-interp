@@ -37,6 +37,15 @@ export LIBERO_CONFIG_PATH=/n/netscratch/sham_lab/Lab/chloe00/libero
 CHECKPOINT="${CHECKPOINT:-}"          # Required: path to OpenVLA checkpoint
 TASK_SUITE="${TASK_SUITE:-libero_spatial}"
 TASK_ID="${TASK_ID:-}"               # Empty means all tasks
+
+# Expand TASK_SUITE into array of suites to run
+if [ "${TASK_SUITE}" = "all" ]; then
+    SUITES=(libero_spatial libero_object libero_goal libero_10)
+elif [ "${TASK_SUITE}" = "90_all" ]; then
+    SUITES=(libero_90_obj libero_90_spa libero_90_act libero_90_com)
+else
+    SUITES=("${TASK_SUITE}")
+fi
 NUM_EPISODES="${NUM_EPISODES:-5}"
 SEED="${SEED:-7}"
 LAYERS="${LAYERS:-20 21 22}"         # LLM decoder layer indices to analyze
@@ -96,8 +105,6 @@ else
     PERTURB_TAG="none"
 fi
 
-OUTPUT_DIR="${OUTPUT_DIR:-results/attention_ratio_openvla/${TASK_SUITE}_seed${SEED}_perturb_${PERTURB_TAG}}"
-
 # Script directory (handle SLURM execution)
 if [ -n "$SLURM_SUBMIT_DIR" ]; then
     PROJECT_ROOT="$SLURM_SUBMIT_DIR"
@@ -106,58 +113,62 @@ else
     PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 fi
 
-echo "========================================="
-echo "OpenVLA Visual/Linguistic Attention Ratio"
-echo "========================================="
-echo "Checkpoint:    $CHECKPOINT"
-echo "Task Suite:    $TASK_SUITE"
-echo "Task ID:       ${TASK_ID:-all}"
-echo "Episodes:      $NUM_EPISODES"
-echo "Seed:          $SEED"
-echo "LLM Layers:    $LAYERS"
-echo "Visual perturbation: ${VISUAL_PERTURB_MODE} (rotation=${ROTATION_DEGREES} tx=${TRANSLATE_X_FRAC} ty=${TRANSLATE_Y_FRAC})"
-echo "Policy perturbation: ${POLICY_PERTURB_MODE} (prob=${RANDOM_ACTION_PROB} scale=${RANDOM_ACTION_SCALE} ox=${OBJECT_SHIFT_X_STD} oy=${OBJECT_SHIFT_Y_STD})"
-echo "Perturbation tag:    ${PERTURB_TAG}"
-echo "Output:        $OUTPUT_DIR"
-echo "========================================="
-echo
-
 mkdir -p logs
 
-# Build command
-CMD="python $PROJECT_ROOT/openvla/experiments/robot/libero/evaluate_attention_ratio_openvla.py \
-  --checkpoint $CHECKPOINT \
-  --task-suite $TASK_SUITE \
-  --num-episodes $NUM_EPISODES \
-  --seed $SEED \
-  --layers $LAYERS \
-  --visual-perturb-mode ${VISUAL_PERTURB_MODE} \
-  --rotation-degrees ${ROTATION_DEGREES} \
-  --translate-x-frac ${TRANSLATE_X_FRAC} \
-  --translate-y-frac ${TRANSLATE_Y_FRAC} \
-  --policy-perturb-mode ${POLICY_PERTURB_MODE} \
-  --random-action-prob ${RANDOM_ACTION_PROB} \
-  --random-action-scale ${RANDOM_ACTION_SCALE} \
-  --object-shift-x-std ${OBJECT_SHIFT_X_STD} \
-  --object-shift-y-std ${OBJECT_SHIFT_Y_STD} \
-  --output-dir $OUTPUT_DIR"
+for SUITE in "${SUITES[@]}"; do
+    OUTPUT_DIR="results/attention_ratio_openvla/${SUITE}_seed${SEED}_perturb_${PERTURB_TAG}"
 
-# Add task ID if specified
-if [ -n "$TASK_ID" ]; then
-  CMD="$CMD --task-id $TASK_ID"
-fi
+    echo "========================================="
+    echo "OpenVLA Visual/Linguistic Attention Ratio"
+    echo "========================================="
+    echo "Checkpoint:    $CHECKPOINT"
+    echo "Task Suite:    $SUITE"
+    echo "Task ID:       ${TASK_ID:-all}"
+    echo "Episodes:      $NUM_EPISODES"
+    echo "Seed:          $SEED"
+    echo "LLM Layers:    $LAYERS"
+    echo "Visual perturbation: ${VISUAL_PERTURB_MODE} (rotation=${ROTATION_DEGREES} tx=${TRANSLATE_X_FRAC} ty=${TRANSLATE_Y_FRAC})"
+    echo "Policy perturbation: ${POLICY_PERTURB_MODE} (prob=${RANDOM_ACTION_PROB} scale=${RANDOM_ACTION_SCALE} ox=${OBJECT_SHIFT_X_STD} oy=${OBJECT_SHIFT_Y_STD})"
+    echo "Perturbation tag:    ${PERTURB_TAG}"
+    echo "Output:        $OUTPUT_DIR"
+    echo "========================================="
+    echo
 
-echo "Running: $CMD"
-echo
+    # Build command
+    CMD="python $PROJECT_ROOT/openvla/experiments/robot/libero/evaluate_attention_ratio_openvla.py \
+      --checkpoint $CHECKPOINT \
+      --task-suite $SUITE \
+      --num-episodes $NUM_EPISODES \
+      --seed $SEED \
+      --layers $LAYERS \
+      --visual-perturb-mode ${VISUAL_PERTURB_MODE} \
+      --rotation-degrees ${ROTATION_DEGREES} \
+      --translate-x-frac ${TRANSLATE_X_FRAC} \
+      --translate-y-frac ${TRANSLATE_Y_FRAC} \
+      --policy-perturb-mode ${POLICY_PERTURB_MODE} \
+      --random-action-prob ${RANDOM_ACTION_PROB} \
+      --random-action-scale ${RANDOM_ACTION_SCALE} \
+      --object-shift-x-std ${OBJECT_SHIFT_X_STD} \
+      --object-shift-y-std ${OBJECT_SHIFT_Y_STD} \
+      --output-dir $OUTPUT_DIR"
 
-# Run evaluation
-$CMD
+    # Add task ID if specified
+    if [ -n "$TASK_ID" ]; then
+      CMD="$CMD --task-id $TASK_ID"
+    fi
 
-echo
-echo "========================================="
-echo "Evaluation Complete!"
-echo "========================================="
-echo "Results saved to: $OUTPUT_DIR"
-echo
+    echo "Running: $CMD"
+    echo
+
+    # Run evaluation
+    $CMD
+
+    echo
+    echo "========================================="
+    echo "Evaluation Complete!"
+    echo "========================================="
+    echo "Results saved to: $OUTPUT_DIR"
+    echo
+done
 
 echo "Done!"
