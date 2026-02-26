@@ -42,44 +42,60 @@
 #   random_action replace action with probability RANDOM_ACTION_PROB
 #   object_shift  displace objects at episode start by OBJECT_SHIFT_{X,Y}_STD
 #
-# Quick-start examples
+# 
 # --------------------
 # Baseline:
 #   CHECKPOINT=/path/to/openvla-7b sbatch scripts/run_openvla_perturb.sh
 #
 # Prompt — empty:
-#   CHECKPOINT=/path/to/openvla-7b PROMPT_MODE=empty \
+#   CHECKPOINT=/path/to/openvla-7b PROMPT_MODE=empty TASK_SUITE=all \
 #       sbatch scripts/run_openvla_perturb.sh
 #
 # Prompt — shuffle, all suites:
 #   CHECKPOINT=/path/to/openvla-7b PROMPT_MODE=shuffle TASK_SUITE=all \
 #       sbatch scripts/run_openvla_perturb.sh
 #
+# Prompt — random, all suites:
+#   CHECKPOINT=/path/to/openvla-7b PROMPT_MODE=random TASK_SUITE=all \
+#       sbatch scripts/run_openvla_perturb.sh
+#
+# Prompt — synonym, all suites:
+#   CHECKPOINT=/path/to/openvla-7b PROMPT_MODE=synonym TASK_SUITE=all \
+#       sbatch scripts/run_openvla_perturb.sh
+#
+# Prompt — opposite, all suites:
+#   CHECKPOINT=/path/to/openvla-7b PROMPT_MODE=opposite TASK_SUITE=all \
+#       sbatch scripts/run_openvla_perturb.sh
+# 
 # Visual — 30° rotation:
 #   CHECKPOINT=/path/to/openvla-7b \
-#   VISUAL_PERTURB_MODE=rotate ROTATION_DEGREES=30 \
+#   VISUAL_PERTURB_MODE=rotate ROTATION_DEGREES=30 TASK_SUITE=all \
 #       sbatch scripts/run_openvla_perturb.sh
 #
 # Visual — 20% rightward translation:
 #   CHECKPOINT=/path/to/openvla-7b \
-#   VISUAL_PERTURB_MODE=translate TRANSLATE_X_FRAC=0.2 \
+#   VISUAL_PERTURB_MODE=translate TRANSLATE_X_FRAC=0.2 TASK_SUITE=all \
 #       sbatch scripts/run_openvla_perturb.sh
+#
+# Visual — 20% rightward translation:
+#   CHECKPOINT=/path/to/openvla-7b \
+#   VISUAL_PERTURB_MODE=translate TRANSLATE_X_FRAC=0.2 TASK_SUITE=all \
+#       sbatch scripts/run_openvla_perturb.sh
+# 
+# VISUAL_PERTURB_MODE=rotate_translate ROTATION_DEGREES=15 TRANSLATE_X_FRAC=0.1 \
+#     CHECKPOINT=/path/to/openvla-7b \
+#     TASK_SUITE=all sbatch scripts/run_openvla_perturb.sh
 #
 # Policy — 25% random action:
 #   CHECKPOINT=/path/to/openvla-7b \
-#   POLICY_PERTURB_MODE=random_action RANDOM_ACTION_PROB=0.25 \
+#   POLICY_PERTURB_MODE=random_action RANDOM_ACTION_PROB=0.25 TASK_SUITE=all \
 #       sbatch scripts/run_openvla_perturb.sh
 #
 # Policy — object shift (x-axis, std=5cm):
 #   CHECKPOINT=/path/to/openvla-7b \
-#   POLICY_PERTURB_MODE=object_shift OBJECT_SHIFT_X_STD=0.05 \
+#   POLICY_PERTURB_MODE=object_shift OBJECT_SHIFT_X_STD=0.05 TASK_SUITE=all \
 #       sbatch scripts/run_openvla_perturb.sh
 #
-# Combined (shuffle prompt + rotate image):
-#   CHECKPOINT=/path/to/openvla-7b \
-#   PROMPT_MODE=shuffle \
-#   VISUAL_PERTURB_MODE=rotate ROTATION_DEGREES=15 \
-#       sbatch scripts/run_openvla_perturb.sh
 # ─────────────────────────────────────────────────────────────────────────────
 
 set -euo pipefail

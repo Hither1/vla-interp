@@ -69,9 +69,7 @@
 #   POLICY_PERTURB_MODE=object_shift OBJECT_SHIFT_X_STD=0.05 \
 #       sbatch scripts/run_dp_perturb.sh
 #
-# Combined (shuffle prompt + rotate image), all suites:
-#   PROMPT_MODE=shuffle VISUAL_PERTURB_MODE=rotate ROTATION_DEGREES=15 \
-#   TASK_SUITE=all sbatch scripts/run_dp_perturb.sh
+
 # ─────────────────────────────────────────────────────────────────────────────
 
 source ~/.bashrc
