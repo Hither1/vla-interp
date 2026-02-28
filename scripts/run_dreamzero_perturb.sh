@@ -39,7 +39,7 @@ set -euo pipefail
 source ~/.bashrc
 conda deactivate
 # Activate the conda environment that has DreamZero + LIBERO + PyTorch installed
-conda activate dreamzero
+conda activate vla
 
 module load gcc/12.2.0-fasrc01
 module load cuda/12.4.1-fasrc01
