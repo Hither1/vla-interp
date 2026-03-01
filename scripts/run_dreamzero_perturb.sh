@@ -3,9 +3,9 @@
 #SBATCH --output=/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/logs/dreamzero_libero_%j.log
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --gpus-per-node=4
+#SBATCH --gpus-per-node=2
 #SBATCH --cpus-per-task=32
-#SBATCH --mem=240G
+#SBATCH --mem=500G
 #SBATCH --account=kempner_grads
 #SBATCH --partition=kempner_h100
 #SBATCH --time=24:00:00
@@ -47,6 +47,17 @@ module load cuda/12.4.1-fasrc01
 export MUJOCO_GL=egl
 export HYDRA_FULL_ERROR=1
 
+# Force gloo to use loopback (IPv4) to avoid SIGSEGV from IPv6-unsupported nodes
+export GLOO_SOCKET_IFNAME=lo
+export NCCL_SOCKET_IFNAME=lo
+# Print Python traceback even on SIGSEGV
+export PYTHONFAULTHANDLER=1
+# Disable all torch.compile / dynamo globally — avoids 60-90 min warmup on first inference
+# and prevents RecompileLimitExceeded from the flow scheduler's @torch.compile decorators.
+# Eager mode on H100s is fast enough for eval.
+export DISABLE_TORCH_COMPILE=true
+export TORCHDYNAMO_DISABLE=1
+
 # ── Paths ──────────────────────────────────────────────────────────────────────
 WORKDIR="/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp"
 DREAMZERO_DIR="${WORKDIR}/dreamzero"
@@ -66,7 +77,7 @@ if [[ -z "$CKPT" ]]; then
     exit 1
 fi
 
-NUM_GPUS="${NUM_GPUS:-4}"
+NUM_GPUS="${NUM_GPUS:-2}"  # parallelize() only supports ip_size=1 or 2
 ENABLE_DIT_CACHE="${ENABLE_DIT_CACHE:-true}"
 
 # ── Prompt perturbation ────────────────────────────────────────────────────────

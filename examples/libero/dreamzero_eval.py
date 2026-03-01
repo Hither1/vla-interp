@@ -49,7 +49,7 @@ from libero.libero.envs import OffScreenRenderEnv
 from policy_perturbations import PolicyPerturbConfig, apply_object_shift, maybe_perturb_action
 from visual_perturbations import VisualPerturbConfig, perturb_image
 
-LIBERO_DUMMY_ACTION = [0.0] * 6 + [-1.0]
+LIBERO_DUMMY_ACTION = [0.0] * 6 + [-1.0]  # 6 EEF deltas + gripper for OSC_POSE controller
 LIBERO_ENV_RESOLUTION = 256
 
 
@@ -174,19 +174,28 @@ def worker_loop(policy, signal_group):
 
 # -- Observation / action helpers --
 
+def _to_numpy_2d(v):
+    if isinstance(v, torch.Tensor):
+        v = v.cpu().numpy()
+    v = np.array(v, dtype=np.float32)
+    return v.reshape(-1, v.shape[-1]) if v.ndim >= 2 else v.reshape(1, -1)
+
+
 def extract_actions(result_batch):
-    """Extract (N, 7) float32 action array from DreamZero result_batch."""
+    """Extract (N, 7) float32 OSC_POSE action array from DreamZero result_batch.
+
+    The model outputs raw OSC_POSE actions [eef_delta(6), gripper(1)] = 7D,
+    passed directly to the default LIBERO OSC_POSE controller.
+    """
     act = result_batch.act
-    items = list(act.items()) if isinstance(act, dict) else [
-        (a, getattr(act, a)) for a in dir(act)
-        if "joint_position" in a and not a.startswith("_")
-    ]
-    for k, v in items:
-        if "joint_position" in k:
-            if isinstance(v, torch.Tensor):
-                v = v.cpu().numpy()
-            v = np.array(v, dtype=np.float32)
-            return v.reshape(-1, v.shape[-1]) if v.ndim >= 2 else v.reshape(1, -1)
+    items = dict(act.items()) if isinstance(act, dict) else {
+        a: getattr(act, a) for a in dir(act) if not a.startswith("_")
+    }
+
+    for k, v in items.items():
+        if "joint_position" in k and "gripper" not in k:
+            return _to_numpy_2d(v)  # (N, 7): [eef_delta(6), gripper(1)]
+
     raise ValueError("action.joint_position not found in result_batch.act: %s" % act)
 
 
@@ -240,7 +249,7 @@ def entropy_triplet(logs, successes, action_dim=7):
 def get_libero_env(task, resolution, seed):
     bddl = pathlib.Path(get_libero_path("bddl_files")) / task.problem_folder / task.bddl_file
     env = OffScreenRenderEnv(
-        bddl_file_name=str(bddl), camera_heights=resolution, camera_widths=resolution
+        bddl_file_name=str(bddl), camera_heights=resolution, camera_widths=resolution,
     )
     env.seed(seed)
     return env, task.language
@@ -281,6 +290,7 @@ def eval_rank0(args, policy, signal_group):
 
     signal = torch.zeros(1, dtype=torch.int32, device="cpu")
     total_eps = total_succ = 0
+    per_task_results = []
 
     for task_id in tqdm.tqdm(range(n_tasks), desc="Tasks"):
         task        = suite.get_task(task_id)
@@ -312,10 +322,11 @@ def eval_rank0(args, policy, signal_group):
                         t += 1
                         continue
 
-                    # DreamZero: raw images, NO flip
+                    # DreamZero: raw images, NO flip for inference
+                    # LIBERO renders upside-down; flip only for video visualization
                     img   = perturb_image(np.ascontiguousarray(obs["agentview_image"]),          vis_cfg)
                     wrist = perturb_image(np.ascontiguousarray(obs["robot0_eye_in_hand_image"]), vis_cfg)
-                    replay_imgs.append(img)
+                    replay_imgs.append(img[::-1, ::-1].copy())
 
                     is_new_chunk = not action_plan
                     if is_new_chunk:
@@ -338,7 +349,7 @@ def eval_rank0(args, policy, signal_group):
                             result_batch, _ = policy.lazy_joint_forward_causal(Batch(obs=dz_obs))
                         dist.barrier()
 
-                        action_chunk = extract_actions(result_batch)    # (N, 7)
+                        action_chunk = extract_actions(result_batch)  # (N, 7)
                         n_exec = min(args.replan_steps, len(action_chunk))
                         action_plan.extend(action_chunk[:n_exec])
 
@@ -357,9 +368,8 @@ def eval_rank0(args, policy, signal_group):
                         entry["full_action_chunk"] = action_chunk.tolist()
                     action_log.append(entry)
                     t += 1
-                    if done:
+                    if done and reward > 0:
                         task_succ += 1; total_succ += 1
-                        logging.info("  SUCCESS t=%d", t)
                         break
                 except Exception:
                     logging.error("Step error:\n%s", traceback.format_exc())
@@ -367,6 +377,10 @@ def eval_rank0(args, policy, signal_group):
 
             task_eps += 1; total_eps += 1
             success = bool(done and reward > 0)
+            logging.info("  Ep %d/%d: %s (t=%d, task %d/%d so far)",
+                         ep_idx + 1, args.num_trials_per_task,
+                         "SUCCESS" if success else "FAILURE",
+                         t - args.num_steps_wait, task_succ, task_eps)
             groups[ep_prompt]["logs"].append(action_log)
             groups[ep_prompt]["successes"].append(success)
             ep_jsons.append({
@@ -390,7 +404,16 @@ def eval_rank0(args, policy, signal_group):
                 json.dump(ej, f, default=_json_default, indent=2)
 
         rate = task_succ / task_eps if task_eps else 0.0
-        logging.info("Task %d: %d/%d = %.1f%%  [%s]", task_id, task_succ, task_eps, rate * 100, desc)
+        per_task_results.append({
+            "task_id": task_id, "task_description": str(desc),
+            "successes": task_succ, "trials": task_eps, "success_rate": rate,
+        })
+        running_rate = total_succ / total_eps if total_eps else 0.0
+        logging.info(
+            "Task %d: %d/%d = %.1f%%  [%s]  (running: %d/%d = %.1f%%)",
+            task_id, task_succ, task_eps, rate * 100, desc,
+            total_succ, total_eps, running_rate * 100,
+        )
 
     # Shutdown workers
     signal.fill_(1)
@@ -405,6 +428,7 @@ def eval_rank0(args, policy, signal_group):
         "total_episodes": total_eps, "total_successes": total_succ, "success_rate": total_rate,
         "prompt_mode": args.prompt_mode, "visual_perturb_mode": args.visual_perturb_mode,
         "policy_perturb_mode": args.policy_perturb_mode,
+        "per_task": per_task_results,
     }
     with open(out_dir / "summary.json", "w") as f:
         json.dump(summary, f, indent=2)
@@ -436,7 +460,6 @@ def main(args):
         device="cuda",
         device_mesh=mesh,
     )
-
     if rank == 0:
         eval_rank0(args, policy, signal_group)
     else:

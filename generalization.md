@@ -15,54 +15,54 @@ Conditions: **original** | **empty** (no prompt) | **shuffle** (shuffled words) 
 
 | Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP |
 |---|---|---|---|---|---|
-| LIBERO-10 | original | — | — | — | — |
-| | empty | — | — | — | — |
-| | shuffle | — | — | — | — |
-| | random | — | — | — | — |
-| | synonym | — | — | — | — |
-| | opposite | — | — | — | — |
-| LIBERO-Spatial | original | — | — | — | — |
-| | empty | — | — | — | — |
-| | shuffle | — | — | — | — |
-| | random | — | — | — | — |
-| | synonym | — | — | — | — |
-| | opposite | — | — | — | — |
-| LIBERO-Object | original | — | — | — | — |
-| | empty | — | — | — | — |
-| | shuffle | — | — | — | — |
-| | random | — | — | — | — |
-| | synonym | — | — | — | — |
-| | opposite | — | — | — | — |
-| LIBERO-Goal | original | — | — | — | — |
-| | empty | — | — | — | — |
-| | shuffle | — | — | — | — |
-| | random | — | — | — | — |
-| | synonym | — | — | — | — |
-| | opposite | — | — | — | — |
-| LIBERO-90-Object | original | — | — | — | — |
-| | empty | — | — | — | — |
-| | shuffle | — | — | — | — |
-| | random | — | — | — | — |
-| | synonym | — | — | — | — |
-| | opposite | — | — | — | — |
-| LIBERO-90-Spatial | original | — | — | — | — |
-| | empty | — | — | — | — |
-| | shuffle | — | — | — | — |
-| | random | — | — | — | — |
-| | synonym | — | — | — | — |
-| | opposite | — | — | — | — |
-| LIBERO-90-Act | original | — | — | — | — |
-| | empty | — | — | — | — |
-| | shuffle | — | — | — | — |
-| | random | — | — | — | — |
-| | synonym | — | — | — | — |
-| | opposite | — | — | — | — |
-| LIBERO-90-Com | original | — | — | — | — |
-| | empty | — | — | — | — |
-| | shuffle | — | — | — | — |
-| | random | — | — | — | — |
-| | synonym | — | — | — | — |
-| | opposite | — | — | — | — |
+| LIBERO-10 | original | 98.2% | — | — | — |
+| | empty | 62.5% | — | — | — |
+| | shuffle | 100.0% | — | — | — |
+| | random | 34.5% | — | — | — |
+| | synonym | 96.5% | — | — | — |
+| | opposite | 99.5% | — | — | — |
+| LIBERO-Spatial | original | 92.4% | — | — | — |
+| | empty | 75.5% | — | — | — |
+| | shuffle | 93.0% | — | — | — |
+| | random | 43.0% | — | — | — |
+| | synonym | 96.5% | — | — | — |
+| | opposite | 92.0% | — | — | — |
+| LIBERO-Object | original | 98.8% | — | — | — |
+| | empty | 64.0% | — | — | — |
+| | shuffle | 93.0% | — | — | — |
+| | random | 63.5% | — | — | — |
+| | synonym | 99.0% | — | — | — |
+| | opposite | 99.5% | — | — | — |
+| LIBERO-Goal | original | 98.0% | — | — | — |
+| | empty | 9.0% | — | — | — |
+| | shuffle | 89.5% | — | — | — |
+| | random | 62.0% | — | — | — |
+| | synonym | 96.0% | — | — | — |
+| | opposite | 97.5% | — | — | — |
+| LIBERO-90-Object | original | 49.5% | — | — | — |
+| | empty | 4.0% | — | — | — |
+| | shuffle | 50.2% | — | — | — |
+| | random | 3.3% | — | — | — |
+| | synonym | 10.2% | — | — | — |
+| | opposite | 10.0% | — | — | — |
+| LIBERO-90-Spatial | original | 23.0% | — | — | — |
+| | empty | 8.0% | — | — | — |
+| | shuffle | 21.5% | — | — | — |
+| | random | 1.0% | — | — | — |
+| | synonym | 24.0% | — | — | — |
+| | opposite | 22.0% | — | — | — |
+| LIBERO-90-Act | original | 31.2% | — | — | — |
+| | empty | 10.2% | — | — | — |
+| | shuffle | 27.0% | — | — | — |
+| | random | 3.0% | — | — | — |
+| | synonym | 28.0% | — | — | — |
+| | opposite | 11.8% | — | — | — |
+| LIBERO-90-Com | original | 3.0% | — | — | — |
+| | empty | 3.0% | — | — | — |
+| | shuffle | 2.9% | — | — | — |
+| | random | 1.0% | — | — | — |
+| | synonym | 2.7% | — | — | — |
+| | opposite | 2.8% | — | — | — |
 
 ### Action Entropy (↓)
 
