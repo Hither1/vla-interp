@@ -287,6 +287,19 @@ class Args:
     object_shift_y_std: float = 0.0
     """Std (metres) of Gaussian object shift along y-axis at episode start."""
 
+    # ── Model architecture (must match training config) ───────────────────
+    action_dim: int = 7
+    state_dim: int = 8
+    horizon: int = 16
+    n_obs_steps: int = 1
+    n_cameras: int = 2
+    num_train_timesteps: int = 100
+    num_inference_steps: int = 10
+    down_dims: tuple = (512, 1024, 2048)
+    diffusion_step_embed_dim: int = 128
+    task_embed_dim: int = 32
+    vision_backbone: str = "resnet50"
+
 
 def _json_default(o):
     if isinstance(o, np.generic):
@@ -385,7 +398,20 @@ def eval_libero(args: Args) -> None:
     # ── Load DP model ────────────────────────────────────────────────────
     logging.info(f"Loading checkpoint: {args.ckpt}")
     ckpt = torch.load(args.ckpt, map_location=device, weights_only=False)
-    model = DiffusionPolicy(task_descs=ckpt["task_descs"]).to(device)
+    model = DiffusionPolicy(
+        task_descs=ckpt["task_descs"],
+        action_dim=args.action_dim,
+        state_dim=args.state_dim,
+        horizon=args.horizon,
+        n_obs_steps=args.n_obs_steps,
+        n_cameras=args.n_cameras,
+        num_train_timesteps=args.num_train_timesteps,
+        num_inference_steps=args.num_inference_steps,
+        down_dims=tuple(args.down_dims),
+        diffusion_step_embed_dim=args.diffusion_step_embed_dim,
+        task_embed_dim=args.task_embed_dim,
+        vision_backbone=args.vision_backbone,
+    ).to(device)
     model.set_norm_stats(**ckpt["stats"])
     model.load_state_dict(ckpt["model"])
     model.eval()

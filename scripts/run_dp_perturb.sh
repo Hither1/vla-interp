@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=128G
 #SBATCH --account=kempner_grads
-#SBATCH --partition=kempner_h100
+#SBATCH --partition=kempner
 #SBATCH --time=12:00:00
 #SBATCH --mail-user=csu@g.harvard.edu
 #SBATCH --mail-type=END
@@ -89,7 +89,7 @@ export TRANSFORMERS_CACHE=/n/netscratch/sham_lab/Lab/chloe00/huggingface
 export MUJOCO_GL=egl
 
 # ── Model ─────────────────────────────────────────────────────────────────────
-CKPT="${CKPT:-/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/dp_scratch/ckpt_300.pt}"
+CKPT="${CKPT:-/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/dp_scratch/ckpt_200_eval.pt}"
 DEVICE="${DEVICE:-cuda}"
 REPLAN_STEPS="${REPLAN_STEPS:-8}"
 

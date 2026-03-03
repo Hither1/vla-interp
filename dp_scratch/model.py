@@ -222,6 +222,23 @@ class ResNet18Encoder(nn.Module):
         return self.net(x)
 
 
+class ResNet50Encoder(nn.Module):
+    """ResNet-50 visual encoder outputting 2048-dim feature per image."""
+
+    def __init__(self, pretrained=True):
+        super().__init__()
+        weights = models.ResNet50_Weights.DEFAULT if pretrained else None
+        net = models.resnet50(weights=weights)
+        net.fc = nn.Identity()
+        _replace_bn_with_gn(net)
+        self.net = net
+        self.feature_dim = 2048
+
+    def forward(self, x):
+        """x: (B, 3, H, W) ImageNet-normalized. Returns: (B, 2048)."""
+        return self.net(x)
+
+
 # ==================== Cosine Noise Schedule ====================
 
 
@@ -255,13 +272,14 @@ class DiffusionPolicy(nn.Module):
         action_dim: int = 7,
         state_dim: int = 8,
         horizon: int = 16,
-        n_obs_steps: int = 2,
         n_cameras: int = 2,
+        n_obs_steps: int = 1,
         num_train_timesteps: int = 100,
         num_inference_steps: int = 10,
-        down_dims: tuple = (256, 512, 1024),
-        diffusion_step_embed_dim: int = 128,
         task_embed_dim: int = 32,
+        down_dims: tuple = (512, 1024, 2048),
+        diffusion_step_embed_dim: int = 128,
+        vision_backbone: str = "resnet50",
     ):
         super().__init__()
 
@@ -275,14 +293,17 @@ class DiffusionPolicy(nn.Module):
         self.task_descs = list(task_descs)
 
         # Vision encoder (shared across cameras and timesteps)
-        self.vision_enc = ResNet18Encoder(pretrained=True)
+        if vision_backbone == "resnet50":
+            self.vision_enc = ResNet50Encoder(pretrained=True)
+        else:
+            self.vision_enc = ResNet18Encoder(pretrained=True)
         img_feat_dim = self.vision_enc.feature_dim
 
         # Text conditioning: T5 encodes task descriptions
         self._init_text_encoder(task_descs, task_embed_dim)
 
         # Global conditioning:
-        #   image features:  n_obs_steps * n_cameras * 512
+        #   image features:  n_obs_steps * n_cameras * 2048
         #   state features:  n_obs_steps * state_dim
         #   text embedding:  task_embed_dim
         global_cond_dim = n_obs_steps * n_cameras * img_feat_dim + n_obs_steps * state_dim + task_embed_dim

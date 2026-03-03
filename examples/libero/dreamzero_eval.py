@@ -41,8 +41,13 @@ _DREAMZERO_DIR = str(pathlib.Path(__file__).resolve().parents[2] / "dreamzero")
 if _DREAMZERO_DIR not in sys.path:
     sys.path.insert(0, _DREAMZERO_DIR)
 
+import cv2
+
 from groot.vla.model.n1_5.sim_policy import GrootSimPolicy
 from groot.vla.data.schema import EmbodimentTag
+from groot.vla.model.dreamzero.modules.wan_video_dit_action_casual_chunk import (
+    set_attn_capture, clear_attn_buffer, get_attn_buffer,
+)
 
 from libero.libero import benchmark, get_libero_path
 from libero.libero.envs import OffScreenRenderEnv
@@ -51,6 +56,61 @@ from visual_perturbations import VisualPerturbConfig, perturb_image
 
 LIBERO_DUMMY_ACTION = [0.0] * 6 + [-1.0]  # 6 EEF deltas + gripper for OSC_POSE controller
 LIBERO_ENV_RESOLUTION = 256
+
+def _compute_attn_map() -> np.ndarray | None:
+    """Average all captured action→visual attention entries.
+
+    Each buffer entry is {"attn": Tensor(B, V), "frame_seqlen": int}.
+    The spatial grid is inferred from frame_seqlen = H_pat * W_pat, where both
+    H_pat and W_pat come from the actual model input resolution:
+        frame_seqlen = (H_img // 8 // 2) * (W_img // 8 // 2)
+    Returns an array of shape (H_pat, W_pat) with mean attention per patch.
+    """
+    buf = get_attn_buffer()
+    if not buf:
+        return None
+
+    # All entries in a single forward pass share the same frame_seqlen.
+    frame_seqlen = buf[0]["frame_seqlen"]
+
+    # Infer spatial grid: find H, W such that H*W == frame_seqlen with the
+    # most-square aspect ratio (minimise |H - W|). Only iterate up to sqrt so
+    # every candidate is a guaranteed exact divisor pair.
+    import math
+    best_h, best_w = 1, frame_seqlen
+    for h in range(1, int(math.isqrt(frame_seqlen)) + 1):
+        if frame_seqlen % h == 0:
+            w = frame_seqlen // h
+            if abs(h - w) < abs(best_h - best_w):
+                best_h, best_w = h, w
+    h_grid, w_grid = best_h, best_w
+
+    maps = []
+    for entry in buf:
+        attn = entry["attn"]        # (B, n_visual_tokens)
+        fsl  = entry["frame_seqlen"]
+        n_vis = attn.shape[1]
+        if n_vis < fsl:
+            continue
+        # Average over all frame copies of each spatial position.
+        n_frames = n_vis // fsl
+        a = attn[0, : n_frames * fsl]              # (n_frames * fsl,)
+        a = a.reshape(n_frames, fsl).mean(0)       # (fsl,)
+        maps.append(a)
+    if not maps:
+        return None
+    mean_map = torch.stack(maps).mean(0)  # (frame_seqlen,)
+    return mean_map.numpy().reshape(h_grid, w_grid)
+
+
+def _overlay_attn(img_uint8: np.ndarray, attn_map: np.ndarray, alpha: float = 0.5) -> np.ndarray:
+    """Blend a JET heatmap of attn_map onto img_uint8 (H, W, 3) uint8."""
+    h, w = img_uint8.shape[:2]
+    am = cv2.resize(attn_map.astype(np.float32), (w, h), interpolation=cv2.INTER_CUBIC)
+    am = (am - am.min()) / (am.max() - am.min() + 1e-8)
+    heat = cv2.applyColorMap((am * 255).astype(np.uint8), cv2.COLORMAP_JET)
+    heat_rgb = cv2.cvtColor(heat, cv2.COLOR_BGR2RGB)
+    return np.clip(img_uint8 * (1.0 - alpha) + heat_rgb * alpha, 0, 255).astype(np.uint8)
 
 
 @dataclasses.dataclass
@@ -79,6 +139,10 @@ class Args:
     object_shift_y_std: float = 0.0
 
     enable_dit_cache: bool = True
+
+    # Attention visualisation
+    visualize_attention: bool = False
+    attn_alpha: float = 0.5  # heatmap overlay opacity
 
 
 # -- Prompt helpers (mirrored from main.py) --
@@ -313,6 +377,7 @@ def eval_rank0(args, policy, signal_group):
             action_log   = []
             replay_imgs  = []
             action_chunk = None
+            current_attn_map = None  # attention heatmap from most recent policy call
             t = 0; done = False; reward = 0.0; is_new_chunk = False
 
             while t < max_steps + args.num_steps_wait:
@@ -326,7 +391,13 @@ def eval_rank0(args, policy, signal_group):
                     # LIBERO renders upside-down; flip only for video visualization
                     img   = perturb_image(np.ascontiguousarray(obs["agentview_image"]),          vis_cfg)
                     wrist = perturb_image(np.ascontiguousarray(obs["robot0_eye_in_hand_image"]), vis_cfg)
-                    replay_imgs.append(img[::-1, ::-1].copy())
+
+                    # Build visualization frame.  Mid-chunk: overlay existing attn map.
+                    # Chunk-start frames are updated retroactively after policy call below.
+                    frame_vis = img[::-1, ::-1].copy()
+                    if args.visualize_attention and action_plan and current_attn_map is not None:
+                        frame_vis = _overlay_attn(frame_vis, current_attn_map, alpha=args.attn_alpha)
+                    replay_imgs.append(frame_vis)
 
                     is_new_chunk = not action_plan
                     if is_new_chunk:
@@ -339,15 +410,40 @@ def eval_rank0(args, policy, signal_group):
                                 np.array(obs["robot0_gripper_qpos"], dtype=np.float64)[:1].reshape(1, -1),
                             "annotation.language.language_instruction": ep_prompt,
                         }
+                        if task_id == 0 and ep_idx == 0 and t == args.num_steps_wait:
+                            logging.info(
+                                "[Visual input check] agentview_rgb: shape=%s dtype=%s range=[%d,%d]  "
+                                "eye_in_hand_rgb: shape=%s range=[%d,%d]",
+                                dz_obs["video.agentview_rgb"].shape,
+                                dz_obs["video.agentview_rgb"].dtype,
+                                dz_obs["video.agentview_rgb"].min(),
+                                dz_obs["video.agentview_rgb"].max(),
+                                dz_obs["video.eye_in_hand_rgb"].shape,
+                                dz_obs["video.eye_in_hand_rgb"].min(),
+                                dz_obs["video.eye_in_hand_rgb"].max(),
+                            )
                         # Signal workers to run inference (signal=0 means "infer")
                         signal.fill_(0)
                         dist.broadcast(signal, src=0, group=signal_group)
                         _broadcast_obs(dz_obs)
 
+                        if args.visualize_attention:
+                            clear_attn_buffer()
+                            set_attn_capture(True)
+
                         dist.barrier()
                         with torch.no_grad():
                             result_batch, _ = policy.lazy_joint_forward_causal(Batch(obs=dz_obs))
                         dist.barrier()
+
+                        if args.visualize_attention:
+                            set_attn_capture(False)
+                            current_attn_map = _compute_attn_map()
+                            # Retroactively overlay attention on the frame just appended above.
+                            if current_attn_map is not None:
+                                replay_imgs[-1] = _overlay_attn(
+                                    replay_imgs[-1], current_attn_map, alpha=args.attn_alpha
+                                )
 
                         action_chunk = extract_actions(result_batch)  # (N, 7)
                         n_exec = min(args.replan_steps, len(action_chunk))

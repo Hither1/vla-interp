@@ -65,6 +65,11 @@ RANDOM_ACTION_SCALE="${RANDOM_ACTION_SCALE:-1.0}"
 OBJECT_SHIFT_X_STD="${OBJECT_SHIFT_X_STD:-0.0}"
 OBJECT_SHIFT_Y_STD="${OBJECT_SHIFT_Y_STD:-0.0}"
 
+# Prompt perturbation
+# mode: none | empty | shuffle_words | reverse | fixed
+PROMPT_PERTURB_MODE="${PROMPT_PERTURB_MODE:-none}"
+PROMPT_FIXED_TEXT="${PROMPT_FIXED_TEXT:-}"   # used only when mode=fixed
+
 if [ -z "$CHECKPOINT" ]; then
   echo "ERROR: CHECKPOINT is required. Set it via: CHECKPOINT=/path/to/ckpt bash $0"
   exit 1
@@ -95,12 +100,26 @@ else
     POL_TAG=""
 fi
 
-if [[ -n "${VIS_TAG}" && -n "${POL_TAG}" ]]; then
-    PERTURB_TAG="${VIS_TAG}__${POL_TAG}"
-elif [[ -n "${VIS_TAG}" ]]; then
-    PERTURB_TAG="${VIS_TAG}"
-elif [[ -n "${POL_TAG}" ]]; then
-    PERTURB_TAG="${POL_TAG}"
+if [[ "$PROMPT_PERTURB_MODE" != "none" ]]; then
+    if [[ "$PROMPT_PERTURB_MODE" == "fixed" ]]; then
+        # Truncate fixed text to 20 chars for use in directory names
+        _FIXED_SLUG="${PROMPT_FIXED_TEXT:0:20}"
+        _FIXED_SLUG="${_FIXED_SLUG// /_}"
+        PROMPT_TAG="prompt_fixed_${_FIXED_SLUG}"
+    else
+        PROMPT_TAG="prompt_${PROMPT_PERTURB_MODE}"
+    fi
+else
+    PROMPT_TAG=""
+fi
+
+_TAGS=()
+[[ -n "${VIS_TAG}" ]] && _TAGS+=("${VIS_TAG}")
+[[ -n "${POL_TAG}" ]] && _TAGS+=("${POL_TAG}")
+[[ -n "${PROMPT_TAG}" ]] && _TAGS+=("${PROMPT_TAG}")
+
+if [[ ${#_TAGS[@]} -gt 0 ]]; then
+    PERTURB_TAG="$(IFS='__'; echo "${_TAGS[*]}")"
 else
     PERTURB_TAG="none"
 fi
@@ -129,6 +148,7 @@ for SUITE in "${SUITES[@]}"; do
     echo "LLM Layers:    $LAYERS"
     echo "Visual perturbation: ${VISUAL_PERTURB_MODE} (rotation=${ROTATION_DEGREES} tx=${TRANSLATE_X_FRAC} ty=${TRANSLATE_Y_FRAC})"
     echo "Policy perturbation: ${POLICY_PERTURB_MODE} (prob=${RANDOM_ACTION_PROB} scale=${RANDOM_ACTION_SCALE} ox=${OBJECT_SHIFT_X_STD} oy=${OBJECT_SHIFT_Y_STD})"
+    echo "Prompt perturbation: ${PROMPT_PERTURB_MODE} (fixed_text='${PROMPT_FIXED_TEXT}')"
     echo "Perturbation tag:    ${PERTURB_TAG}"
     echo "Output:        $OUTPUT_DIR"
     echo "========================================="
@@ -150,7 +170,12 @@ for SUITE in "${SUITES[@]}"; do
       --random-action-scale ${RANDOM_ACTION_SCALE} \
       --object-shift-x-std ${OBJECT_SHIFT_X_STD} \
       --object-shift-y-std ${OBJECT_SHIFT_Y_STD} \
+      --prompt-perturb-mode ${PROMPT_PERTURB_MODE} \
       --output-dir $OUTPUT_DIR"
+
+    if [ -n "$PROMPT_FIXED_TEXT" ]; then
+      CMD="$CMD --prompt-fixed-text \"${PROMPT_FIXED_TEXT}\""
+    fi
 
     # Add task ID if specified
     if [ -n "$TASK_ID" ]; then

@@ -1,0 +1,180 @@
+[W302 22:40:06.385490121 socket.cpp:759] [c10d] The client socket cannot be initialized to connect to [localhost]:43399 (errno: 97 - Address family not supported by protocol).
+[W302 22:40:07.390797629 socket.cpp:759] [c10d] The client socket cannot be initialized to connect to [localhost]:43399 (errno: 97 - Address family not supported by protocol).
+[W302 22:40:07.722981100 socket.cpp:759] [c10d] The client socket cannot be initialized to connect to [holygpu8a11301.rc.fas.harvard.edu]:37047 (errno: 97 - Address family not supported by protocol).
+[W302 22:41:01.520431761 socket.cpp:759] [c10d] The client socket cannot be initialized to connect to [holygpu8a11301.rc.fas.harvard.edu]:37047 (errno: 97 - Address family not supported by protocol).
+[W302 22:41:01.520508781 socket.cpp:759] [c10d] The client socket cannot be initialized to connect to [holygpu8a11301.rc.fas.harvard.edu]:37047 (errno: 97 - Address family not supported by protocol).
+/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/transformer_engine/__init__.py:59: RuntimeWarning: Detected a Jax installation but could not find the shared object file for the Transformer Engine Jax extension library. If this is not intentional, please reinstall Transformer Engine with `pip install transformer_engine[jax]` or build from source with `NVTE_FRAMEWORK=jax`.
+  warnings.warn(
+/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/transformer_engine/__init__.py:59: RuntimeWarning: Detected a Jax installation but could not find the shared object file for the Transformer Engine Jax extension library. If this is not intentional, please reinstall Transformer Engine with `pip install transformer_engine[jax]` or build from source with `NVTE_FRAMEWORK=jax`.
+  warnings.warn(
+Initializing datasets:   0%|          | 0/1 [00:00<?, ?it/s]Initializing datasets:   0%|          | 0/1 [00:00<?, ?it/s]Initializing datasets: 100%|██████████| 1/1 [00:00<00:00,  1.04it/s]Initializing datasets: 100%|██████████| 1/1 [00:00<00:00,  1.04it/s]
+Initializing datasets: 100%|██████████| 1/1 [00:00<00:00,  1.12it/s]Initializing datasets: 100%|██████████| 1/1 [00:00<00:00,  1.12it/s]
+[rank1]: Traceback (most recent call last):
+[rank1]:   File "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/analysis/dreamzero_ckpt_loss.py", line 257, in <module>
+[rank1]:     main()
+[rank1]:   File "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/analysis/dreamzero_ckpt_loss.py", line 149, in main
+[rank1]:     outputs = model(batch)
+[rank1]:               ^^^^^^^^^^^^
+[rank1]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/dreamzero/groot/vla/model/dreamzero/base_vla.py", line 146, in forward
+[rank1]:     action_head_outputs = self.action_head(backbone_outputs, action_inputs)
+[rank1]:                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/dreamzero/groot/vla/model/dreamzero/action_head/wan_flow_matching_action_tf.py", line 728, in forward
+[rank1]:     video_noise_pred, action_noise_pred = self.model(
+[rank1]:                                           ^^^^^^^^^^^
+[rank1]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/peft/peft_model.py", line 921, in forward
+[rank1]:     return self.get_base_model()(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/dreamzero/groot/vla/model/dreamzero/modules/wan_video_dit_action_casual_chunk.py", line 2171, in forward
+[rank1]:     return self._forward_train(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/dreamzero/groot/vla/model/dreamzero/modules/wan_video_dit_action_casual_chunk.py", line 2142, in _forward_train
+[rank1]:     x = block(x, **kwargs)
+[rank1]:         ^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/dreamzero/groot/vla/model/dreamzero/modules/wan_video_dit_action_casual_chunk.py", line 1212, in forward
+[rank1]:     x=(self.norm1(x) * (1 + e[1].squeeze(2)) + e[0].squeeze(2)),
+[rank1]:        ^^^^^^^^^^^^^
+[rank1]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank1]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/nn/modules/normalization.py", line 217, in forward
+[rank1]:     return F.layer_norm(
+[rank1]:            ^^^^^^^^^^^^^
+[rank1]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/nn/functional.py", line 2910, in layer_norm
+[rank1]:     return torch.layer_norm(
+[rank1]:            ^^^^^^^^^^^^^^^^^
+[rank1]: TypeError: layer_norm(): argument 'input' (position 1) must be Tensor, not tuple
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/analysis/dreamzero_ckpt_loss.py", line 257, in <module>
+[rank0]:     main()
+[rank0]:   File "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/analysis/dreamzero_ckpt_loss.py", line 149, in main
+[rank0]:     outputs = model(batch)
+[rank0]:               ^^^^^^^^^^^^
+[rank0]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank0]:     return self._call_impl(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank0]:     return forward_call(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/dreamzero/groot/vla/model/dreamzero/base_vla.py", line 146, in forward
+[rank0]:     action_head_outputs = self.action_head(backbone_outputs, action_inputs)
+[rank0]:                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank0]:     return self._call_impl(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank0]:     return forward_call(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/dreamzero/groot/vla/model/dreamzero/action_head/wan_flow_matching_action_tf.py", line 728, in forward
+[rank0]:     video_noise_pred, action_noise_pred = self.model(
+[rank0]:                                           ^^^^^^^^^^^
+[rank0]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank0]:     return self._call_impl(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank0]:     return forward_call(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/peft/peft_model.py", line 921, in forward
+[rank0]:     return self.get_base_model()(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank0]:     return self._call_impl(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank0]:     return forward_call(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/dreamzero/groot/vla/model/dreamzero/modules/wan_video_dit_action_casual_chunk.py", line 2171, in forward
+[rank0]:     return self._forward_train(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/dreamzero/groot/vla/model/dreamzero/modules/wan_video_dit_action_casual_chunk.py", line 2142, in _forward_train
+[rank0]:     x = block(x, **kwargs)
+[rank0]:         ^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank0]:     return self._call_impl(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank0]:     return forward_call(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/dreamzero/groot/vla/model/dreamzero/modules/wan_video_dit_action_casual_chunk.py", line 1212, in forward
+[rank0]:     x=(self.norm1(x) * (1 + e[1].squeeze(2)) + e[0].squeeze(2)),
+[rank0]:        ^^^^^^^^^^^^^
+[rank0]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank0]:     return self._call_impl(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank0]:     return forward_call(*args, **kwargs)
+[rank0]:            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[rank0]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/nn/modules/normalization.py", line 217, in forward
+[rank0]:     return F.layer_norm(
+[rank0]:            ^^^^^^^^^^^^^
+[rank0]:   File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/nn/functional.py", line 2910, in layer_norm
+[rank0]:     return torch.layer_norm(
+[rank0]:            ^^^^^^^^^^^^^^^^^
+[rank0]: TypeError: layer_norm(): argument 'input' (position 1) must be Tensor, not tuple
+[rank0]:[W302 22:54:16.627254058 ProcessGroupNCCL.cpp:1496] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+W0302 22:54:19.163000 3572619 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 3572664 closing signal SIGTERM
+E0302 22:54:19.482000 3572619 site-packages/torch/distributed/elastic/multiprocessing/api.py:869] failed (exitcode: 1) local_rank: 1 (pid: 3572665) of binary: /n/home13/chloe00/miniforge3/envs/vla/bin/python3.11
+Traceback (most recent call last):
+  File "/n/home13/chloe00/miniforge3/envs/vla/bin/torchrun", line 7, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+    return f(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/distributed/run.py", line 918, in main
+    run(args)
+  File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/distributed/run.py", line 909, in run
+    elastic_launch(
+  File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/distributed/launcher/api.py", line 138, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/n/home13/chloe00/miniforge3/envs/vla/lib/python3.11/site-packages/torch/distributed/launcher/api.py", line 269, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/analysis/dreamzero_ckpt_loss.py FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2026-03-02_22:54:19
+  host      : holygpu8a11301.rc.fas.harvard.edu
+  rank      : 1 (local_rank: 1)
+  exitcode  : 1 (pid: 3572665)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================

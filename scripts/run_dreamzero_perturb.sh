@@ -80,6 +80,12 @@ fi
 NUM_GPUS="${NUM_GPUS:-2}"  # parallelize() only supports ip_size=1 or 2
 ENABLE_DIT_CACHE="${ENABLE_DIT_CACHE:-true}"
 
+# ── Attention visualisation ────────────────────────────────────────────────────
+# Set VISUALIZE_ATTENTION=true to overlay action→visual attention heatmaps
+# on the generated videos.  ATTN_ALPHA controls heatmap opacity (0.0–1.0).
+VISUALIZE_ATTENTION="${VISUALIZE_ATTENTION:-false}"
+ATTN_ALPHA="${ATTN_ALPHA:-0.5}"
+
 # ── Prompt perturbation ────────────────────────────────────────────────────────
 PROMPT_MODE="${PROMPT_MODE:-original}"
 CUSTOM_PROMPT="${CUSTOM_PROMPT:-}"
@@ -161,6 +167,7 @@ echo "Task suites:         ${SUITES[*]}"
 echo "Trials per task:     ${NUM_TRIALS}"
 echo "Replan steps:        ${REPLAN_STEPS}"
 echo "Seed:                ${SEED}"
+echo "Attn visualize:      ${VISUALIZE_ATTENTION}  (alpha=${ATTN_ALPHA})"
 echo "============================================================"
 
 for SUITE in "${SUITES[@]}"; do
@@ -172,6 +179,9 @@ for SUITE in "${SUITES[@]}"; do
 
     ENABLE_DIT_CACHE_ARG=""
     [[ "$ENABLE_DIT_CACHE" == "false" ]] && ENABLE_DIT_CACHE_ARG="--no-enable-dit-cache"
+
+    VISUALIZE_ATTN_ARG=""
+    [[ "$VISUALIZE_ATTENTION" == "true" ]] && VISUALIZE_ATTN_ARG="--visualize-attention"
 
     torchrun \
         --standalone \
@@ -194,7 +204,9 @@ for SUITE in "${SUITES[@]}"; do
             --object-shift-x-std "${OBJECT_SHIFT_X_STD}" \
             --object-shift-y-std "${OBJECT_SHIFT_Y_STD}" \
             --video-out-path "${VIDEO_OUT}" \
-            ${ENABLE_DIT_CACHE_ARG}
+            --attn-alpha "${ATTN_ALPHA}" \
+            ${ENABLE_DIT_CACHE_ARG} \
+            ${VISUALIZE_ATTN_ARG}
 
     echo "Finished: ${SUITE}"
 done
