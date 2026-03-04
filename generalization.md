@@ -161,11 +161,11 @@ Conditions: **original** | **rotate 30°** | **translate 20% right** | **rotate 
 
 | Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP |
 |---|---|---|---|---|---|
-| LIBERO-10 | original | — | — | — | — |
+| LIBERO-In domain | original | — | — | — | — |
 | | rotate 30° | — | — | — | — |
 | | translate 20% | — | — | — | — |
 | | rotate+translate | — | — | — | — |
-| LIBERO-Spatial | original | — | — | — | — |
+<!-- | LIBERO-Spatial | original | — | — | — | — |
 | | rotate 30° | — | — | — | — |
 | | translate 20% | — | — | — | — |
 | | rotate+translate | — | — | — | — |
@@ -176,7 +176,7 @@ Conditions: **original** | **rotate 30°** | **translate 20% right** | **rotate 
 | LIBERO-Goal | original | — | — | — | — |
 | | rotate 30° | — | — | — | — |
 | | translate 20% | — | — | — | — |
-| | rotate+translate | — | — | — | — |
+| | rotate+translate | — | — | — | — | -->
 | LIBERO-90-Object | original | — | — | — | — |
 | | rotate 30° | — | — | — | — |
 | | translate 20% | — | — | — | — |
@@ -267,10 +267,10 @@ Conditions: **original** | **random action 25%** (random action replacement, p=0
 
 | Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP |
 |---|---|---|---|---|---|
-| LIBERO-10 | original | — | — | — | — |
+| LIBERO-In domain | original | — | — | — | — |
 | | random action 25% | — | — | — | — |
 | | object shift x | — | — | — | — |
-| LIBERO-Spatial | original | — | — | — | — |
+<!-- | LIBERO-Spatial | original | — | — | — | — |
 | | random action 25% | — | — | — | — |
 | | object shift x | — | — | — | — |
 | LIBERO-Object | original | — | — | — | — |
@@ -278,7 +278,7 @@ Conditions: **original** | **random action 25%** (random action replacement, p=0
 | | object shift x | — | — | — | — |
 | LIBERO-Goal | original | — | — | — | — |
 | | random action 25% | — | — | — | — |
-| | object shift x | — | — | — | — |
+| | object shift x | — | — | — | — | -->
 | LIBERO-90-Object | original | — | — | — | — |
 | | random action 25% | — | — | — | — |
 | | object shift x | — | — | — | — |
