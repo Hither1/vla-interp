@@ -238,6 +238,15 @@ def worker_loop(policy, signal_group):
 
 # -- Observation / action helpers --
 
+def _quat2axisangle(quat: np.ndarray) -> np.ndarray:
+    """Convert quaternion [x, y, z, w] to axis-angle (3D), matching robosuite convention."""
+    quat = quat / np.linalg.norm(quat)
+    denom = np.sqrt(max(1.0 - quat[3] ** 2, 0.0))
+    if denom < 1e-8:
+        return np.zeros(3)
+    return (quat[:3] / denom) * 2.0 * np.arccos(np.clip(quat[3], -1.0, 1.0))
+
+
 def _to_numpy_2d(v):
     if isinstance(v, torch.Tensor):
         v = v.cpu().numpy()
@@ -248,19 +257,31 @@ def _to_numpy_2d(v):
 def extract_actions(result_batch):
     """Extract (N, 7) float32 OSC_POSE action array from DreamZero result_batch.
 
-    The model outputs raw OSC_POSE actions [eef_delta(6), gripper(1)] = 7D,
-    passed directly to the default LIBERO OSC_POSE controller.
+    The model outputs actions split across two keys:
+      action.joint_position    -> (N, 6)  EEF delta
+      action.gripper_position  -> (N, 1)  gripper
+    These are concatenated to produce the 7D action expected by LIBERO.
     """
     act = result_batch.act
     items = dict(act.items()) if isinstance(act, dict) else {
         a: getattr(act, a) for a in dir(act) if not a.startswith("_")
     }
 
+    joint, gripper = None, None
     for k, v in items.items():
         if "joint_position" in k and "gripper" not in k:
-            return _to_numpy_2d(v)  # (N, 7): [eef_delta(6), gripper(1)]
+            joint = _to_numpy_2d(v)      # (N, 6)
+        elif "gripper_position" in k or "gripper" in k:
+            g = _to_numpy_2d(v)
+            gripper = g.reshape(g.shape[0], -1) if g.ndim == 2 else g.reshape(-1, 1)  # (N, 1)
 
-    raise ValueError("action.joint_position not found in result_batch.act: %s" % act)
+    if joint is None:
+        raise ValueError("action.joint_position not found in result_batch.act: %s" % act)
+    if gripper is None:
+        raise ValueError("action.gripper_position not found in result_batch.act: %s" % act)
+    if gripper.shape[0] != joint.shape[0]:
+        gripper = np.broadcast_to(gripper, (joint.shape[0], gripper.shape[-1])).copy()
+    return np.concatenate([joint, gripper], axis=-1)  # (N, 7)
 
 
 # -- Metrics (condensed from main.py) --
@@ -405,9 +426,12 @@ def eval_rank0(args, policy, signal_group):
                             "video.agentview_rgb":    img[None].astype(np.uint8),
                             "video.eye_in_hand_rgb":  wrist[None].astype(np.uint8),
                             "state.joint_position":
-                                np.array(obs["robot0_joint_pos"],    dtype=np.float64).reshape(1, -1),
+                                np.concatenate([
+                                    np.array(obs["robot0_eef_pos"],  dtype=np.float64),         # (3,)
+                                    _quat2axisangle(np.array(obs["robot0_eef_quat"], dtype=np.float64)),  # (3,)
+                                ]).reshape(1, -1),  # (1, 6)
                             "state.gripper_position":
-                                np.array(obs["robot0_gripper_qpos"], dtype=np.float64)[:1].reshape(1, -1),
+                                np.array(obs["robot0_gripper_qpos"], dtype=np.float64)[:1].reshape(1, -1),  # (1, 1)
                             "annotation.language.language_instruction": ep_prompt,
                         }
                         if task_id == 0 and ep_idx == 0 and t == args.num_steps_wait:

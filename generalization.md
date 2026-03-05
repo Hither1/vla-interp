@@ -161,59 +161,47 @@ Conditions: **original** | **rotate 30°** | **translate 20% right** | **rotate 
 
 | Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP |
 |---|---|---|---|---|---|
-| LIBERO-In domain | original | 91.8% | 76.5% | — | — |
-| | rotate 30° | 11.6% | 1.1% | — | — |
-| | translate 20% | 22.0% | 13.4% | — | — |
-| | rotate+translate | 19.7% | 3.4% | — | — |
-<!-- | LIBERO-Spatial | original | — | — | — | — |
-| | rotate 30° | — | — | — | — |
-| | translate 20% | — | — | — | — |
-| | rotate+translate | — | — | — | — |
-| LIBERO-Object | original | — | — | — | — |
-| | rotate 30° | — | — | — | — |
-| | translate 20% | — | — | — | — |
-| | rotate+translate | — | — | — | — |
-| LIBERO-Goal | original | — | — | — | — |
-| | rotate 30° | — | — | — | — |
-| | translate 20% | — | — | — | — |
-| | rotate+translate | — | — | — | — | -->
-| LIBERO-90-Object | original | 49.5% | 9.5% | — | — |
-| | rotate 30° | 5.0% | 0.0% | — | — |
-| | translate 20% | 12.6% | 6.0% | — | — |
-| | rotate+translate | 6.8% | 0.3% | — | — |
-| LIBERO-90-Spatial | original | 23.0% | 4.1% | — | — |
-| | rotate 30° | 0.9% | 0.2% | — | — |
-| | translate 20% | 2.6% | 0.8% | — | — |
-| | rotate+translate | 5.8% | 0.6% | — | — |
-| LIBERO-90-Act | original | 31.2% | 13.2% | — | — |
-| | rotate 30° | 11.5% | 3.8% | — | — |
-| | translate 20% | 12.6% | 8.8% | — | — |
-| | rotate+translate | 19.7% | 4.1% | — | — |
-| LIBERO-90-Com | original | 3.0% | 0.0% | — | — |
-| | rotate 30° | 0.0% | 0.0% | — | — |
-| | translate 20% | 0.0% | 0.0% | — | — |
-| | rotate+translate | 0.5% | 0.0% | — | — |
+| LIBERO-In domain | original | 91.8% | 76.5% | — | 91.8% |
+| | rotate 30° | 11.6% | 1.1% | — | 6.9% |
+| | translate 20% | 22.0% | 13.4% | — | 15.5% |
+| | rotate+translate | 19.7% | 3.4% | — | 14.8% |
+| LIBERO-90-Object | original | 49.5% | 9.5% | — | 18.5% |
+| | rotate 30° | 5.0% | 0.0% | — | 0.0% |
+| | translate 20% | 12.6% | 6.0% | — | 1.8% |
+| | rotate+translate | 6.8% | 0.3% | — | 1.0% |
+| LIBERO-90-Spatial | original | 23.0% | 4.1% | — | 7.8% |
+| | rotate 30° | 0.9% | 0.2% | — | 0.2% |
+| | translate 20% | 2.6% | 0.8% | — | 2.7% |
+| | rotate+translate | 5.8% | 0.6% | — | 1.2% |
+| LIBERO-90-Act | original | 31.2% | 13.2% | — | 12.1% |
+| | rotate 30° | 11.5% | 3.8% | — | 0.3% |
+| | translate 20% | 12.6% | 8.8% | — | 0.0% |
+| | rotate+translate | 19.7% | 4.1% | — | 0.3% |
+| LIBERO-90-Com | original | 3.0% | 0.0% | — | 0.0% |
+| | rotate 30° | 0.0% | 0.0% | — | 0.0% |
+| | translate 20% | 0.0% | 0.0% | — | 0.0% |
+| | rotate+translate | 0.5% | 0.0% | — | 0.0% |
 
 ### Action Entropy (↓)
 
 | Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP |
 |---|---|---|---|---|---|
-| LIBERO-10 | original | — | — | — | — |
+| LIBERO-In domain | original | — | — | — | — |
 | | rotate 30° | — | — | — | — |
 | | translate 20% | — | — | — | — |
 | | rotate+translate | — | — | — | — |
-| LIBERO-Spatial | original | — | — | — | — |
+| LIBERO-90-Spatial | original | — | — | — | 0.08 |
 | | rotate 30° | — | — | — | — |
 | | translate 20% | — | — | — | — |
 | | rotate+translate | — | — | — | — |
-| LIBERO-Object | original | — | — | — | — |
+| LIBERO-Act | original | — | — | — | 0.09 |
 | | rotate 30° | — | — | — | — |
 | | translate 20% | — | — | — | — |
 | | rotate+translate | — | — | — | — |
-| LIBERO-Goal | original | — | — | — | — |
-| | rotate 30° | — | — | — | — |
-| | translate 20% | — | — | — | — |
-| | rotate+translate | — | — | — | — |
+| LIBERO-90-Com | original | — | — | — | 0.03 |
+| | rotate 30° | — | — | — | 0.01 |
+| | translate 20% | — | — | — | 0.01 |
+| | rotate+translate | — | — | — | 0.01 |
 
 ### Attention IoU (↑)
 
@@ -244,15 +232,6 @@ Conditions: **original** | **rotate 30°** | **translate 20% right** | **rotate 
 | | rotate 30° | — | — | — |
 | | translate 20% | — | — | — |
 | | rotate+translate | — | — | — |
-| LIBERO-Spatial | original | — | — | — |
-| | rotate 30° | — | — | — |
-| | translate 20% | — | — | — |
-| | rotate+translate | — | — | — |
-
-| LIBERO-Goal | original | — | — | — |
-| | rotate 30° | — | — | — |
-| | translate 20% | — | — | — |
-| | rotate+translate | — | — | — |
 | LIBERO-90-Object | original | 0.17 | — | — |
 | | rotate 30° | — | — | — |
 | | translate 20% | — | — | — |
@@ -280,9 +259,9 @@ Conditions: **original** | **random action 25%** (random action replacement, p=0
 
 | Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP |
 |---|---|---|---|---|---|
-| LIBERO-In domain | original | 91.8% | 76.5% | — | — |
-| | random action 25% | 31.5% | 5.0% | — | — |
-| | object shift x | 77.8% | 34.1% | — | — |
+| LIBERO-In domain | original | 91.8% | 76.5% | — | 91.8% |
+| | random action 25% | 31.5% | 5.0% | — | 20.5% |
+| | object shift x | 77.8% | 34.1% | — | 54.6% |
 <!-- | LIBERO-Spatial | original | — | — | — | — |
 | | random action 25% | — | — | — | — |
 | | object shift x | — | — | — | — |
@@ -292,18 +271,18 @@ Conditions: **original** | **random action 25%** (random action replacement, p=0
 | LIBERO-Goal | original | — | — | — | — |
 | | random action 25% | — | — | — | — |
 | | object shift x | — | — | — | — | -->
-| LIBERO-90-Object | original | 49.5% | 9.5% | — | — |
-| | random action 25% | 5.5% | 2.0% | — | — |
-| | object shift x | 7.7% | 6.8% | — | — |
-| LIBERO-90-Spatial | original | 23.0% | 4.1% | — | — |
-| | random action 25% | 4.4% | 0.2% | — | — |
-| | object shift x | 9.5% | 2.4% | — | — |
-| LIBERO-90-Act | original | 31.2% | 13.2% | — | — |
-| | random action 25% | 19.4% | 5.6% | — | — |
-| | object shift x | 30.0% | 10.9% | — | — |
-| LIBERO-90-Com | original | 3.0% | 0.0% | — | — |
-| | random action 25% | 1.0% | 0.0% | — | — |
-| | object shift x | 1.0% | 0.0% | — | — |
+| LIBERO-90-Object | original | 49.5% | 9.5% | — | 18.5% |
+| | random action 25% | 5.5% | 2.0% | — | 4.3% |
+| | object shift x | 7.7% | 6.8% | — | 10.0% |
+| LIBERO-90-Spatial | original | 23.0% | 4.1% | — | 7.8% |
+| | random action 25% | 4.4% | 0.2% | — | 2.4% |
+| | object shift x | 9.5% | 2.4% | — | 4.7% |
+| LIBERO-90-Act | original | 31.2% | 13.2% | — | 12.1% |
+| | random action 25% | 19.4% | 5.6% | — | 3.2% |
+| | object shift x | 30.0% | 10.9% | — | 9.4% |
+| LIBERO-90-Com | original | 3.0% | 0.0% | — | 0.0% |
+| | random action 25% | 1.0% | 0.0% | — | 0.0% |
+| | object shift x | 1.0% | 0.0% | — | 0.0% |
 
 ### Action Entropy (↓)
 
