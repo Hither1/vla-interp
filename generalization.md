@@ -21,24 +21,6 @@ Conditions: **original** | **empty** (no prompt) | **shuffle** (shuffled words) 
 | | random | 34.5% | 6.3% | 32.5% | 30.9% |
 | | synonym | 96.5% | 64.8% | 94.5% | 35.5% |
 | | opposite | 99.5% | 63.4% | 97.0% | 35.3% |
-<!-- | LIBERO-Spatial | original | 92.4% | — | — | — |
-| | empty | 75.5% | — | — | — |
-| | shuffle | 93.0% | — | — | — |
-| | random | 43.0% | — | — | — |
-| | synonym | 96.5% | — | — | — |
-| | opposite | 92.0% | — | — | — |
-| LIBERO-Object | original | 98.8% | — | — | — |
-| | empty | 64.0% | — | — | — |
-| | shuffle | 93.0% | — | — | — |
-| | random | 63.5% | — | — | — |
-| | synonym | 99.0% | — | — | — |
-| | opposite | 99.5% | — | — | — |
-| LIBERO-Goal | original | 98.0% | — | — | — |
-| | empty | 9.0% | — | — | — |
-| | shuffle | 89.5% | — | — | — |
-| | random | 62.0% | — | — | — |
-| | synonym | 96.0% | — | — | — |
-| | opposite | 97.5% | — | — | — | -->
 | LIBERO-90-Object | original | 49.5% | 9.5% | 38.0% | 18.5% |
 | | empty | 4.0% | 0.0% | 27.8% | 14.5% |
 | | shuffle | 50.2% | 6.0% | 32.0% | 14.2% |
