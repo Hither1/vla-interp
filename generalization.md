@@ -68,25 +68,31 @@ Conditions: **original** | **empty** (no prompt) | **shuffle** (shuffled words) 
 
 | Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP |
 |---|---|---|---|---|---|
-| LIBERO-10 | original | — | — | — | — |
+| LIBERO-In domain | original | — | — | — | — |
 | | empty | — | — | — | — |
 | | shuffle | — | — | — | — |
 | | random | — | — | — | — |
 | | synonym | — | — | — | — |
 | | opposite | — | — | — | — |
-| LIBERO-Spatial | original | — | — | — | — |
+| LIBERO-90-Object | original | — | — | — | — |
 | | empty | — | — | — | — |
 | | shuffle | — | — | — | — |
 | | random | — | — | — | — |
 | | synonym | — | — | — | — |
 | | opposite | — | — | — | — |
-| LIBERO-Object | original | — | — | — | — |
+| LIBERO-90-Spatial | original | — | — | — | — |
 | | empty | — | — | — | — |
 | | shuffle | — | — | — | — |
 | | random | — | — | — | — |
 | | synonym | — | — | — | — |
 | | opposite | — | — | — | — |
-| LIBERO-Goal | original | — | — | — | — |
+| LIBERO-90-Object | original | — | — | — | — |
+| | empty | — | — | — | — |
+| | shuffle | — | — | — | — |
+| | random | — | — | — | — |
+| | synonym | — | — | — | — |
+| | opposite | — | — | — | — |
+| LIBERO-90-Goal | original | — | — | — | — |
 | | empty | — | — | — | — |
 | | shuffle | — | — | — | — |
 | | random | — | — | — | — |
@@ -97,25 +103,31 @@ Conditions: **original** | **empty** (no prompt) | **shuffle** (shuffled words) 
 
 | Suite | Condition | pi0.5 | OpenVLA | Cosmos |
 |---|---|---|---|---|
-| LIBERO-10 | original | — | — | — |
+| LIBERO-In domain | original | — | — | — |
 | | empty | — | — | — |
 | | shuffle | — | — | — |
 | | random | — | — | — |
 | | synonym | — | — | — |
 | | opposite | — | — | — |
-| LIBERO-Spatial | original | — | — | — |
+| LIBERO-90- | original | — | — | — |
 | | empty | — | — | — |
 | | shuffle | — | — | — |
 | | random | — | — | — |
 | | synonym | — | — | — |
 | | opposite | — | — | — |
-| LIBERO-Object | original | — | — | — |
+| LIBERO-90-Spatial | original | — | — | — |
 | | empty | — | — | — |
 | | shuffle | — | — | — |
 | | random | — | — | — |
 | | synonym | — | — | — |
 | | opposite | — | — | — |
-| LIBERO-Goal | original | — | — | — |
+| LIBERO-90-Object | original | — | — | — |
+| | empty | — | — | — |
+| | shuffle | — | — | — |
+| | random | — | — | — |
+| | synonym | — | — | — |
+| | opposite | — | — | — |
+| LIBERO-90-Goal | original | — | — | — |
 | | empty | — | — | — |
 | | shuffle | — | — | — |
 | | random | — | — | — |
