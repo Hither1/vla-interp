@@ -173,26 +173,26 @@ Conditions: **original** | **rotate 30°** | **translate 20% right** | **rotate 
 
 | Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP |
 |---|---|---|---|---|---|
-| LIBERO-In domain | original | 91.8% | 76.5% | — | 91.8% |
-| | rotate 30° | 11.6% | 1.1% | — | 6.9% |
-| | translate 20% | 22.0% | 13.4% | — | 15.5% |
-| | rotate+translate | 19.7% | 3.4% | — | 14.8% |
-| LIBERO-90-Object | original | 49.5% | 9.5% | — | 18.5% |
-| | rotate 30° | 5.0% | 0.0% | — | 0.0% |
-| | translate 20% | 12.6% | 6.0% | — | 1.8% |
-| | rotate+translate | 6.8% | 0.3% | — | 1.0% |
-| LIBERO-90-Spatial | original | 23.0% | 4.1% | — | 7.8% |
-| | rotate 30° | 0.9% | 0.2% | — | 0.2% |
-| | translate 20% | 2.6% | 0.8% | — | 2.7% |
-| | rotate+translate | 5.8% | 0.6% | — | 1.2% |
-| LIBERO-90-Act | original | 31.2% | 13.2% | — | 12.1% |
-| | rotate 30° | 11.5% | 3.8% | — | 0.3% |
-| | translate 20% | 12.6% | 8.8% | — | 0.0% |
-| | rotate+translate | 19.7% | 4.1% | — | 0.3% |
-| LIBERO-90-Com | original | 3.0% | 0.0% | — | 0.0% |
-| | rotate 30° | 0.0% | 0.0% | — | 0.0% |
-| | translate 20% | 0.0% | 0.0% | — | 0.0% |
-| | rotate+translate | 0.5% | 0.0% | — | 0.0% |
+| LIBERO-In domain | original | 91.8% | 76.5% | 98.5% | 91.8% |
+| | rotate 30° | 11.6% | 1.1% | 19.6% | 6.9% |
+| | translate 20% | 22.0% | 13.4% | 80.0% | 15.5% |
+| | rotate+translate | 19.7% | 3.4% | 80.9% | 14.8% |
+| LIBERO-90-Object | original | 49.5% | 9.5% | 38.0% | 18.5% |
+| | rotate 30° | 5.0% | 0.0% | 0.5% | 0.0% |
+| | translate 20% | 12.6% | 6.0% | 24.5% | 1.8% |
+| | rotate+translate | 6.8% | 0.3% | 23.0% | 1.0% |
+| LIBERO-90-Spatial | original | 23.0% | 4.1% | 13.72% | 7.8% |
+| | rotate 30° | 0.9% | 0.2% | 0.5% | 0.2% |
+| | translate 20% | 2.6% | 0.8% | 10.2% | 2.7% |
+| | rotate+translate | 5.8% | 0.6% | 6.9% | 1.2% |
+| LIBERO-90-Act | original | 31.2% | 13.2% | 33.8% | 12.1% |
+| | rotate 30° | 11.5% | 3.8% | 7.1% | 0.3% |
+| | translate 20% | 12.6% | 8.8% | 18.8% | 0.0% |
+| | rotate+translate | 19.7% | 4.1% | 26.5% | 0.3% |
+| LIBERO-90-Com | original | 3.0% | 0.0% | 1.5% | 0.0% |
+| | rotate 30° | 0.0% | 0.0% | 0.0% | 0.0% |
+| | translate 20% | 0.0% | 0.0% | 0.5% | 0.0% |
+| | rotate+translate | 0.5% | 0.0% | 1.0% | 0.0% |
 
 ### Action Entropy (↓)
 
@@ -271,21 +271,21 @@ Conditions: **original** | **random action 25%** (random action replacement, p=0
 
 | Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP |
 |---|---|---|---|---|---|
-| LIBERO-In domain | original | 91.8% | 76.5% | — | 91.8% |
-| | random action 25% | 31.5% | 5.0% | — | 20.5% |
-| | object shift x | 77.8% | 34.1% | — | 54.6% |
-| LIBERO-90-Object | original | 49.5% | 9.5% | — | 18.5% |
-| | random action 25% | 5.5% | 2.0% | — | 4.3% |
-| | object shift x | 7.7% | 6.8% | — | 10.0% |
-| LIBERO-90-Spatial | original | 23.0% | 4.1% | — | 7.8% |
-| | random action 25% | 4.4% | 0.2% | — | 2.4% |
-| | object shift x | 9.5% | 2.4% | — | 4.7% |
-| LIBERO-90-Act | original | 31.2% | 13.2% | — | 12.1% |
-| | random action 25% | 19.4% | 5.6% | — | 3.2% |
-| | object shift x | 30.0% | 10.9% | — | 9.4% |
-| LIBERO-90-Com | original | 3.0% | 0.0% | — | 0.0% |
-| | random action 25% | 1.0% | 0.0% | — | 0.0% |
-| | object shift x | 1.0% | 0.0% | — | 0.0% |
+| LIBERO-In domain | original | 91.8% | 76.5% | 98.5% | 91.8% |
+| | random action 25% | 31.5% | 5.0% | 25.2% | 20.5% |
+| | object shift x | 77.8% | 34.1% | 76.8% | 54.6% |
+| LIBERO-90-Object | original | 49.5% | 9.5% | 38.0% | 18.5% |
+| | random action 25% | 5.5% | 2.0% | 8.7% | 4.3% |
+| | object shift x | 7.7% | 6.8% | 31.8% | 10.0% |
+| LIBERO-90-Spatial | original | 23.0% | 4.1% | 13.72% | 7.8% |
+| | random action 25% | 4.4% | 0.2% | 3.8% | 2.4% |
+| | object shift x | 9.5% | 2.4% | 12.7% | 4.7% |
+| LIBERO-90-Act | original | 31.2% | 13.2% | 33.8% | 12.1% |
+| | random action 25% | 19.4% | 5.6% | 14.1% | 3.2% |
+| | object shift x | 30.0% | 10.9% | 28.8% | 9.4% |
+| LIBERO-90-Com | original | 3.0% | 0.0% | 1.5% | 0.0% |
+| | random action 25% | 1.0% | 0.0% | 0.0% | 0.0% |
+| | object shift x | 1.0% | 0.0% | 1.0% | 0.0% |
 
 ### Action Entropy (↓)
 
