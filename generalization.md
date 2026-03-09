@@ -274,15 +274,6 @@ Conditions: **original** | **random action 25%** (random action replacement, p=0
 | LIBERO-In domain | original | 91.8% | 76.5% | — | 91.8% |
 | | random action 25% | 31.5% | 5.0% | — | 20.5% |
 | | object shift x | 77.8% | 34.1% | — | 54.6% |
-<!-- | LIBERO-Spatial | original | — | — | — | — |
-| | random action 25% | — | — | — | — |
-| | object shift x | — | — | — | — |
-| LIBERO-Object | original | — | — | — | — |
-| | random action 25% | — | — | — | — |
-| | object shift x | — | — | — | — |
-| LIBERO-Goal | original | — | — | — | — |
-| | random action 25% | — | — | — | — |
-| | object shift x | — | — | — | — | -->
 | LIBERO-90-Object | original | 49.5% | 9.5% | — | 18.5% |
 | | random action 25% | 5.5% | 2.0% | — | 4.3% |
 | | object shift x | 7.7% | 6.8% | — | 10.0% |
