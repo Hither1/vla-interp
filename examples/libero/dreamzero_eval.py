@@ -11,8 +11,9 @@ Usage:
 
 Key differences vs Pi0 main.py:
   - NO 180-deg image flip (DreamZero trained on raw LIBERO images)
-  - State = joint positions, keys: state.joint_position / state.gripper_position
-  - Actions: action.joint_position (N, 7) = [EEF delta x,y,z,rx,ry,rz, gripper]
+  - State: state.joint_position = EEF pos(3) + axis-angle(3) = 6 dims (mislabeled in modality.json)
+           state.gripper_position = robot0_gripper_qpos = 2 dims
+  - Actions: action.joint_position (N, 6) = EEF target + action.gripper_position (N, 1) -> 7D total
   - Distributed inference: rank 0 runs eval, other ranks participate in forward pass
 """
 
@@ -425,13 +426,16 @@ def eval_rank0(args, policy, signal_group):
                         dz_obs = {
                             "video.agentview_rgb":    img[None].astype(np.uint8),
                             "video.eye_in_hand_rgb":  wrist[None].astype(np.uint8),
+                            # state.joint_position = EEF pos(3) + axis-angle(3), 6 dims
+                            # (key name matches modality.json from convert_libero.py)
                             "state.joint_position":
                                 np.concatenate([
                                     np.array(obs["robot0_eef_pos"],  dtype=np.float64),         # (3,)
                                     _quat2axisangle(np.array(obs["robot0_eef_quat"], dtype=np.float64)),  # (3,)
                                 ]).reshape(1, -1),  # (1, 6)
+                            # state.gripper_position = robot0_gripper_qpos, 2 dims
                             "state.gripper_position":
-                                np.array(obs["robot0_gripper_qpos"], dtype=np.float64)[:1].reshape(1, -1),  # (1, 1)
+                                np.array(obs["robot0_gripper_qpos"], dtype=np.float64)[:2].reshape(1, -1),  # (1, 2)
                             "annotation.language.language_instruction": ep_prompt,
                         }
                         if task_id == 0 and ep_idx == 0 and t == args.num_steps_wait:

@@ -305,6 +305,9 @@ Conditions: **original** | **random action 25%** (random action replacement, p=0
 
 | Suite | Condition | pi0.5 | OpenVLA | Cosmos |
 |---|---|---|---|---|
+| LIBERO-In domain | original | 0.31 | — | — |
+| | random action 25% | 0.29 | — | — |
+| | object shift x | 0.26 | — | — |
 | LIBERO-10 | original | — | — | — |
 | | random action 25% | — | — | — |
 | | object shift x | — | — | — |
@@ -325,15 +328,18 @@ Conditions: **original** | **random action 25%** (random action replacement, p=0
 
 | Suite | Condition | pi0.5 | OpenVLA | Cosmos |
 |---|---|---|---|---|
-| LIBERO-10 | original | — | — | — |
-| | random action 25% | — | — | — |
-| | object shift x | — | — | — |
-| LIBERO-Spatial | original | — | — | — |
-| | random action 25% | — | — | — |
-| | object shift x | — | — | — |
-| LIBERO-Object | original | — | — | — |
-| | random action 25% | — | — | — |
-| | object shift x | — | — | — |
-| LIBERO-Goal | original | — | — | — |
-| | random action 25% | — | — | — |
-| | object shift x | — | — | — |
+| LIBERO-In domain | original | 0.57 | — | — |
+| | random action 25% | 0.70 | — | — |
+| | object shift x | 0.66 | — | — |
+| LIBERO-90-Object | original | 0.70 | — | — |
+| | random action 25% | 0.75 | — | — |
+| | object shift x | 0.74 | — | — |
+| LIBERO-90-Spatial | original | 0.74 | — | — |
+| | random action 25% | 0.78 | — | — |
+| | object shift x | 0.78 | — | — |
+| LIBERO-90-Act | original | 0.72 | — | — |
+| | random action 25% | 0.78 | — | — |
+| | object shift x | 0.77 | — | — |
+| LIBERO-90-Com | original | 0.81 | — | — |
+| | random action 25% | 0.82 | — | — |
+| | object shift x | 0.81 | — | — |
