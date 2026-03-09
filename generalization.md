@@ -222,10 +222,10 @@ Conditions: **original** | **rotate 30°** | **translate 20% right** | **rotate 
 
 | Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP |
 |---|---|---|---|---|---|
-| LIBERO-10 | original | — | — | — | — |
-| | rotate 30° | — | — | — | — |
-| | translate 20% | — | — | — | — |
-| | rotate+translate | — | — | — | — |
+| LIBERO-10 | original | 0.576 | — | 0.439 | 0.928 |
+| | rotate 30° | 0.779 | — | 0.314 | 0.984 |
+| | translate 20% | 0.738 | — | 0.434 | 0.978 |
+| | rotate+translate | 0.755 | — | 0.427 | 0.980 |
 | LIBERO-90-Object | original | 0.701 | — | 0.383 | 0.966 |
 | | rotate 30° | 0.814 | — | 0.265 | 0.989 |
 | | translate 20% | 0.801 | — | 0.379 | 0.987 |
@@ -313,9 +313,9 @@ Conditions: **original** | **random action 25%** (random action replacement, p=0
 
 | Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP |
 |---|---|---|---|---|---|
-| LIBERO-In domain | original | 0.57 | — | — | — |
-| | random action 25% | 0.70 | — | — | — |
-| | object shift x | 0.66 | — | — | — |
+| LIBERO-In domain | original | 0.576 | — | 0.439 | 0.928 |
+| | random action 25% | 0.701 | — | 0.369 | 0.974 |
+| | object shift x | 0.662 | — | 0.420 | 0.954 |
 | LIBERO-90-Object | original | 0.701 | — | 0.383 | 0.966 |
 | | random action 25% | 0.747 | — | 0.342 | 0.985 |
 | | object shift x | 0.735 | — | 0.367 | 0.978 |
