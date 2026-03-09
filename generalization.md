@@ -220,28 +220,28 @@ Conditions: **original** | **rotate 30°** | **translate 20% right** | **rotate 
 
 ### Attention Ratio (visual / total)
 
-| Suite | Condition | pi0.5 | OpenVLA | Cosmos |
-|---|---|---|---|---|
-| LIBERO-10 | original | — | — | — |
-| | rotate 30° | — | — | — |
-| | translate 20% | — | — | — |
-| | rotate+translate | — | — | — |
-| LIBERO-90-Object | original | 0.17 | — | — |
-| | rotate 30° | — | — | — |
-| | translate 20% | — | — | — |
-| | rotate+translate | — | — | — |
-| LIBERO-90-Spatial | original | 0.11 | — | — |
-| | rotate 30° | — | — | — |
-| | translate 20% | — | — | — |
-| | rotate+translate | — | — | — |
-| LIBERO-90-Act | original | 0.13 | — | — |
-| | rotate 30° | — | — | — |
-| | translate 20% | — | — | — |
-| | rotate+translate | — | — | — |
-| LIBERO-90-Com | original | 0.04 | — | — |
-| | rotate 30° | 0.01 | — | — |
-| | translate 20% | 0.01 | — | — |
-| | rotate+translate | 0.02 | — | — |
+| Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP |
+|---|---|---|---|---|---|
+| LIBERO-10 | original | — | — | — | — |
+| | rotate 30° | — | — | — | — |
+| | translate 20% | — | — | — | — |
+| | rotate+translate | — | — | — | — |
+| LIBERO-90-Object | original | 0.701 | — | 0.383 | 0.966 |
+| | rotate 30° | 0.814 | — | 0.265 | 0.989 |
+| | translate 20% | 0.801 | — | 0.379 | 0.987 |
+| | rotate+translate | 0.807 | — | 0.371 | 0.987 |
+| LIBERO-90-Spatial | original | 0.735 | — | 0.355 | 0.972 |
+| | rotate 30° | 0.822 | — | 0.248 | 0.989 |
+| | translate 20% | 0.814 | — | 0.351 | 0.989 |
+| | rotate+translate | 0.815 | — | 0.342 | 0.989 |
+| LIBERO-90-Act | original | 0.724 | — | 0.367 | 0.971 |
+| | rotate 30° | 0.820 | — | 0.254 | 0.990 |
+| | translate 20% | 0.808 | — | 0.363 | 0.989 |
+| | rotate+translate | 0.812 | — | 0.355 | 0.989 |
+| LIBERO-90-Com | original | 0.810 | — | 0.254 | 0.986 |
+| | rotate 30° | 0.827 | — | 0.231 | 0.990 |
+| | translate 20% | 0.825 | — | 0.259 | 0.990 |
+| | rotate+translate | 0.826 | — | 0.254 | 0.990 |
 
 ---
 
@@ -311,20 +311,20 @@ Conditions: **original** | **random action 25%** (random action replacement, p=0
 
 ### Attention Ratio (visual / total)
 
-| Suite | Condition | pi0.5 | OpenVLA | Cosmos |
-|---|---|---|---|---|
-| LIBERO-In domain | original | 0.57 | — | — |
-| | random action 25% | 0.70 | — | — |
-| | object shift x | 0.66 | — | — |
-| LIBERO-90-Object | original | 0.70 | — | — |
-| | random action 25% | 0.75 | — | — |
-| | object shift x | 0.74 | — | — |
-| LIBERO-90-Spatial | original | 0.74 | — | — |
-| | random action 25% | 0.78 | — | — |
-| | object shift x | 0.78 | — | — |
-| LIBERO-90-Act | original | 0.72 | — | — |
-| | random action 25% | 0.78 | — | — |
-| | object shift x | 0.77 | — | — |
-| LIBERO-90-Com | original | 0.81 | — | — |
-| | random action 25% | 0.82 | — | — |
-| | object shift x | 0.81 | — | — |
+| Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP |
+|---|---|---|---|---|---|
+| LIBERO-In domain | original | 0.57 | — | — | — |
+| | random action 25% | 0.70 | — | — | — |
+| | object shift x | 0.66 | — | — | — |
+| LIBERO-90-Object | original | 0.701 | — | 0.383 | 0.966 |
+| | random action 25% | 0.747 | — | 0.342 | 0.985 |
+| | object shift x | 0.735 | — | 0.367 | 0.978 |
+| LIBERO-90-Spatial | original | 0.735 | — | 0.355 | 0.972 |
+| | random action 25% | 0.782 | — | 0.306 | 0.987 |
+| | object shift x | 0.775 | — | 0.333 | 0.981 |
+| LIBERO-90-Act | original | 0.724 | — | 0.367 | 0.971 |
+| | random action 25% | 0.784 | — | 0.315 | 0.988 |
+| | object shift x | 0.766 | — | 0.342 | 0.980 |
+| LIBERO-90-Com | original | 0.810 | — | 0.254 | 0.986 |
+| | random action 25% | 0.820 | — | 0.242 | 0.989 |
+| | object shift x | 0.814 | — | 0.254 | 0.988 |
