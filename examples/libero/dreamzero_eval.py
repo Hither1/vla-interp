@@ -42,6 +42,10 @@ _DREAMZERO_DIR = str(pathlib.Path(__file__).resolve().parents[2] / "dreamzero")
 if _DREAMZERO_DIR not in sys.path:
     sys.path.insert(0, _DREAMZERO_DIR)
 
+_ANALYSIS_ATTN_DIR = str(pathlib.Path(__file__).resolve().parents[2] / "analysis" / "attention")
+if _ANALYSIS_ATTN_DIR not in sys.path:
+    sys.path.insert(0, _ANALYSIS_ATTN_DIR)
+
 import cv2
 from safetensors.torch import load_file
 
@@ -50,6 +54,7 @@ from groot.vla.model.n1_5.sim_policy import GrootSimPolicy
 from groot.vla.data.schema import EmbodimentTag
 from groot.vla.model.dreamzero.modules.wan_video_dit_action_casual_chunk import (
     set_attn_capture, clear_attn_buffer, get_attn_buffer,
+    CausalWanAttentionBlock,
 )
 
 from libero.libero import benchmark, get_libero_path
@@ -159,6 +164,214 @@ def _overlay_attn(img_uint8: np.ndarray, attn_map: np.ndarray, alpha: float = 0.
     return np.clip(img_uint8 * (1.0 - alpha) + heat_rgb * alpha, 0, 255).astype(np.uint8)
 
 
+# ── Cross-attention capture for attention ratio ────────────────────────────────
+
+# Per-block action_register_length captured from the block's forward pre-hook.
+_BLOCK_ARL: dict = {}
+# Cross-attention (action→text) calls: {"attn": (AH, T), "T": int}
+_CROSS_ATTN_BUFFER: list = []
+
+
+def _install_ratio_hooks(policy) -> list:
+    """Install hooks to capture cross-attention (action→text) for attention ratio.
+
+    Uses a pre-hook on each CausalWanAttentionBlock to capture action_register_length,
+    then a post-hook on block.cross_attn to compute q(action)→k(text) attention weights.
+
+    Returns a list of hook handles to remove later.
+    """
+    global _BLOCK_ARL, _CROSS_ATTN_BUFFER
+    _BLOCK_ARL.clear()
+    _CROSS_ATTN_BUFFER.clear()
+
+    try:
+        blocks = policy.trained_model.action_head.model.blocks
+    except AttributeError:
+        logging.warning("Cannot find DiT blocks for ratio hooks")
+        return []
+
+    handles = []
+
+    for block_idx, block in enumerate(blocks):
+        if not isinstance(block, CausalWanAttentionBlock):
+            continue
+
+        n_act = block.self_attn.num_action_per_block
+        n_state = block.self_attn.num_state_per_block
+
+        # Pre-hook: capture action_register_length from kwargs before block.forward runs.
+        def _make_block_pre_hook(idx):
+            def pre_hook(module, args, kwargs):
+                arl = kwargs.get("action_register_length")
+                if arl is not None:
+                    _BLOCK_ARL[idx] = arl
+            return pre_hook
+
+        handles.append(
+            block.register_forward_pre_hook(_make_block_pre_hook(block_idx), with_kwargs=True)
+        )
+
+        # Post-hook on cross_attn: compute action-query → text-key attention.
+        def _make_cross_hook(idx, na, ns):
+            def hook(module, args, output):
+                if len(args) < 2:
+                    return
+                normed_x = args[0]   # (B, S, C) – normed full sequence
+                context  = args[1]   # (B, T, C) – text embeddings
+
+                arl = _BLOCK_ARL.get(idx)
+                if not arl:
+                    return
+
+                B, S, C = normed_x.shape
+                T = context.shape[1]
+                if T == 0:
+                    return
+
+                n = module.num_heads
+                d = module.head_dim
+
+                chunk_size = arl // (na + ns)
+                action_horizon = chunk_size * na
+                state_horizon  = chunk_size * ns
+
+                action_start = S - action_horizon - state_horizon
+                action_end   = S - state_horizon
+                if action_start < 0 or action_end > S or action_start >= action_end:
+                    return
+
+                with torch.no_grad():
+                    x_act = normed_x[:, action_start:action_end]  # (B, AH, C)
+                    q = module.norm_q(module.q(x_act)).view(B, -1, n, d)
+
+                    # Handle WanI2VCrossAttention (first 257 tokens of context are image)
+                    text_ctx = context[:, 257:] if hasattr(module, "k_img") else context
+                    if text_ctx.shape[1] == 0:
+                        return
+
+                    k = module.norm_k(module.k(text_ctx)).view(B, -1, n, d)
+
+                    q_f = q.float().permute(0, 2, 1, 3)        # (B, H, AH, d)
+                    k_f = k.float().permute(0, 2, 1, 3)        # (B, H, T, d)
+                    scale = d ** -0.5
+                    attn = torch.softmax(
+                        torch.matmul(q_f * scale, k_f.transpose(-2, -1)), dim=-1
+                    )  # (B, H, AH, T)
+                    attn_np = attn[0].mean(0).cpu().float().numpy()  # (AH, T_text)
+
+                _CROSS_ATTN_BUFFER.append({"attn": attn_np, "T": text_ctx.shape[1]})
+            return hook
+
+        handles.append(block.cross_attn.register_forward_hook(_make_cross_hook(block_idx, n_act, n_state)))
+
+    return handles
+
+
+def _remove_hooks(handles: list) -> None:
+    for h in handles:
+        try:
+            h.remove()
+        except Exception:
+            pass
+
+
+def _compute_ratio(attn_map: np.ndarray | None) -> dict:
+    """Compute visual/linguistic attention ratio from captured buffers.
+
+    visual_mass   = sum of attn_map (action→clean-visual fraction, averaged across blocks).
+    linguistic_mass = mean cross-attention weight × T (per-block average).
+
+    Returns a dict with visual_mass, linguistic_mass, visual_linguistic_ratio, etc.
+    """
+    visual_mass = float(attn_map.sum()) if attn_map is not None else 0.0
+
+    ling_values = []
+    for call in _CROSS_ATTN_BUFFER:
+        attn = call["attn"]   # (AH, T)
+        T    = int(call["T"])
+        # Mean attention per query per text token, scaled by T so uniform = 1.0
+        ling_values.append(float(attn.mean()) * T)
+    linguistic_mass = float(np.mean(ling_values)) if ling_values else 0.0
+
+    if linguistic_mass > 1e-8:
+        ratio = visual_mass / linguistic_mass
+    else:
+        ratio = float("inf") if visual_mass > 1e-8 else 0.0
+
+    total = visual_mass + linguistic_mass
+    return {
+        "visual_mass":            visual_mass,
+        "linguistic_mass":        linguistic_mass,
+        "visual_linguistic_ratio": ratio,
+        "visual_fraction":        visual_mass / max(total, 1e-8),
+        "linguistic_fraction":    linguistic_mass / max(total, 1e-8),
+        "num_cross_attn_calls":   len(ling_values),
+    }
+
+
+def _compute_iou(attn_map: np.ndarray, seg_mask: np.ndarray, percentile: float = 90.0) -> dict:
+    """Compute IoU between thresholded attention heatmap and binary segmentation mask.
+
+    attn_map : (H_feat, W_feat) float32 – output of _compute_attn_map, any scale.
+    seg_mask : (H_img, W_img) array – non-zero pixels are foreground.
+    percentile: threshold percentile for binary attention mask (default top-10%).
+
+    Returns dict with iou, dice, attention_mass, pointing_hit.
+    """
+    h, w = seg_mask.shape[:2]
+    # Resize attention map to image resolution
+    hm = cv2.resize(attn_map.astype(np.float32), (w, h), interpolation=cv2.INTER_LINEAR)
+    # Normalize to [0, 1]
+    hmin, hmax = hm.min(), hm.max()
+    if hmax > hmin:
+        hm = (hm - hmin) / (hmax - hmin)
+
+    fg = (seg_mask > 0).astype(bool)
+    total_attn = float(hm.sum())
+
+    # Soft attention mass on foreground
+    attention_mass = float(hm[fg].sum() / total_attn) if total_attn > 0 else 0.0
+
+    # Pointing accuracy (max-attention pixel on foreground?)
+    max_idx = np.unravel_index(np.argmax(hm), hm.shape)
+    pointing_hit = bool(fg[max_idx])
+
+    # Binary IoU at given percentile
+    thresh = float(np.percentile(hm, percentile))
+    pred = hm >= thresh
+    intersection = float(np.logical_and(pred, fg).sum())
+    union        = float(np.logical_or(pred,  fg).sum())
+    iou  = intersection / union if union > 0 else 0.0
+
+    denom = float(pred.sum() + fg.sum())
+    dice  = float(2 * intersection / denom) if denom > 0 else 0.0
+
+    return {
+        "iou":            iou,
+        "dice":           dice,
+        "attention_mass": attention_mass,
+        "pointing_hit":   pointing_hit,
+        "threshold":      float(thresh),
+        "percentile":     float(percentile),
+        "fg_pixels":      int(fg.sum()),
+    }
+
+
+def _summarize_attn_steps(step_results: list) -> dict:
+    """Aggregate per-step attention metrics over an episode."""
+    if not step_results:
+        return {}
+    keys = [k for k in step_results[0] if isinstance(step_results[0][k], (int, float))]
+    out = {}
+    for k in keys:
+        vals = [r[k] for r in step_results if k in r]
+        if vals:
+            out[k] = {"mean": float(np.mean(vals)), "std": float(np.std(vals)),
+                      "min": float(np.min(vals)),   "max": float(np.max(vals))}
+    out["num_steps"] = len(step_results)
+    return out
+
+
 @dataclasses.dataclass
 class Args:
     model_path: str  # Path to DreamZero LIBERO checkpoint dir
@@ -189,6 +402,14 @@ class Args:
     # Attention visualisation
     visualize_attention: bool = False
     attn_alpha: float = 0.5  # heatmap overlay opacity
+
+    # Attention analysis
+    compute_attention_ratio: bool = False
+    """Compute visual/linguistic attention ratio per chunk. Saves per-step stats to JSON."""
+    compute_attention_iou: bool = False
+    """Compute IoU between attention heatmap and segmentation mask. Requires SegmentationRenderEnv."""
+    iou_threshold_percentile: float = 90.0
+    """Percentile threshold for binary attention mask when computing IoU (default: top 10%)."""
 
 
 # -- Prompt helpers (mirrored from main.py) --
@@ -423,10 +644,30 @@ def eval_rank0(args, policy, signal_group):
     total_eps = total_succ = 0
     per_task_results = []
 
+    # Whether we need attention capture (visualisation, ratio, or iou)
+    need_attn_capture = args.visualize_attention or args.compute_attention_ratio or args.compute_attention_iou
+
     for task_id in tqdm.tqdm(range(n_tasks), desc="Tasks"):
         task        = suite.get_task(task_id)
         init_states = suite.get_task_init_states(task_id)
-        env, desc   = get_libero_env(task, LIBERO_ENV_RESOLUTION, args.seed)
+
+        # Use SegmentationRenderEnv for IoU; fall back to OffScreenRenderEnv otherwise.
+        if args.compute_attention_iou:
+            try:
+                from libero.libero.envs.env_wrapper import SegmentationRenderEnv
+                bddl = pathlib.Path(get_libero_path("bddl_files")) / task.problem_folder / task.bddl_file
+                env = SegmentationRenderEnv(
+                    bddl_file_name=str(bddl),
+                    camera_heights=LIBERO_ENV_RESOLUTION,
+                    camera_widths=LIBERO_ENV_RESOLUTION,
+                )
+                env.seed(args.seed)
+                desc = task.language
+            except Exception as _e:
+                logging.warning("SegmentationRenderEnv failed (%s), falling back to OffScreenRenderEnv", _e)
+                env, desc = get_libero_env(task, LIBERO_ENV_RESOLUTION, args.seed)
+        else:
+            env, desc = get_libero_env(task, LIBERO_ENV_RESOLUTION, args.seed)
 
         task_eps = task_succ = 0
         groups   = collections.defaultdict(lambda: {"logs": [], "successes": []})
@@ -445,12 +686,28 @@ def eval_rank0(args, policy, signal_group):
             replay_imgs  = []
             action_chunk = None
             current_attn_map = None  # attention heatmap from most recent policy call
+            attn_step_results = []   # per-chunk attention metrics (ratio + iou)
+            seg_key = None           # segmentation obs key (found once per episode)
+            ratio_hooks: list = []
             t = 0; done = False; reward = 0.0; is_new_chunk = False
 
             while t < max_steps + args.num_steps_wait:
                 try:
                     if t < args.num_steps_wait:
                         obs, _, done, _ = env.step(LIBERO_DUMMY_ACTION)
+                        # Try to find segmentation key on the first valid obs
+                        if args.compute_attention_iou and seg_key is None:
+                            for cand in (f"agentview_segmentation_instance",
+                                         f"agentview_segmentation_class",
+                                         f"agentview_seg", f"agentview_segmentation"):
+                                if cand in obs:
+                                    seg_key = cand
+                                    break
+                            if seg_key is None:
+                                for k in obs:
+                                    if "seg" in k.lower() and "agentview" in k.lower():
+                                        seg_key = k
+                                        break
                         t += 1
                         continue
 
@@ -500,23 +757,59 @@ def eval_rank0(args, policy, signal_group):
                         dist.broadcast(signal, src=0, group=signal_group)
                         _broadcast_obs(dz_obs)
 
-                        if args.visualize_attention:
+                        if need_attn_capture:
                             clear_attn_buffer()
                             set_attn_capture(True)
+                        if args.compute_attention_ratio:
+                            _remove_hooks(ratio_hooks)
+                            ratio_hooks = _install_ratio_hooks(policy)
 
                         dist.barrier()
                         with torch.no_grad():
                             result_batch, _ = policy.lazy_joint_forward_causal(Batch(obs=dz_obs))
                         dist.barrier()
 
-                        if args.visualize_attention:
+                        if need_attn_capture:
                             set_attn_capture(False)
                             current_attn_map = _compute_attn_map()
                             # Retroactively overlay attention on the frame just appended above.
-                            if current_attn_map is not None:
+                            if args.visualize_attention and current_attn_map is not None:
                                 replay_imgs[-1] = _overlay_attn(
                                     replay_imgs[-1], current_attn_map, alpha=args.attn_alpha
                                 )
+
+                        # ── Attention analysis at chunk boundaries ─────────────
+                        if (args.compute_attention_ratio or args.compute_attention_iou) and current_attn_map is not None:
+                            step_metrics: dict = {"t": int(t)}
+
+                            if args.compute_attention_ratio:
+                                ratio_result = _compute_ratio(current_attn_map)
+                                step_metrics.update(ratio_result)
+                                logging.info(
+                                    "  t=%d visual=%.3f linguistic=%.3f ratio=%.3f",
+                                    t,
+                                    ratio_result["visual_mass"],
+                                    ratio_result["linguistic_mass"],
+                                    ratio_result["visual_linguistic_ratio"]
+                                    if np.isfinite(ratio_result["visual_linguistic_ratio"]) else float("nan"),
+                                )
+
+                            if args.compute_attention_iou and seg_key is not None and seg_key in obs:
+                                seg_raw = obs[seg_key]
+                                if seg_raw.ndim == 3:
+                                    seg_raw = seg_raw[:, :, 0]
+                                iou_result = _compute_iou(
+                                    current_attn_map, seg_raw,
+                                    percentile=args.iou_threshold_percentile,
+                                )
+                                step_metrics.update({f"iou_{k}": v for k, v in iou_result.items()})
+                                logging.info(
+                                    "  t=%d IoU=%.3f mass=%.3f pointing=%s",
+                                    t, iou_result["iou"], iou_result["attention_mass"],
+                                    "hit" if iou_result["pointing_hit"] else "miss",
+                                )
+
+                            attn_step_results.append(step_metrics)
 
                         action_chunk = extract_actions(result_batch)  # (N, 7)
                         n_exec = min(args.replan_steps, len(action_chunk))
@@ -544,6 +837,10 @@ def eval_rank0(args, policy, signal_group):
                     logging.error("Step error:\n%s", traceback.format_exc())
                     break
 
+            # Clean up any lingering ratio hooks after episode ends
+            _remove_hooks(ratio_hooks)
+            ratio_hooks = []
+
             task_eps += 1; total_eps += 1
             success = bool(done and reward > 0)
             logging.info("  Ep %d/%d: %s (t=%d, task %d/%d so far)",
@@ -552,13 +849,17 @@ def eval_rank0(args, policy, signal_group):
                          t - args.num_steps_wait, task_succ, task_eps)
             groups[ep_prompt]["logs"].append(action_log)
             groups[ep_prompt]["successes"].append(success)
-            ep_jsons.append({
+            ep_entry = {
                 "task_id": task_id, "task_description": str(desc),
                 "episode_idx": ep_idx, "prompt_mode": args.prompt_mode,
                 "prompt_used": ep_prompt, "success": success,
                 "num_steps": t - args.num_steps_wait, "object_shifts": obj_shifts,
                 "smoothness": compute_smoothness(action_log),
-            })
+            }
+            if attn_step_results:
+                ep_entry["attention_steps"] = attn_step_results
+                ep_entry["attention_summary"] = _summarize_attn_steps(attn_step_results)
+            ep_jsons.append(ep_entry)
             prompt_slug = ep_prompt.lower().replace(" ", "_")
             prompt_slug = "".join(c if c.isalnum() or c == "_" else "" for c in prompt_slug)[:60]
             vid_name = f"task{task_id:02d}_ep{ep_idx:02d}_{prompt_slug}.mp4"

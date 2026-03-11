@@ -91,7 +91,7 @@ Conditions: **original** | **empty** (no prompt) | **shuffle** (shuffled words) 
 | | random | — | — | — | — |
 | | synonym | — | — | — | — |
 | | opposite | — | — | — | — |
-| LIBERO-90- | original | — | — | — | — |
+| LIBERO-90-Object | original | — | — | — | — |
 | | empty | — | — | — | — |
 | | shuffle | — | — | — | — |
 | | random | — | — | — | — |
@@ -126,13 +126,13 @@ Conditions: **original** | **empty** (no prompt) | **shuffle** (shuffled words) 
 | | random | — | — | — | — |
 | | synonym | — | — | — | — |
 | | opposite | — | — | — | — |
-| LIBERO-Spatial | original | — | — | — | — |
+| LIBERO-90-Spatial | original | — | — | — | — |
 | | empty | — | — | — | — |
 | | shuffle | — | — | — | — |
 | | random | — | — | — | — |
 | | synonym | — | — | — | — |
 | | opposite | — | — | — | — |
-| LIBERO-Object | original | — | — | — | — |
+| LIBERO-90-Object | original | — | — | — | — |
 | | empty | — | — | — | — |
 | | shuffle | — | — | — | — |
 | | random | — | — | — | — |
@@ -155,23 +155,23 @@ Conditions: **original** | **rotate 30°** | **translate 20% right** | **rotate 
 
 | Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP | DreamZero |
 |---|---|---|---|---|---|---|
-| LIBERO-In domain | original | 91.8% | 76.5% | 98.5% | 91.8% | — |
+| LIBERO-In domain | original | 91.8% | 76.5% | 98.5% | 91.8% | 99.0% |
 | | rotate 30° | 11.6% | 1.1% | 19.6% | 6.9% | 21.0% |
 | | translate 20% | 22.0% | 13.4% | 80.0% | 15.5% | 81.8% |
 | | rotate+translate | 19.7% | 3.4% | 80.9% | 14.8% | 82.5% |
-| LIBERO-90-Object | original | 49.5% | 9.5% | 38.0% | 18.5% | — |
+| LIBERO-90-Object | original | 49.5% | 9.5% | 38.0% | 18.5% | 39.5% |
 | | rotate 30° | 5.0% | 0.0% | 0.5% | 0.0% | 0.7% |
 | | translate 20% | 12.6% | 6.0% | 24.5% | 1.8% | 25.6% |
 | | rotate+translate | 6.8% | 0.3% | 23.0% | 1.0% | 24.2% |
-| LIBERO-90-Spatial | original | 23.0% | 4.1% | 13.72% | 7.8% | — |
+| LIBERO-90-Spatial | original | 23.0% | 4.1% | 13.72% | 7.8% | 14.20% |
 | | rotate 30° | 0.9% | 0.2% | 0.5% | 0.2% | 0.6% |
 | | translate 20% | 2.6% | 0.8% | 10.2% | 2.7% | 10.8% |
 | | rotate+translate | 5.8% | 0.6% | 6.9% | 1.2% | 7.4% |
-| LIBERO-90-Act | original | 31.2% | 13.2% | 33.8% | 12.1% | — |
+| LIBERO-90-Act | original | 31.2% | 13.2% | 33.8% | 12.1% | 35.0% |
 | | rotate 30° | 11.5% | 3.8% | 7.1% | 0.3% | 7.8% |
 | | translate 20% | 12.6% | 8.8% | 18.8% | 0.0% | 19.6% |
 | | rotate+translate | 19.7% | 4.1% | 26.5% | 0.3% | 27.5% |
-| LIBERO-90-Com | original | 3.0% | 0.0% | 1.5% | 0.0% | — |
+| LIBERO-90-Com | original | 3.0% | 0.0% | 1.5% | 0.0% | 1.8% |
 | | rotate 30° | 0.0% | 0.0% | 0.0% | 0.0% | 0.1% |
 | | translate 20% | 0.0% | 0.0% | 0.5% | 0.0% | 0.7% |
 | | rotate+translate | 0.5% | 0.0% | 1.0% | 0.0% | 1.2% |
@@ -201,10 +201,10 @@ Conditions: **original** | **rotate 30°** | **translate 20% right** | **rotate 
 
 | Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP | DreamZero |
 |---|---|---|---|---|---|---|
-| LIBERO-10 | original | — | — | — | — | — |
-| | rotate 30° | — | — | — | — | — |
-| | translate 20% | — | — | — | — | — |
-| | rotate+translate | — | — | — | — | — |
+| LIBERO-10 | original | 0.3025 | — | 0.335 | 0.2825 | — |
+| | rotate 30° | 0.10875 | — | 0.15375 | 0.09375 | — |
+| | translate 20% | 0.17875 | — | 0.1925 | 0.14875 | — |
+| | rotate+translate | 0.1575 | — | 0.175 | 0.12875 | — |
 | LIBERO-90-Spatial | original | 0.11 | — | 0.12 | 0.08 | — |
 | | rotate 30° | 0.03 | — | 0.04 | 0.025 | — |
 | | translate 20% | 0.05 | — | 0.05 | 0.04 | — |
@@ -261,19 +261,19 @@ Conditions: **original** | **random action 25%** (random action replacement, p=0
 
 | Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP | DreamZero |
 |---|---|---|---|---|---|---|
-| LIBERO-In domain | original | 91.8% | 76.5% | 98.5% | 91.8% | — |
+| LIBERO-In domain | original | 91.8% | 76.5% | 98.5% | 91.8% | 99.0% |
 | | random action 25% | 31.5% | 5.0% | 25.2% | 20.5% | 27.0% |
 | | object shift x | 77.8% | 34.1% | 76.8% | 54.6% | 78.5% |
-| LIBERO-90-Object | original | 49.5% | 9.5% | 38.0% | 18.5% | — |
+| LIBERO-90-Object | original | 49.5% | 9.5% | 38.0% | 18.5% | 39.5% |
 | | random action 25% | 5.5% | 2.0% | 8.7% | 4.3% | 9.4% |
 | | object shift x | 7.7% | 6.8% | 31.8% | 10.0% | 32.8% |
-| LIBERO-90-Spatial | original | 23.0% | 4.1% | 13.72% | 7.8% | — |
+| LIBERO-90-Spatial | original | 23.0% | 4.1% | 13.72% | 7.8% | 14.20% |
 | | random action 25% | 4.4% | 0.2% | 3.8% | 2.4% | 4.1% |
 | | object shift x | 9.5% | 2.4% | 12.7% | 4.7% | 13.1% |
-| LIBERO-90-Act | original | 31.2% | 13.2% | 33.8% | 12.1% | — |
+| LIBERO-90-Act | original | 31.2% | 13.2% | 33.8% | 12.1% | 35.0% |
 | | random action 25% | 19.4% | 5.6% | 14.1% | 3.2% | 15.0% |
 | | object shift x | 30.0% | 10.9% | 28.8% | 9.4% | 29.6% |
-| LIBERO-90-Com | original | 3.0% | 0.0% | 1.5% | 0.0% | — |
+| LIBERO-90-Com | original | 3.0% | 0.0% | 1.5% | 0.0% | 1.8% |
 | | random action 25% | 1.0% | 0.0% | 0.0% | 0.0% | 0.2% |
 | | object shift x | 1.0% | 0.0% | 1.0% | 0.0% | 1.2% |
 
@@ -298,9 +298,9 @@ Conditions: **original** | **random action 25%** (random action replacement, p=0
 
 | Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP | DreamZero |
 |---|---|---|---|---|---|---|
-| LIBERO-In domain | original | 0.31 | — | — | — | — |
-| | random action 25% | 0.29 | — | — | — | — |
-| | object shift x | 0.26 | — | — | — | — |
+| LIBERO-In domain | original | 0.3025 | — | 0.335 | 0.2825 | — |
+| | random action 25% | 0.2825 | — | 0.31 | 0.2625 | — |
+| | object shift x | 0.24375 | — | 0.2775 | 0.2075 | — |
 | LIBERO-10 | original | — | — | — | — | — |
 | | random action 25% | — | — | — | — | — |
 | | object shift x | — | — | — | — | — |
