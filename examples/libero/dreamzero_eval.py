@@ -43,7 +43,9 @@ if _DREAMZERO_DIR not in sys.path:
     sys.path.insert(0, _DREAMZERO_DIR)
 
 import cv2
+from safetensors.torch import load_file
 
+from groot.vla.model.dreamzero.base_vla import VLA, VLAConfig
 from groot.vla.model.n1_5.sim_policy import GrootSimPolicy
 from groot.vla.data.schema import EmbodimentTag
 from groot.vla.model.dreamzero.modules.wan_video_dit_action_casual_chunk import (
@@ -56,7 +58,50 @@ from policy_perturbations import PolicyPerturbConfig, apply_object_shift, maybe_
 from visual_perturbations import VisualPerturbConfig, perturb_image
 
 LIBERO_DUMMY_ACTION = [0.0] * 6 + [-1.0]  # 6 EEF deltas + gripper for OSC_POSE controller
-LIBERO_ENV_RESOLUTION = 256
+LIBERO_ENV_RESOLUTION = 224
+
+
+def load_model(checkpoint_dir: pathlib.Path) -> VLA:
+    """Instantiate VLA with PEFT and load weights without the buggy .base_layer. stripping.
+
+    VLA.from_pretrained strips '.base_layer.' from checkpoint keys before loading.
+    This is wrong when the checkpoint was saved with PEFT active (save_lora_only=False):
+    both the checkpoint AND the freshly-instantiated PEFT model use '.base_layer.' for
+    base weights, so stripping it makes those keys 'unexpected' and the base weights
+    are silently dropped.  We bypass that by loading the state dict directly.
+    """
+    # Read config and disable defer_lora_injection so PEFT is injected during __init__
+    config_path = checkpoint_dir / "config.json"
+    with open(config_path) as f:
+        config_dict = json.load(f)
+    config = VLAConfig(**config_dict)
+    if isinstance(config.action_head_cfg.get("config"), dict):
+        config.action_head_cfg["config"]["defer_lora_injection"] = False
+
+    # Instantiate model (LoRA is injected immediately, model keys now include .base_layer.)
+    model = VLA(config)
+
+    # Load sharded safetensors WITHOUT any key manipulation
+    index_path = checkpoint_dir / "model.safetensors.index.json"
+    single_path = checkpoint_dir / "model.safetensors"
+    state_dict = {}
+    if index_path.exists():
+        with open(index_path) as f:
+            index = json.load(f)
+        for shard_file in set(index["weight_map"].values()):
+            state_dict.update(load_file(str(checkpoint_dir / shard_file)))
+    elif single_path.exists():
+        state_dict = load_file(str(single_path))
+    else:
+        raise FileNotFoundError(f"No safetensors found in {checkpoint_dir}")
+
+    missing, unexpected = model.load_state_dict(state_dict, strict=False)
+    if missing:
+        print(f"  Missing keys ({len(missing)}): {missing[:5]}{'...' if len(missing) > 5 else ''}")
+    if unexpected:
+        print(f"  Unexpected keys ({len(unexpected)}): {unexpected[:5]}{'...' if len(unexpected) > 5 else ''}")
+    return model
+
 
 def _compute_attn_map() -> np.ndarray | None:
     """Average all captured action→visual attention entries.
@@ -514,16 +559,19 @@ def eval_rank0(args, policy, signal_group):
                 "num_steps": t - args.num_steps_wait, "object_shifts": obj_shifts,
                 "smoothness": compute_smoothness(action_log),
             })
+            prompt_slug = ep_prompt.lower().replace(" ", "_")
+            prompt_slug = "".join(c if c.isalnum() or c == "_" else "" for c in prompt_slug)[:60]
+            vid_name = f"task{task_id:02d}_ep{ep_idx:02d}_{prompt_slug}.mp4"
             if replay_imgs:
-                imageio.mimsave(
-                    str(out_dir / f"task{task_id:02d}_ep{ep_idx:02d}.mp4"), replay_imgs, fps=10
-                )
+                imageio.mimsave(str(out_dir / vid_name), replay_imgs, fps=10)
 
         env.close()
         for ej in ep_jsons:
             g = groups[ej["prompt_used"]]
             ej["action_entropy_group"] = entropy_triplet(g["logs"], g["successes"])
-            jp = out_dir / f"task{ej['task_id']:02d}_ep{ej['episode_idx']:02d}.json"
+            p_slug = ej["prompt_used"].lower().replace(" ", "_")
+            p_slug = "".join(c if c.isalnum() or c == "_" else "" for c in p_slug)[:60]
+            jp = out_dir / f"task{ej['task_id']:02d}_ep{ej['episode_idx']:02d}_{p_slug}.json"
             with open(jp, "w") as f:
                 json.dump(ej, f, default=_json_default, indent=2)
 
@@ -578,11 +626,17 @@ def main(args):
     mesh         = init_device_mesh("cuda", (world_size,), mesh_dim_names=("ip",))
     signal_group = dist.new_group(backend="gloo", timeout=datetime.timedelta(hours=10))
 
+    # Load model weights correctly (bypasses the buggy .base_layer. stripping in from_pretrained)
+    if rank == 0:
+        logging.info("Loading model from %s", args.model_path)
+    model = load_model(pathlib.Path(args.model_path))
+
     policy = GrootSimPolicy(
         embodiment_tag=EmbodimentTag.LIBERO_SIM,
         model_path=args.model_path,
         device="cuda",
         device_mesh=mesh,
+        pretrained_model=model,
     )
     if rank == 0:
         eval_rank0(args, policy, signal_group)

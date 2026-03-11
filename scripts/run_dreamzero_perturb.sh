@@ -70,7 +70,7 @@ export HF_HOME=/n/netscratch/sham_lab/Lab/chloe00/huggingface
 export TRANSFORMERS_CACHE=/n/netscratch/sham_lab/Lab/chloe00/huggingface
 
 # ── Model ──────────────────────────────────────────────────────────────────────
-CKPT="${CKPT:-}"
+CKPT="${CKPT:-/n/netscratch/sham_lab/Lab/chloe00/libero/dreamzero_libero_all_lora/checkpoint-7600}"
 if [[ -z "$CKPT" ]]; then
     echo "ERROR: CKPT is required.  Example:"
     echo "  CKPT=/path/to/dreamzero_libero_lora sbatch $0"
@@ -104,7 +104,7 @@ OBJECT_SHIFT_X_STD="${OBJECT_SHIFT_X_STD:-0.0}"
 OBJECT_SHIFT_Y_STD="${OBJECT_SHIFT_Y_STD:-0.0}"
 
 # ── LIBERO settings ────────────────────────────────────────────────────────────
-TASK_SUITE="${TASK_SUITE:-libero_10}"
+TASK_SUITE="${TASK_SUITE:-libero_goal}"
 NUM_TRIALS="${NUM_TRIALS:-20}"
 SEED="${SEED:-7}"
 REPLAN_STEPS="${REPLAN_STEPS:-4}"   # max_chunk_size from libero_training.sh
