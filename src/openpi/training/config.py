@@ -374,10 +374,10 @@ class LeRobotRoboCasaDataConfig(DataConfigFactory):
             inputs=[
                 _transforms.RepackTransform(
                     {
-                        "observation/image": "image",
-                        "observation/wrist_image": "wrist_image",
-                        "observation/state": "state",
-                        "actions": "actions",
+                        "observation/image": "observation.images.robot0_agentview_left",
+                        "observation/wrist_image": "observation.images.robot0_eye_in_hand",
+                        "observation/state": "observation.state",
+                        "actions": "action",
                         "prompt": "prompt",
                     }
                 )
@@ -778,10 +778,10 @@ _CONFIGS = [
     #
     TrainConfig(
         name="pi0_fast_robocasa",
-        # action_dim=7: EEF pos(3) + EEF orn(3) + gripper(1)
+        # action_dim=12: EEF pos(3) + EEF orn(3) + gripper(1) + base(5) for PandaOmron
         # action_horizon=10: 0.5s at 20Hz
         # max_token_len=180: suitable for single-arm tasks
-        model=pi0_fast.Pi0FASTConfig(action_dim=7, action_horizon=10, max_token_len=180),
+        model=pi0_fast.Pi0FASTConfig(action_dim=12, action_horizon=10, max_token_len=180),
         data=LeRobotRoboCasaDataConfig(
             repo_id=tyro.MISSING,
             base_config=DataConfig(prompt_from_task=True),
@@ -792,7 +792,7 @@ _CONFIGS = [
     TrainConfig(
         name="pi0_fast_robocasa_lora",
         model=pi0_fast.Pi0FASTConfig(
-            action_dim=7, action_horizon=10, max_token_len=180, paligemma_variant="gemma_2b_lora"
+            action_dim=12, action_horizon=10, max_token_len=180, paligemma_variant="gemma_2b_lora"
         ),
         data=LeRobotRoboCasaDataConfig(
             repo_id=tyro.MISSING,
@@ -801,7 +801,7 @@ _CONFIGS = [
         weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi0_fast_base/params"),
         num_train_steps=50_000,
         freeze_filter=pi0_fast.Pi0FASTConfig(
-            action_dim=7, action_horizon=10, max_token_len=180, paligemma_variant="gemma_2b_lora"
+            action_dim=12, action_horizon=10, max_token_len=180, paligemma_variant="gemma_2b_lora"
         ).get_freeze_filter(),
         ema_decay=None,
     ),

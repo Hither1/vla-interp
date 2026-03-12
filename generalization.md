@@ -201,26 +201,26 @@ Conditions: **original** | **rotate 30°** | **translate 20% right** | **rotate 
 
 | Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP | DreamZero |
 |---|---|---|---|---|---|---|
-| LIBERO-In domain | original | 0.3025 | — | 0.335 | 0.2825 | — |
-| | rotate 30° | 0.10875 | — | 0.15375 | 0.09375 | — |
-| | translate 20% | 0.17875 | — | 0.1925 | 0.14875 | — |
-| | rotate+translate | 0.1575 | — | 0.175 | 0.12875 | — |
-| LIBERO-90-Spatial | original | 0.11 | — | 0.12 | 0.08 | — |
-| | rotate 30° | 0.03 | — | 0.04 | 0.025 | — |
-| | translate 20% | 0.05 | — | 0.05 | 0.04 | — |
-| | rotate+translate | 0.045 | — | 0.045 | 0.035 | — |
-| LIBERO-90-Object | original | 0.17 | — | 0.19 | 0.13 | — |
-| | rotate 30° | 0.05 | — | 0.06 | 0.035 | — |
-| | translate 20% | 0.075 | — | 0.08 | 0.05 | — |
-| | rotate+translate | 0.065 | — | 0.07 | 0.045 | — |
-| LIBERO-90-Act | original | 0.13 | — | 0.15 | 0.09 | — |
-| | rotate 30° | 0.04 | — | 0.05 | 0.03 | — |
-| | translate 20% | 0.06 | — | 0.12 | 0.04 | — |
-| | rotate+translate | 0.055 | — | 0.11 | 0.035 | — |
-| LIBERO-90-Com | original | 0.035 | — | 0.04 | 0.025 | — |
-| | rotate 30° | 0.015 | — | 0.015 | 0.01 | — |
-| | translate 20% | 0.015 | — | 0.015 | 0.01 | — |
-| | rotate+translate | 0.015 | — | 0.015 | 0.01 | — |
+| LIBERO-In domain | original | 0.3025 | 0.24375 | 0.335 | 0.2825 | — |
+| | rotate 30° | 0.10875 | 0.01495 | 0.15375 | 0.09375 | — |
+| | translate 20% | 0.17875 | 0.12860 | 0.1925 | 0.14875 | — |
+| | rotate+translate | 0.1575 | 0.02958 | 0.175 | 0.12875 | — |
+| LIBERO-90-Spatial | original | 0.11 | 0.04205 | 0.12 | 0.08 | — |
+| | rotate 30° | 0.03 | 0.02500 | 0.04 | 0.025 | — |
+| | translate 20% | 0.05 | 0.01538 | 0.05 | 0.04 | — |
+| | rotate+translate | 0.045 | 0.01750 | 0.045 | 0.035 | — |
+| LIBERO-90-Object | original | 0.17 | 0.06676 | 0.19 | 0.13 | — |
+| | rotate 30° | 0.05 | 0.03500 | 0.06 | 0.035 | — |
+| | translate 20% | 0.075 | 0.05972 | 0.08 | 0.05 | — |
+| | rotate+translate | 0.065 | 0.01350 | 0.07 | 0.045 | — |
+| LIBERO-90-Act | original | 0.13 | 0.09230 | 0.15 | 0.09 | — |
+| | rotate 30° | 0.04 | 0.04029 | 0.05 | 0.03 | — |
+| | translate 20% | 0.06 | 0.05397 | 0.12 | 0.04 | — |
+| | rotate+translate | 0.055 | 0.03892 | 0.11 | 0.035 | — |
+| LIBERO-90-Com | original | 0.035 | 0.02000 | 0.04 | 0.025 | — |
+| | rotate 30° | 0.015 | 0.01000 | 0.015 | 0.01 | — |
+| | translate 20% | 0.015 | 0.01000 | 0.015 | 0.01 | — |
+| | rotate+translate | 0.015 | 0.01000 | 0.015 | 0.01 | — |
 
 
 ### Attention Ratio (visual / total)
@@ -315,18 +315,18 @@ Conditions: **original** | **random action 25%** (random action replacement, p=0
 
 | Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP | DreamZero |
 |---|---|---|---|---|---|---|
-| LIBERO-In domain | original | 0.576 | — | 0.439 | 0.928 | — |
-| | random action 25% | 0.701 | — | 0.369 | 0.974 | — |
-| | object shift x | 0.662 | — | 0.420 | 0.954 | — |
-| LIBERO-90-Object | original | 0.701 | — | 0.383 | 0.966 | — |
-| | random action 25% | 0.747 | — | 0.342 | 0.985 | — |
-| | object shift x | 0.735 | — | 0.367 | 0.978 | — |
-| LIBERO-90-Spatial | original | 0.735 | — | 0.355 | 0.972 | — |
-| | random action 25% | 0.782 | — | 0.306 | 0.987 | — |
-| | object shift x | 0.775 | — | 0.333 | 0.981 | — |
-| LIBERO-90-Act | original | 0.724 | — | 0.367 | 0.971 | — |
-| | random action 25% | 0.784 | — | 0.315 | 0.988 | — |
-| | object shift x | 0.766 | — | 0.342 | 0.980 | — |
-| LIBERO-90-Com | original | 0.810 | — | 0.254 | 0.986 | — |
-| | random action 25% | 0.820 | — | 0.242 | 0.989 | — |
-| | object shift x | 0.814 | — | 0.254 | 0.988 | — |
+| LIBERO-In domain | original | 0.576 | 0.646 | 0.439 | 0.928 | — |
+| | random action 25% | 0.701 | 0.968 | 0.369 | 0.974 | — |
+| | object shift x | 0.662 | 0.837 | 0.420 | 0.954 | — |
+| LIBERO-90-Object | original | 0.701 | 0.947 | 0.383 | 0.966 | — |
+| | random action 25% | 0.747 | 0.981 | 0.342 | 0.985 | — |
+| | object shift x | 0.735 | 0.959 | 0.367 | 0.978 | — |
+| LIBERO-90-Spatial | original | 0.735 | 0.972 | 0.355 | 0.972 | — |
+| | random action 25% | 0.782 | 0.989 | 0.306 | 0.987 | — |
+| | object shift x | 0.775 | 0.979 | 0.333 | 0.981 | — |
+| LIBERO-90-Act | original | 0.724 | 0.931 | 0.367 | 0.971 | — |
+| | random action 25% | 0.784 | 0.965 | 0.315 | 0.988 | — |
+| | object shift x | 0.766 | 0.941 | 0.342 | 0.980 | — |
+| LIBERO-90-Com | original | 0.810 | 0.990 | 0.254 | 0.986 | — |
+| | random action 25% | 0.820 | 0.990 | 0.242 | 0.989 | — |
+| | object shift x | 0.814 | 0.990 | 0.254 | 0.988 | — |

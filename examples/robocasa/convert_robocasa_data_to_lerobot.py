@@ -23,7 +23,8 @@ import shutil
 import h5py
 import numpy as np
 import tyro
-from lerobot.common.datasets.lerobot_dataset import HF_LEROBOT_HOME, LeRobotDataset
+from lerobot.datasets.lerobot_dataset import LeRobotDataset
+from lerobot.utils.constants import HF_LEROBOT_HOME
 from PIL import Image
 
 # RoboCasa action space is 12D; first 7 = EEF pos/orn delta + gripper.
@@ -118,10 +119,8 @@ def main(
 
         print(f"  {n_eps} episodes | {n_frames} frames so far")
 
-    print(f"
-Converted {n_eps} episodes ({n_frames} frames) -> {output_path}")
-    print("
-Next steps:")
+    print(f"Converted {n_eps} episodes ({n_frames} frames) -> {output_path}")
+    print("Next steps:")
     print(f"  1. Compute norm stats: python scripts/compute_norm_stats.py --repo-id {repo_id}")
     print(f"  2. Train: python scripts/train.py pi0_fast_robocasa --exp-name my_run")
 

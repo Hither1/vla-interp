@@ -10,7 +10,7 @@ from openpi.models import model as _model
 def make_robocasa_example() -> dict:
     """Creates a random input example for the RoboCasa policy."""
     return {
-        "observation/state": np.random.rand(9).astype(np.float32),
+        "observation/state": np.random.rand(16).astype(np.float32),
         "observation/image": np.random.randint(256, size=(256, 256, 3), dtype=np.uint8),
         "observation/wrist_image": np.random.randint(256, size=(256, 256, 3), dtype=np.uint8),
         "prompt": "pick up the mug",
