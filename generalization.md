@@ -138,7 +138,6 @@ Conditions: **original** | **empty** (no prompt) | **shuffle** (shuffled words) 
 | | random | — | — | — | — | — |
 | | synonym | — | — | — | — | — |
 | | opposite | — | — | — | — | — |
-
 | LIBERO-90-Com | original | — | — | — | — | — |
 | | empty | — | — | — | — | — |
 | | shuffle | — | — | — | — | — |
