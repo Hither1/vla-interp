@@ -83,67 +83,68 @@ Conditions: **original** | **empty** (no prompt) | **shuffle** (shuffled words) 
 
 ### Attention IoU (↑)
 
-| Suite | Condition | pi0.5 | OpenVLA | Cosmos | DreamZero |
-|---|---|---|---|---|---|
-| LIBERO-In domain | original | — | — | — | — |
-| | empty | — | — | — | — |
-| | shuffle | — | — | — | — |
-| | random | — | — | — | — |
-| | synonym | — | — | — | — |
-| | opposite | — | — | — | — |
-| LIBERO-90-Object | original | — | — | — | — |
-| | empty | — | — | — | — |
-| | shuffle | — | — | — | — |
-| | random | — | — | — | — |
-| | synonym | — | — | — | — |
-| | opposite | — | — | — | — |
-| LIBERO-90-Spatial | original | — | — | — | — |
-| | empty | — | — | — | — |
-| | shuffle | — | — | — | — |
-| | random | — | — | — | — |
-| | synonym | — | — | — | — |
-| | opposite | — | — | — | — |
-| LIBERO-90-Act | original | — | — | — | — |
-| | empty | — | — | — | — |
-| | shuffle | — | — | — | — |
-| | random | — | — | — | — |
-| | synonym | — | — | — | — |
-| | opposite | — | — | — | — |
-| LIBERO-90-Com | original | — | — | — | — |
-| | empty | — | — | — | — |
-| | shuffle | — | — | — | — |
-| | random | — | — | — | — |
-| | synonym | — | — | — | — |
-| | opposite | — | — | — | — |
+| Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP | DreamZero |
+|---|---|---|---|---|---|---|
+| LIBERO-In domain | original | — | — | — | — | — |
+| | empty | — | — | — | — | — |
+| | shuffle | — | — | — | — | — |
+| | random | — | — | — | — | — |
+| | synonym | — | — | — | — | — |
+| | opposite | — | — | — | — | — |
+| LIBERO-90-Object | original | — | — | — | — | — |
+| | empty | — | — | — | — | — |
+| | shuffle | — | — | — | — | — |
+| | random | — | — | — | — | — |
+| | synonym | — | — | — | — | — |
+| | opposite | — | — | — | — | — |
+| LIBERO-90-Spatial | original | — | — | — | — | — |
+| | empty | — | — | — | — | — |
+| | shuffle | — | — | — | — | — |
+| | random | — | — | — | — | — |
+| | synonym | — | — | — | — | — |
+| | opposite | — | — | — | — | — |
+| LIBERO-90-Act | original | — | — | — | — | — |
+| | empty | — | — | — | — | — |
+| | shuffle | — | — | — | — | — |
+| | random | — | — | — | — | — |
+| | synonym | — | — | — | — | — |
+| | opposite | — | — | — | — | — |
+| LIBERO-90-Com | original | — | — | — | — | — |
+| | empty | — | — | — | — | — |
+| | shuffle | — | — | — | — | — |
+| | random | — | — | — | — | — |
+| | synonym | — | — | — | — | — |
+| | opposite | — | — | — | — | — |
 
 ### Attention Ratio (visual / total)
 
-| Suite | Condition | pi0.5 | OpenVLA | Cosmos | DreamZero |
-|---|---|---|---|---|---|
-| LIBERO-In domain | original | — | — | — | — |
-| | empty | — | — | — | — |
-| | shuffle | — | — | — | — |
-| | random | — | — | — | — |
-| | synonym | — | — | — | — |
-| | opposite | — | — | — | — |
-| LIBERO-90-Spatial | original | — | — | — | — |
-| | empty | — | — | — | — |
-| | shuffle | — | — | — | — |
-| | random | — | — | — | — |
-| | synonym | — | — | — | — |
-| | opposite | — | — | — | — |
-| LIBERO-90-Object | original | — | — | — | — |
-| | empty | — | — | — | — |
-| | shuffle | — | — | — | — |
-| | random | — | — | — | — |
-| | synonym | — | — | — | — |
-| | opposite | — | — | — | — |
-| LIBERO-Goal | original | — | — | — | — |
-| | empty | — | — | — | — |
-| | shuffle | — | — | — | — |
-| | random | — | — | — | — |
-| | synonym | — | — | — | — |
-| | opposite | — | — | — | — |
+| Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP | DreamZero |
+|---|---|---|---|---|---|---|
+| LIBERO-In domain | original | — | — | — | — | — |
+| | empty | — | — | — | — | — |
+| | shuffle | — | — | — | — | — |
+| | random | — | — | — | — | — |
+| | synonym | — | — | — | — | — |
+| | opposite | — | — | — | — | — |
+| LIBERO-90-Spatial | original | — | — | — | — | — |
+| | empty | — | — | — | — | — |
+| | shuffle | — | — | — | — | — |
+| | random | — | — | — | — | — |
+| | synonym | — | — | — | — | — |
+| | opposite | — | — | — | — | — |
+| LIBERO-90-Object | original | — | — | — | — | — |
+| | empty | — | — | — | — | — |
+| | shuffle | — | — | — | — | — |
+| | random | — | — | — | — | — |
+| | synonym | — | — | — | — | — |
+| | opposite | — | — | — | — | — |
+
+| LIBERO-90-Com | original | — | — | — | — | — |
+| | empty | — | — | — | — | — |
+| | shuffle | — | — | — | — | — |
+| | random | — | — | — | — | — |
+| | synonym | — | — | — | — | — |
+| | opposite | — | — | — | — | — |
 
 ---
 
@@ -201,7 +202,7 @@ Conditions: **original** | **rotate 30°** | **translate 20% right** | **rotate 
 
 | Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP | DreamZero |
 |---|---|---|---|---|---|---|
-| LIBERO-10 | original | 0.3025 | — | 0.335 | 0.2825 | — |
+| LIBERO-In domain | original | 0.3025 | — | 0.335 | 0.2825 | — |
 | | rotate 30° | 0.10875 | — | 0.15375 | 0.09375 | — |
 | | translate 20% | 0.17875 | — | 0.1925 | 0.14875 | — |
 | | rotate+translate | 0.1575 | — | 0.175 | 0.12875 | — |
@@ -221,16 +222,13 @@ Conditions: **original** | **rotate 30°** | **translate 20% right** | **rotate 
 | | rotate 30° | 0.015 | — | 0.015 | 0.01 | — |
 | | translate 20% | 0.015 | — | 0.015 | 0.01 | — |
 | | rotate+translate | 0.015 | — | 0.015 | 0.01 | — |
-| LIBERO-90-Goal | original | — | — | — | — | — |
-| | rotate 30° | — | — | — | — | — |
-| | translate 20% | — | — | — | — | — |
-| | rotate+translate | — | — | — | — | — |
+
 
 ### Attention Ratio (visual / total)
 
 | Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP | DreamZero |
 |---|---|---|---|---|---|---|
-| LIBERO-10 | original | 0.576 | — | 0.439 | 0.928 | — |
+| LIBERO-In domain | original | 0.576 | — | 0.439 | 0.928 | — |
 | | rotate 30° | 0.779 | — | 0.314 | 0.984 | — |
 | | translate 20% | 0.738 | — | 0.434 | 0.978 | — |
 | | rotate+translate | 0.755 | — | 0.427 | 0.980 | — |
@@ -281,7 +279,7 @@ Conditions: **original** | **random action 25%** (random action replacement, p=0
 
 | Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP | DreamZero |
 |---|---|---|---|---|---|---|
-| LIBERO-10 | original | — | — | — | — | — |
+| LIBERO-In domain| original | — | — | — | — | — |
 | | random action 25% | — | — | — | — | — |
 | | object shift x | — | — | — | — | — |
 | LIBERO-Spatial | original | — | — | — | — | — |
@@ -301,9 +299,6 @@ Conditions: **original** | **random action 25%** (random action replacement, p=0
 | LIBERO-In domain | original | 0.3025 | — | 0.335 | 0.2825 | — |
 | | random action 25% | 0.2825 | — | 0.31 | 0.2625 | — |
 | | object shift x | 0.24375 | — | 0.2775 | 0.2075 | — |
-| LIBERO-10 | original | — | — | — | — | — |
-| | random action 25% | — | — | — | — | — |
-| | object shift x | — | — | — | — | — |
 | LIBERO-90-Object | original | 0.17 | — | 0.19 | 0.13 | — |
 | | random action 25% | 0.15 | — | 0.165 | 0.11 | — |
 | | object shift x | 0.11 | — | 0.13 | 0.08 | — |
