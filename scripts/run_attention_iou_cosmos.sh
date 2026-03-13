@@ -37,6 +37,25 @@
 # Random object shift (x-axis, std=5cm):
 #   POLICY_PERTURB_MODE=object_shift OBJECT_SHIFT_X_STD=0.05 \
 #       sbatch scripts/run_attention_iou_cosmos.sh
+#
+# Shuffled prompt words:
+#   PROMPT_MODE=shuffle sbatch scripts/run_attention_iou_cosmos.sh
+#
+# Empty (blank) prompt:
+#   PROMPT_MODE=empty sbatch scripts/run_attention_iou_cosmos.sh
+#
+# Random task prompt:
+#   PROMPT_MODE=random sbatch scripts/run_attention_iou_cosmos.sh
+#
+# Synonym substitution:
+#   PROMPT_MODE=synonym sbatch scripts/run_attention_iou_cosmos.sh
+#
+# Opposite action/direction words:
+#   PROMPT_MODE=opposite sbatch scripts/run_attention_iou_cosmos.sh
+#
+# Custom prompt:
+#   PROMPT_MODE=custom CUSTOM_PROMPT="put the bowl on the stove" \
+#       sbatch scripts/run_attention_iou_cosmos.sh
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Environment ──────────────────────────────────────────────────────────────
@@ -98,6 +117,11 @@ RANDOM_ACTION_SCALE="${RANDOM_ACTION_SCALE:-1.0}"
 OBJECT_SHIFT_X_STD="${OBJECT_SHIFT_X_STD:-0.0}"
 OBJECT_SHIFT_Y_STD="${OBJECT_SHIFT_Y_STD:-0.0}"
 
+# Prompt perturbation
+# mode: original | empty | shuffle | random | synonym | opposite | custom
+PROMPT_MODE="${PROMPT_MODE:-original}"
+CUSTOM_PROMPT="${CUSTOM_PROMPT:-}"
+
 # ── Derived output tag ────────────────────────────────────────────────────────
 if [[ "$VISUAL_PERTURB_MODE" == "none" && "$POLICY_PERTURB_MODE" == "none" ]]; then
     PERTURB_TAG="none"
@@ -119,6 +143,11 @@ elif [[ "$VISUAL_PERTURB_MODE" == "none" && "$POLICY_PERTURB_MODE" != "none" ]];
     fi
 else
     PERTURB_TAG="vis_${VISUAL_PERTURB_MODE}_pol_${POLICY_PERTURB_MODE}"
+fi
+
+# Append prompt perturbation to tag
+if [[ "$PROMPT_MODE" != "original" ]]; then
+    PERTURB_TAG="${PERTURB_TAG}__prompt_${PROMPT_MODE}"
 fi
 
 # ── Run ──────────────────────────────────────────────────────────────────────
@@ -148,6 +177,10 @@ for SUITE in "${SUITES[@]}"; do
     echo "  random_action_scale: $RANDOM_ACTION_SCALE"
     echo "  object_shift_x_std:  $OBJECT_SHIFT_X_STD"
     echo "  object_shift_y_std:  $OBJECT_SHIFT_Y_STD"
+    echo "Prompt perturbation: $PROMPT_MODE"
+    if [[ "$PROMPT_MODE" == "custom" ]]; then
+        echo "  custom_prompt:       $CUSTOM_PROMPT"
+    fi
     echo "Output dir:          $OUTPUT_DIR"
     echo "Save viz:            $SAVE_VIZ"
     echo "============================================================"
@@ -171,6 +204,8 @@ for SUITE in "${SUITES[@]}"; do
         --random-action-scale "$RANDOM_ACTION_SCALE" \
         --object-shift-x-std "$OBJECT_SHIFT_X_STD" \
         --object-shift-y-std "$OBJECT_SHIFT_Y_STD" \
+        --prompt-mode "$PROMPT_MODE" \
+        --custom-prompt "$CUSTOM_PROMPT" \
         --output-dir "$OUTPUT_DIR" \
         $VIZ_FLAG
 

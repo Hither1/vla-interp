@@ -68,8 +68,9 @@ class RoboCasaInputs(transforms.DataTransformFn):
 
 @dataclasses.dataclass(frozen=True)
 class RoboCasaOutputs(transforms.DataTransformFn):
-    """Extracts the 7D arm actions from the model output."""
+    """Extracts real actions from the model output (padded to action_dim)."""
+
+    num_actions: int = 12
 
     def __call__(self, data: dict) -> dict:
-        # The model produces actions padded to action_dim; return only the 7 real dims.
-        return {"actions": np.asarray(data["actions"][:, :7])}
+        return {"actions": np.asarray(data["actions"][:, : self.num_actions])}

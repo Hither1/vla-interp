@@ -90,6 +90,9 @@ class DataConfig:
     # If true, will use the LeRobot dataset task to define the prompt.
     prompt_from_task: bool = False
 
+    # If set, the dataset will be loaded from this local directory instead of HuggingFace.
+    local_dir: str | None = None
+
     # Only used for RLDS data loader (ie currently only used for DROID).
     rlds_data_dir: str | None = None
     # Action space for DROID dataset.
@@ -390,6 +393,59 @@ class LeRobotRoboCasaDataConfig(DataConfigFactory):
         model_transforms = ModelTransformFactory()(model_config)
         return dataclasses.replace(
             self.create_base_config(assets_dirs, model_config),
+            repack_transforms=repack_transform,
+            data_transforms=data_transforms,
+            model_transforms=model_transforms,
+        )
+
+
+# Registry mapping dataset split names to their local LeRobot-format directories.
+DATASET_SOUP_REGISTRY: dict[str, str] = {
+    "target_composite_seen": "/n/netscratch/sham_lab/Lab/chloe00/robocasa_data/composite_seen/lerobot_v30",
+}
+
+
+@dataclasses.dataclass(frozen=True)
+class LeRobotRobocasaDataConfig(DataConfigFactory):
+    """Data config for finetuning pi0 on RoboCasa using pre-converted LeRobot datasets.
+
+    Pass a local directory via data_dirs (see DATASET_SOUP_REGISTRY for available splits):
+        data=LeRobotRobocasaDataConfig(
+            data_dirs=DATASET_SOUP_REGISTRY["target_composite_seen"],
+        )
+
+    Compute norm stats before training:
+        python scripts/compute_norm_stats.py --config-name pi0_robocasa_target_composite_seen
+    """
+
+    # Path to a local LeRobot-format dataset directory.
+    data_dirs: str = tyro.MISSING
+    # Overridden so DataConfigFactory doesn't require repo_id to be set by the user.
+    repo_id: str = "robocasa_local"
+
+    @override
+    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+        repack_transform = _transforms.Group(
+            inputs=[
+                _transforms.RepackTransform(
+                    {
+                        "observation/image": "observation.images.robot0_agentview_left",
+                        "observation/wrist_image": "observation.images.robot0_eye_in_hand",
+                        "observation/state": "observation.state",
+                        "actions": "action",
+                        "prompt": "prompt",
+                    }
+                )
+            ]
+        )
+        data_transforms = _transforms.Group(
+            inputs=[robocasa_policy.RoboCasaInputs(model_type=model_config.model_type)],
+            outputs=[robocasa_policy.RoboCasaOutputs(num_actions=12)],
+        )
+        model_transforms = ModelTransformFactory()(model_config)
+        return dataclasses.replace(
+            self.create_base_config(assets_dirs, model_config),
+            local_dir=self.data_dirs,
             repack_transforms=repack_transform,
             data_transforms=data_transforms,
             model_transforms=model_transforms,
@@ -804,6 +860,22 @@ _CONFIGS = [
             action_dim=12, action_horizon=10, max_token_len=180, paligemma_variant="gemma_2b_lora"
         ).get_freeze_filter(),
         ema_decay=None,
+    ),
+    TrainConfig(
+        name="pi0_robocasa_target_composite_seen",
+        model=pi0_config.Pi0Config(
+            max_token_len=96,
+        ),
+        data=LeRobotRobocasaDataConfig(
+            data_dirs=DATASET_SOUP_REGISTRY["target_composite_seen"],
+            base_config=DataConfig(prompt_from_task=True),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi0_base/params"),
+        num_train_steps=100_000,
+        save_interval=5_000,
+        keep_period=10_000,
+        batch_size=64,
+        num_workers=4,
     ),
     TrainConfig(
         name="pi05_libero",

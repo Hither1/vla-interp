@@ -11,6 +11,15 @@
 # Visual/Linguistic Attention Ratio Evaluation Script for Cosmos Policy
 # Systematically evaluates the ratio of visual to linguistic attention
 # across LIBERO task suites using Cosmos DiT architecture.
+#
+# Prompt perturbation quick-start examples:
+#   PROMPT_MODE=shuffle  sbatch scripts/run_attention_ratio_cosmos.sh
+#   PROMPT_MODE=empty    sbatch scripts/run_attention_ratio_cosmos.sh
+#   PROMPT_MODE=random   sbatch scripts/run_attention_ratio_cosmos.sh
+#   PROMPT_MODE=synonym  sbatch scripts/run_attention_ratio_cosmos.sh
+#   PROMPT_MODE=opposite sbatch scripts/run_attention_ratio_cosmos.sh
+#   PROMPT_MODE=custom CUSTOM_PROMPT="put the bowl on the stove" \
+#       sbatch scripts/run_attention_ratio_cosmos.sh
 
 set -e
 
@@ -63,6 +72,11 @@ RANDOM_ACTION_SCALE="${RANDOM_ACTION_SCALE:-1.0}"
 OBJECT_SHIFT_X_STD="${OBJECT_SHIFT_X_STD:-0.0}"
 OBJECT_SHIFT_Y_STD="${OBJECT_SHIFT_Y_STD:-0.0}"
 
+# Prompt perturbation
+# mode: original | empty | shuffle | random | synonym | opposite | custom
+PROMPT_MODE="${PROMPT_MODE:-original}"
+CUSTOM_PROMPT="${CUSTOM_PROMPT:-}"
+
 # Derived perturbation tag for output directory
 if [[ "$VISUAL_PERTURB_MODE" != "none" ]]; then
     if [[ "$VISUAL_PERTURB_MODE" == "rotate" ]]; then
@@ -88,6 +102,13 @@ else
     POL_TAG="none"
 fi
 
+# Prompt perturbation tag
+if [[ "$PROMPT_MODE" != "original" ]]; then
+    PROMPT_TAG="prompt_${PROMPT_MODE}"
+else
+    PROMPT_TAG="none"
+fi
+
 # Script directory (handle SLURM execution)
 if [ -n "$SLURM_SUBMIT_DIR" ]; then
     PROJECT_ROOT="$SLURM_SUBMIT_DIR"
@@ -97,7 +118,7 @@ else
 fi
 
 for SUITE in "${SUITES[@]}"; do
-    OUTPUT_DIR="results/attention_ratio_cosmos_${SUITE}/vis_${VIS_TAG}__pol_${POL_TAG}"
+    OUTPUT_DIR="results/attention_ratio_cosmos_${SUITE}/vis_${VIS_TAG}__pol_${POL_TAG}__prompt_${PROMPT_TAG}"
 
     echo "========================================="
     echo "Cosmos Visual/Linguistic Attention Ratio"
@@ -119,6 +140,10 @@ for SUITE in "${SUITES[@]}"; do
     echo "  random_action_scale:  $RANDOM_ACTION_SCALE"
     echo "  object_shift_x_std:   $OBJECT_SHIFT_X_STD"
     echo "  object_shift_y_std:   $OBJECT_SHIFT_Y_STD"
+    echo "Prompt perturb: $PROMPT_MODE ($PROMPT_TAG)"
+    if [[ "$PROMPT_MODE" == "custom" ]]; then
+        echo "  custom_prompt:        $CUSTOM_PROMPT"
+    fi
     echo "Output:        $OUTPUT_DIR"
     echo "========================================="
     echo
@@ -141,6 +166,8 @@ for SUITE in "${SUITES[@]}"; do
       --random-action-scale $RANDOM_ACTION_SCALE \
       --object-shift-x-std $OBJECT_SHIFT_X_STD \
       --object-shift-y-std $OBJECT_SHIFT_Y_STD \
+      --prompt-mode $PROMPT_MODE \
+      --custom-prompt \"$CUSTOM_PROMPT\" \
       --output-dir $OUTPUT_DIR"
 
     # Add task ID if specified

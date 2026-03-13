@@ -295,21 +295,21 @@ Conditions: **original** | **random action 25%** (random action replacement, p=0
 
 | Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP | DreamZero |
 |---|---|---|---|---|---|---|
-| LIBERO-In domain | original | 0.3025 | — | 0.335 | 0.2825 | — |
-| | random action 25% | 0.2825 | — | 0.31 | 0.2625 | — |
-| | object shift x | 0.24375 | — | 0.2775 | 0.2075 | — |
-| LIBERO-90-Object | original | 0.17 | — | 0.19 | 0.13 | — |
-| | random action 25% | 0.15 | — | 0.165 | 0.11 | — |
-| | object shift x | 0.11 | — | 0.13 | 0.08 | — |
-| LIBERO-90-Spatial | original | 0.11 | — | 0.12 | 0.08 | — |
-| | random action 25% | 0.10 | — | 0.105 | 0.07 | — |
-| | object shift x | 0.085 | — | 0.095 | 0.055 | — |
-| LIBERO-90-Act | original | 0.13 | — | 0.15 | 0.09 | — |
-| | random action 25% | 0.11 | — | 0.13 | 0.075 | — |
-| | object shift x | 0.10 | — | 0.115 | 0.065 | — |
-| LIBERO-90-Com | original | 0.035 | — | 0.04 | 0.025 | — |
-| | random action 25% | 0.03 | — | 0.03 | 0.02 | — |
-| | object shift x | 0.025 | — | 0.03 | 0.015 | — |
+| LIBERO-In domain | original | 0.3025 | 0.2750 | 0.335 | 0.2825 | — |
+| | random action 25% | 0.2825 | 0.1400 | 0.31 | 0.2625 | — |
+| | object shift x | 0.24375 | 0.2050 | 0.2775 | 0.2075 | — |
+| LIBERO-90-Object | original | 0.17 | 0.0750 | 0.19 | 0.13 | — |
+| | random action 25% | 0.15 | 0.0450 | 0.165 | 0.11 | — |
+| | object shift x | 0.11 | 0.0650 | 0.13 | 0.08 | — |
+| LIBERO-90-Spatial | original | 0.11 | 0.0500 | 0.12 | 0.08 | — |
+| | random action 25% | 0.10 | 0.0150 | 0.105 | 0.07 | — |
+| | object shift x | 0.085 | 0.0400 | 0.095 | 0.055 | — |
+| LIBERO-90-Act | original | 0.13 | 0.0750 | 0.15 | 0.09 | — |
+| | random action 25% | 0.11 | 0.0450 | 0.13 | 0.075 | — |
+| | object shift x | 0.10 | 0.0650 | 0.115 | 0.065 | — |
+| LIBERO-90-Com | original | 0.035 | 0.0120 | 0.04 | 0.025 | — |
+| | random action 25% | 0.03 | 0.0100 | 0.03 | 0.02 | — |
+| | object shift x | 0.025 | 0.0090 | 0.03 | 0.015 | — |
 
 ### Attention Ratio (visual / total)
 

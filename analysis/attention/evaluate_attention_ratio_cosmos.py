@@ -100,6 +100,7 @@ from libero.libero import benchmark, get_libero_path
 from libero.libero.envs import SubprocVectorEnv
 from policy_perturbations import PolicyPerturbConfig, apply_object_shift, maybe_perturb_action
 from visual_perturbations import VisualPerturbConfig, perturb_image
+from prompt_perturbations import perturb_prompt
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -521,8 +522,12 @@ def run_episode(
     vis_cfg: Optional[VisualPerturbConfig] = None,
     policy_cfg: Optional[PolicyPerturbConfig] = None,
     policy_rng: Optional[np.random.Generator] = None,
+    prompt_used: Optional[str] = None,
 ) -> Dict:
     """Run one episode and track visual/linguistic attention ratios."""
+    # Use perturbed prompt if provided, otherwise fall back to task description
+    effective_prompt = prompt_used if prompt_used is not None else task_description
+
     obs = env.reset()
     obs = env.set_init_state(initial_state)
 
@@ -554,7 +559,7 @@ def run_episode(
                     model,
                     dataset_stats,
                     observation,
-                    task_description,
+                    effective_prompt,
                     seed=t,
                     num_denoising_steps_action=cfg.num_denoising_steps_action,
                     generate_future_state_and_value_in_parallel=False,
@@ -649,6 +654,8 @@ def run_episode(
         "num_steps": t,
         "summary": summary,
         "step_ratio_results": step_ratio_results,
+        "prompt_used": effective_prompt,
+        "task_description": task_description,
     }
 
 
@@ -707,6 +714,13 @@ def main():
     parser.add_argument("--object-shift-x-std", type=float, default=0.0)
     parser.add_argument("--object-shift-y-std", type=float, default=0.0)
 
+    # Prompt perturbation
+    parser.add_argument("--prompt-mode", type=str, default="original",
+                        choices=["original", "empty", "shuffle", "random", "synonym", "opposite", "custom"],
+                        help="Prompt perturbation mode.")
+    parser.add_argument("--custom-prompt", type=str, default="",
+                        help="Custom prompt string (used when --prompt-mode=custom).")
+
     # Output
     parser.add_argument("--output-dir", type=str, default="results/attention_ratio_cosmos")
 
@@ -743,6 +757,17 @@ def main():
     task_suite = benchmark_dict[args.task_suite]()
     num_tasks = task_suite.n_tasks
 
+    # Collect all task descriptions for prompt_mode="random"
+    all_task_descriptions = []
+    for i in range(num_tasks):
+        try:
+            t = task_suite.get_task(i)
+            desc = getattr(t, "language", None) or str(t)
+            all_task_descriptions.append(str(desc))
+        except Exception:
+            all_task_descriptions.append(f"task_{i}")
+    all_task_descriptions = list(dict.fromkeys(all_task_descriptions))
+
     task_ids = [args.task_id] if args.task_id is not None else list(range(num_tasks))
     os.makedirs(args.output_dir, exist_ok=True)
 
@@ -762,6 +787,12 @@ def main():
 
         for ep_idx in range(min(args.num_episodes, len(initial_states))):
             log.info(f"\n--- Episode {ep_idx + 1}/{args.num_episodes} ---")
+
+            # Freeze perturbed prompt once per episode
+            episode_prompt = perturb_prompt(
+                str(task_description), args.prompt_mode, all_task_descriptions, custom=args.custom_prompt
+            )
+            log.info(f"  prompt_mode={args.prompt_mode!r}  prompt_used={episode_prompt!r}")
 
             task_slug = task_description.replace(" ", "_")[:60]
             episode_prefix = f"task{task_id}_{task_slug}_ep{ep_idx}"
@@ -786,13 +817,14 @@ def main():
                 vis_cfg=vis_cfg,
                 policy_cfg=policy_cfg,
                 policy_rng=policy_rng,
+                prompt_used=episode_prompt,
             )
 
             result["task_id"] = task_id
             result["episode_idx"] = ep_idx
-            result["task_description"] = task_description
             result["visual_perturbation"] = vis_cfg.as_dict()
             result["policy_perturbation"] = policy_cfg.as_dict()
+            result["prompt_mode"] = args.prompt_mode
             all_results.append(result)
 
         env.close()
@@ -829,8 +861,15 @@ def main():
         serializable_results.append(entry)
 
     results_path = os.path.join(args.output_dir, f"attention_ratio_results_{args.task_suite}.json")
+    output_data = {
+        "prompt_mode": args.prompt_mode,
+        "custom_prompt": args.custom_prompt,
+        "visual_perturbation": vis_cfg.as_dict(),
+        "policy_perturbation": policy_cfg.as_dict(),
+        "results": serializable_results,
+    }
     with open(results_path, "w") as f:
-        json.dump(serializable_results, f, indent=2, default=_json_default)
+        json.dump(output_data, f, indent=2, default=_json_default)
     log.info(f"\nResults saved to {results_path}")
 
 
