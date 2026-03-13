@@ -138,10 +138,14 @@ def create_torch_dataset(
         return FakeDataset(model_config, num_samples=1024)
 
     local_dir = data_config.local_dir
-    dataset_meta = lerobot_dataset.LeRobotDatasetMetadata(repo_id, root=local_dir)
+    # When loading from a local directory, pass revision="local" (not a valid semver)
+    # to skip get_safe_version(), which would try to reach HuggingFace Hub.
+    revision = "local" if local_dir is not None else None
+    dataset_meta = lerobot_dataset.LeRobotDatasetMetadata(repo_id, root=local_dir, revision=revision)
     dataset = lerobot_dataset.LeRobotDataset(
         data_config.repo_id,
         root=local_dir,
+        revision=revision,
         delta_timestamps={
             key: [t / dataset_meta.fps for t in range(action_horizon)] for key in data_config.action_sequence_keys
         },
