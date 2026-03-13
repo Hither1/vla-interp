@@ -1,7 +1,7 @@
 # Generalization Experiments
 
 Models: **pi0.5** | **OpenVLA** | **Cosmos** | **DP** (diffusion policy, trained from scratch) | **DreamZero**
-Suites: LIBERO-10 | LIBERO-Spatial | LIBERO-Object | LIBERO-Goal
+Suites: LIBERO-In domain | LIBERO-Spatial | LIBERO-Object | LIBERO-Goal
 Metrics: success rate (↑), action entropy (↓), attention IoU (↑), attention ratio (visual/total)
 *Attention metrics apply to VLA models only (pi0.5, OpenVLA, Cosmos).*
 
@@ -15,7 +15,7 @@ Conditions: **original** | **empty** (no prompt) | **shuffle** (shuffled words) 
 
 | Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP | DreamZero |
 |---|---|---|---|---|---|---|
-| LIBERO-10 | original | 98.2% | 76.5% | 98.5% | 91.8% | 99.0% |
+| LIBERO-In domain | original | 98.2% | 76.5% | 98.5% | 91.8% | 99.0% |
 | | empty | 62.5% | 0.13% | 50.5% | 36.3% | 52.0% |
 | | shuffle | 100.0% | 24.5% | 83.3% | 35.3% | 84.5% |
 | | random | 34.5% | 6.3% | 32.5% | 30.9% | 34.0% |

@@ -70,7 +70,7 @@ export HF_HOME=/n/netscratch/sham_lab/Lab/chloe00/huggingface
 export TRANSFORMERS_CACHE=/n/netscratch/sham_lab/Lab/chloe00/huggingface
 
 # ── Model ──────────────────────────────────────────────────────────────────────
-CKPT="${CKPT:-/n/netscratch/sham_lab/Lab/chloe00/libero/dreamzero_libero_all_lora/checkpoint-7600}"
+CKPT="${CKPT:-/n/netscratch/sham_lab/Lab/chloe00/libero/dreamzero_libero_all_lora/checkpoint-9800}"
 if [[ -z "$CKPT" ]]; then
     echo "ERROR: CKPT is required.  Example:"
     echo "  CKPT=/path/to/dreamzero_libero_lora sbatch $0"

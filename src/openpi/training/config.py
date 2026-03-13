@@ -446,6 +446,8 @@ class LeRobotRobocasaDataConfig(DataConfigFactory):
         return dataclasses.replace(
             self.create_base_config(assets_dirs, model_config),
             local_dir=self.data_dirs,
+            # The dataset column is "action" (not "actions"); must match for delta_timestamps.
+            action_sequence_keys=("action",),
             repack_transforms=repack_transform,
             data_transforms=data_transforms,
             model_transforms=model_transforms,
@@ -875,6 +877,20 @@ _CONFIGS = [
         save_interval=5_000,
         keep_period=10_000,
         batch_size=64,
+        num_workers=4,
+    ),
+    TrainConfig(
+        name="pi0_fast_robocasa_target_composite_seen",
+        model=pi0_fast.Pi0FASTConfig(action_dim=12, action_horizon=10, max_token_len=180),
+        data=LeRobotRobocasaDataConfig(
+            data_dirs=DATASET_SOUP_REGISTRY["target_composite_seen"],
+            base_config=DataConfig(prompt_from_task=True),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi0_fast_base/params"),
+        num_train_steps=50_000,
+        save_interval=5_000,
+        keep_period=10_000,
+        batch_size=32,
         num_workers=4,
     ),
     TrainConfig(

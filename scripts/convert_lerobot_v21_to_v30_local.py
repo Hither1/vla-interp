@@ -67,6 +67,9 @@ def main(src: Path, dst: Path):
 
     print(f"Valid episodes: {len(valid_indices)}")
 
+    # Detect video keys from features
+    video_keys = [k for k, v in info["features"].items() if v.get("dtype") == "video"]
+
     # --- 1. Update info.json ---
     new_info = dict(info)
     new_info["codebase_version"] = "v3.0"
@@ -75,6 +78,10 @@ def main(src: Path, dst: Path):
     new_info["data_files_size_in_mb"] = 100
     new_info["video_files_size_in_mb"] = 500
     new_info["fps"] = int(info["fps"])
+    # v3.0 video path: each episode is its own "file" (file_index=episode_index, chunk_index=0).
+    # Template: videos/chunk-{chunk_index:03d}/{video_key}/episode_{file_index:06d}.mp4
+    # This matches the existing v2.1 video layout without re-encoding.
+    new_info["video_path"] = "videos/chunk-{chunk_index:03d}/{video_key}/episode_{file_index:06d}.mp4"
     # Add fps to non-video features
     for key in new_info["features"]:
         if new_info["features"][key].get("dtype") != "video":
@@ -104,14 +111,23 @@ def main(src: Path, dst: Path):
         shutil.copy2(src_file, dst_file)
         table = pq.read_table(src_file)
         n_frames = len(table)
-        ep_metadata_rows.append({
+        row = {
             "episode_index": ep_idx,
             "data/chunk_index": 0,
             "data/file_index": 0,
             "dataset_from_index": frame_offset,
             "dataset_to_index": frame_offset + n_frames,
             "length": n_frames,
-        })
+        }
+        # v3.0: each episode video is its own file; file_index = episode_index, chunk_index = 0.
+        # from_timestamp=0.0 since the episode starts at the beginning of its individual file.
+        duration = n_frames / int(info["fps"])
+        for vid_key in video_keys:
+            row[f"videos/{vid_key}/chunk_index"] = 0
+            row[f"videos/{vid_key}/file_index"] = ep_idx
+            row[f"videos/{vid_key}/from_timestamp"] = 0.0
+            row[f"videos/{vid_key}/to_timestamp"] = duration
+        ep_metadata_rows.append(row)
         frame_offset += n_frames
     print(f"Copied {len(ep_metadata_rows)} data files")
 
