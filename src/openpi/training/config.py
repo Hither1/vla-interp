@@ -894,6 +894,26 @@ _CONFIGS = [
         num_workers=4,
     ),
     TrainConfig(
+        name="pi0_fast_robocasa_target_composite_seen_lora",
+        model=pi0_fast.Pi0FASTConfig(
+            action_dim=12, action_horizon=10, max_token_len=180, paligemma_variant="gemma_2b_lora"
+        ),
+        data=LeRobotRobocasaDataConfig(
+            data_dirs=DATASET_SOUP_REGISTRY["target_composite_seen"],
+            base_config=DataConfig(prompt_from_task=True),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi0_fast_base/params"),
+        num_train_steps=50_000,
+        save_interval=5_000,
+        keep_period=10_000,
+        batch_size=32,
+        num_workers=4,
+        freeze_filter=pi0_fast.Pi0FASTConfig(
+            action_dim=12, action_horizon=10, max_token_len=180, paligemma_variant="gemma_2b_lora"
+        ).get_freeze_filter(),
+        ema_decay=None,
+    ),
+    TrainConfig(
         name="pi05_libero",
         model=pi0_config.Pi0Config(pi05=True, action_horizon=10, discrete_state_input=False),
         data=LeRobotLiberoDataConfig(

@@ -83,6 +83,9 @@ conda activate vla
 module load gcc/12.2.0-fasrc01
 module load cuda/12.4.1-fasrc01
 
+unset HF_HUB_OFFLINE
+export HF_HUB_CACHE=/n/netscratch/sham_lab/Lab/chloe00/huggingface/hub
+
 export MUJOCO_GL=egl
 
 # ── Paths ─────────────────────────────────────────────────────────────────────

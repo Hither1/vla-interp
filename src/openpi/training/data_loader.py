@@ -149,10 +149,16 @@ def create_torch_dataset(
         delta_timestamps={
             key: [t / dataset_meta.fps for t in range(action_horizon)] for key in data_config.action_sequence_keys
         },
+        video_backend="pyav",
     )
 
     if data_config.prompt_from_task:
-        dataset = TransformedDataset(dataset, [_transforms.PromptFromLeRobotTask(dataset_meta.tasks)])
+        tasks = dataset_meta.tasks
+        # Newer lerobot versions return a DataFrame with task_index/task columns;
+        # convert to dict[int, str] as PromptFromLeRobotTask expects.
+        if hasattr(tasks, "to_dict"):
+            tasks = dict(zip(tasks["task_index"], tasks["task"]))
+        dataset = TransformedDataset(dataset, [_transforms.PromptFromLeRobotTask(tasks)])
 
     return dataset
 

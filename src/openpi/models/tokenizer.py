@@ -76,6 +76,10 @@ class FASTTokenizer:
 
         if actions is not None:
             # Tokenize actions with FAST tokenizer --> map to last tokens in PaliGemma vocab
+            # Sanitize and clip to normalized range; guards against corrupted samples with NaN/extreme values.
+            # np.clip passes NaN through, which then integer-overflows inside the FAST tokenizer's chr() call.
+            actions = np.nan_to_num(actions, nan=0.0, posinf=1.0, neginf=-1.0)
+            actions = np.clip(actions, -1.0, 1.0)
             action_tokens = self._fast_tokenizer(actions[None])[0]
             action_tokens_in_pg = self._act_tokens_to_paligemma_tokens(action_tokens)
 

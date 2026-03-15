@@ -68,6 +68,7 @@ set -euo pipefail
 module load gcc/12.2.0-fasrc01
 module load cuda/12.4.1-fasrc01
 
+export HF_HUB_CACHE=/n/netscratch/sham_lab/Lab/chloe00/huggingface/hub
 export HF_HOME=/n/netscratch/sham_lab/Lab/chloe00/huggingface
 export TRANSFORMERS_CACHE=/n/netscratch/sham_lab/Lab/chloe00/huggingface
 

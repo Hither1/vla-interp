@@ -28,4 +28,5 @@ echo "Starting pi0 RoboCasa training: config=${CONFIG_NAME} exp_name=${EXP_NAME}
 
 /n/home13/chloe00/miniforge3/envs/vla/bin/python scripts/train.py \
     "${CONFIG_NAME}" \
-    --exp-name "${EXP_NAME}"
+    --exp-name "${EXP_NAME}" \
+    --overwrite

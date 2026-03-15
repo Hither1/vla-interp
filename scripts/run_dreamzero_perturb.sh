@@ -13,50 +13,33 @@
 #SBATCH --mail-type=END
 #SBATCH --exclusive
 
-# ── DreamZero (finetuned on LIBERO) — Evaluation on all LIBERO suites ─────────
-#
-# Runs dreamzero_eval.py with torchrun across all LIBERO suites.
-# The 14B DreamZero model requires multi-GPU tensor parallelism; use
-# NUM_GPUS=2 minimum (4 recommended for speed).
-#
-# Quick-start
-# -----------
-#   # Baseline, all 4 standard suites:
-#   CKPT=/path/to/dreamzero_libero_lora TASK_SUITE=all \
-#       sbatch scripts/run_dreamzero_perturb.sh
-#
-#   # Single suite:
-#   CKPT=/path/to/dreamzero_libero_lora TASK_SUITE=libero_10 \
-#       sbatch scripts/run_dreamzero_perturb.sh
-#
-# Prompt modes (PROMPT_MODE): original | empty | shuffle | random | synonym | opposite | custom
-# Visual modes (VISUAL_PERTURB_MODE): none | rotate | translate | rotate_translate
-# Policy modes (POLICY_PERTURB_MODE): none | random_action | object_shift
-# ─────────────────────────────────────────────────────────────────────────────
-
 set -euo pipefail
 
 source ~/.bashrc
-conda deactivate
-# Activate the conda environment that has DreamZero + LIBERO + PyTorch installed
+conda deactivate || true
 conda activate vla
 
 module load gcc/12.2.0-fasrc01
 module load cuda/12.4.1-fasrc01
 
+# Rendering / MuJoCo / EGL
 export MUJOCO_GL=egl
-export HYDRA_FULL_ERROR=1
+export PYOPENGL_PLATFORM=egl
 
-# Force gloo to use loopback (IPv4) to avoid SIGSEGV from IPv6-unsupported nodes
-export GLOO_SOCKET_IFNAME=lo
-export NCCL_SOCKET_IFNAME=lo
-# Print Python traceback even on SIGSEGV
+# Debugging / errors
+export HYDRA_FULL_ERROR=1
 export PYTHONFAULTHANDLER=1
-# Disable all torch.compile / dynamo globally — avoids 60-90 min warmup on first inference
-# and prevents RecompileLimitExceeded from the flow scheduler's @torch.compile decorators.
-# Eager mode on H100s is fast enough for eval.
+export TORCH_SHOW_CPP_STACKTRACES=1
+
+# Avoid compile / dynamo overhead and odd recompilation behavior
 export DISABLE_TORCH_COMPILE=true
 export TORCHDYNAMO_DISABLE=1
+
+# Gloo control-plane comms on loopback for single-node torchrun
+export GLOO_SOCKET_IFNAME=lo
+
+# Optional: reduce tokenizer parallelism noise
+export TOKENIZERS_PARALLELISM=false
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 WORKDIR="/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp"
@@ -65,24 +48,24 @@ DREAMZERO_DIR="${WORKDIR}/dreamzero"
 export PYTHONPATH="${WORKDIR}:${PYTHONPATH:+:${PYTHONPATH}}"
 export PYTHONPATH="${DREAMZERO_DIR}:${PYTHONPATH}"
 export PYTHONPATH="${PYTHONPATH}:/n/netscratch/sham_lab/Lab/chloe00/libero"
+
 export LIBERO_CONFIG_PATH=/n/netscratch/sham_lab/Lab/chloe00/libero
 export HF_HOME=/n/netscratch/sham_lab/Lab/chloe00/huggingface
 export TRANSFORMERS_CACHE=/n/netscratch/sham_lab/Lab/chloe00/huggingface
 
 # ── Model ──────────────────────────────────────────────────────────────────────
 CKPT="${CKPT:-/n/netscratch/sham_lab/Lab/chloe00/libero/dreamzero_libero_all_lora/checkpoint-9800}"
-if [[ -z "$CKPT" ]]; then
-    echo "ERROR: CKPT is required.  Example:"
+if [[ -z "${CKPT}" ]]; then
+    echo "ERROR: CKPT is required."
+    echo "Example:"
     echo "  CKPT=/path/to/dreamzero_libero_lora sbatch $0"
     exit 1
 fi
 
-NUM_GPUS="${NUM_GPUS:-2}"  # parallelize() only supports ip_size=1 or 2
+NUM_GPUS="${NUM_GPUS:-2}"
 ENABLE_DIT_CACHE="${ENABLE_DIT_CACHE:-true}"
 
 # ── Attention visualisation ────────────────────────────────────────────────────
-# Set VISUALIZE_ATTENTION=true to overlay action→visual attention heatmaps
-# on the generated videos.  ATTN_ALPHA controls heatmap opacity (0.0–1.0).
 VISUALIZE_ATTENTION="${VISUALIZE_ATTENTION:-false}"
 ATTN_ALPHA="${ATTN_ALPHA:-0.5}"
 
@@ -107,13 +90,14 @@ OBJECT_SHIFT_Y_STD="${OBJECT_SHIFT_Y_STD:-0.0}"
 TASK_SUITE="${TASK_SUITE:-libero_goal}"
 NUM_TRIALS="${NUM_TRIALS:-20}"
 SEED="${SEED:-7}"
-REPLAN_STEPS="${REPLAN_STEPS:-4}"   # max_chunk_size from libero_training.sh
+REPLAN_STEPS="${REPLAN_STEPS:-4}"
 
 # ── Derived output tag ─────────────────────────────────────────────────────────
 PROMPT_TAG=""
-if [[ "$PROMPT_MODE" != "original" ]]; then
-    if [[ "$PROMPT_MODE" == "custom" && -n "$CUSTOM_PROMPT" ]]; then
-        SLUG="${CUSTOM_PROMPT:0:30}"; SLUG="${SLUG// /_}"
+if [[ "${PROMPT_MODE}" != "original" ]]; then
+    if [[ "${PROMPT_MODE}" == "custom" && -n "${CUSTOM_PROMPT}" ]]; then
+        SLUG="${CUSTOM_PROMPT:0:30}"
+        SLUG="${SLUG// /_}"
         PROMPT_TAG="prompt_custom_${SLUG}"
     else
         PROMPT_TAG="prompt_${PROMPT_MODE}"
@@ -121,31 +105,37 @@ if [[ "$PROMPT_MODE" != "original" ]]; then
 fi
 
 VIS_TAG=""
-if [[ "$VISUAL_PERTURB_MODE" != "none" ]]; then
-    if   [[ "$VISUAL_PERTURB_MODE" == "rotate" ]];    then VIS_TAG="vis_rotate_${ROTATION_DEGREES}deg"
-    elif [[ "$VISUAL_PERTURB_MODE" == "translate" ]]; then VIS_TAG="vis_translate_x${TRANSLATE_X_FRAC}_y${TRANSLATE_Y_FRAC}"
-    else VIS_TAG="vis_rotate_${ROTATION_DEGREES}deg_translate_x${TRANSLATE_X_FRAC}_y${TRANSLATE_Y_FRAC}"
+if [[ "${VISUAL_PERTURB_MODE}" != "none" ]]; then
+    if [[ "${VISUAL_PERTURB_MODE}" == "rotate" ]]; then
+        VIS_TAG="vis_rotate_${ROTATION_DEGREES}deg"
+    elif [[ "${VISUAL_PERTURB_MODE}" == "translate" ]]; then
+        VIS_TAG="vis_translate_x${TRANSLATE_X_FRAC}_y${TRANSLATE_Y_FRAC}"
+    else
+        VIS_TAG="vis_rotate_${ROTATION_DEGREES}deg_translate_x${TRANSLATE_X_FRAC}_y${TRANSLATE_Y_FRAC}"
     fi
 fi
 
 POL_TAG=""
-if [[ "$POLICY_PERTURB_MODE" != "none" ]]; then
-    if   [[ "$POLICY_PERTURB_MODE" == "random_action" ]]; then POL_TAG="pol_random_p${RANDOM_ACTION_PROB}_s${RANDOM_ACTION_SCALE}"
-    elif [[ "$POLICY_PERTURB_MODE" == "object_shift" ]];  then POL_TAG="pol_objshift_x${OBJECT_SHIFT_X_STD}_y${OBJECT_SHIFT_Y_STD}"
-    else POL_TAG="pol_${POLICY_PERTURB_MODE}"
+if [[ "${POLICY_PERTURB_MODE}" != "none" ]]; then
+    if [[ "${POLICY_PERTURB_MODE}" == "random_action" ]]; then
+        POL_TAG="pol_random_p${RANDOM_ACTION_PROB}_s${RANDOM_ACTION_SCALE}"
+    elif [[ "${POLICY_PERTURB_MODE}" == "object_shift" ]]; then
+        POL_TAG="pol_objshift_x${OBJECT_SHIFT_X_STD}_y${OBJECT_SHIFT_Y_STD}"
+    else
+        POL_TAG="pol_${POLICY_PERTURB_MODE}"
     fi
 fi
 
 PERTURB_TAG=""
-for _tag in "$PROMPT_TAG" "$VIS_TAG" "$POL_TAG"; do
-    [[ -n "$_tag" ]] && PERTURB_TAG="${PERTURB_TAG:+${PERTURB_TAG}__}${_tag}"
+for _tag in "${PROMPT_TAG}" "${VIS_TAG}" "${POL_TAG}"; do
+    [[ -n "${_tag}" ]] && PERTURB_TAG="${PERTURB_TAG:+${PERTURB_TAG}__}${_tag}"
 done
 PERTURB_TAG="${PERTURB_TAG:-none}"
 
 # ── Task suite list ────────────────────────────────────────────────────────────
-if [[ "$TASK_SUITE" == "all" ]]; then
+if [[ "${TASK_SUITE}" == "all" ]]; then
     SUITES=(libero_spatial libero_object libero_goal libero_10)
-elif [[ "$TASK_SUITE" == "90_all" ]]; then
+elif [[ "${TASK_SUITE}" == "90_all" ]]; then
     SUITES=(libero_90_obj libero_90_spa libero_90_act libero_90_com)
 else
     SUITES=("${TASK_SUITE}")
@@ -159,7 +149,7 @@ echo "Model:               DreamZero (LIBERO finetune)"
 echo "Checkpoint:          ${CKPT}"
 echo "Num GPUs:            ${NUM_GPUS}"
 echo "Prompt perturbation: ${PROMPT_MODE}"
-[[ "$PROMPT_MODE" == "custom" ]] && echo "  custom_prompt:       '${CUSTOM_PROMPT}'"
+[[ "${PROMPT_MODE}" == "custom" ]] && echo "  custom_prompt:       '${CUSTOM_PROMPT}'"
 echo "Visual perturbation: ${VISUAL_PERTURB_MODE}"
 echo "Policy perturbation: ${POLICY_PERTURB_MODE}"
 echo "Perturbation tag:    ${PERTURB_TAG}"
@@ -167,7 +157,7 @@ echo "Task suites:         ${SUITES[*]}"
 echo "Trials per task:     ${NUM_TRIALS}"
 echo "Replan steps:        ${REPLAN_STEPS}"
 echo "Seed:                ${SEED}"
-echo "Attn visualize:      ${VISUALIZE_ATTENTION}  (alpha=${ATTN_ALPHA})"
+echo "Attn visualize:      ${VISUALIZE_ATTENTION} (alpha=${ATTN_ALPHA})"
 echo "============================================================"
 
 for SUITE in "${SUITES[@]}"; do
@@ -178,13 +168,18 @@ for SUITE in "${SUITES[@]}"; do
     mkdir -p "${VIDEO_OUT}"
 
     ENABLE_DIT_CACHE_ARG=""
-    [[ "$ENABLE_DIT_CACHE" == "false" ]] && ENABLE_DIT_CACHE_ARG="--no-enable-dit-cache"
+    if [[ "${ENABLE_DIT_CACHE}" == "false" ]]; then
+        ENABLE_DIT_CACHE_ARG="--no-enable-dit-cache"
+    fi
 
     VISUALIZE_ATTN_ARG=""
-    [[ "$VISUALIZE_ATTENTION" == "true" ]] && VISUALIZE_ATTN_ARG="--visualize-attention"
+    if [[ "${VISUALIZE_ATTENTION}" == "true" ]]; then
+        VISUALIZE_ATTN_ARG="--visualize-attention"
+    fi
 
     torchrun \
         --standalone \
+        --nnodes=1 \
         --nproc_per_node="${NUM_GPUS}" \
         "${WORKDIR}/examples/libero/dreamzero_eval.py" \
             --model-path "${CKPT}" \
@@ -213,5 +208,5 @@ done
 
 echo ""
 echo "============================================================"
-echo "All suites complete.  Perturbation tag: ${PERTURB_TAG}"
+echo "All suites complete. Perturbation tag: ${PERTURB_TAG}"
 echo "============================================================"
