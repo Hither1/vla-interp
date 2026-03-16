@@ -41,7 +41,7 @@ LIBERO_SUBSETS = [
     "libero_spatial",
 ]
 
-ckpt_dir = "./checkpoints/BatchTopKSAE"
+ckpt_dir = "/n/netscratch/sham_lab/Lab/chloe00/vla-interp/checkpoints/BatchTopKSAE"
 os.makedirs(ckpt_dir, exist_ok=True) 
 
 

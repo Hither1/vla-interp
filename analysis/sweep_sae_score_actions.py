@@ -175,8 +175,8 @@ def eval_regression(Z: torch.Tensor, Y: torch.Tensor, W: torch.Tensor, b: torch.
 # -------------------------
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--ckpt_glob", type=str, default="./checkpoints/BatchTopKSAE/sae_libero_object_layer11_k*_c*.pt",
-                    help="Glob for SAE ckpts, e.g. ./checkpoints/BatchTopKSAE/sae_libero_object_layer11_k*_c*.pt")
+    ap.add_argument("--ckpt_glob", type=str, default="/n/netscratch/sham_lab/Lab/chloe00/vla-interp/checkpoints/BatchTopKSAE/sae_libero_object_layer11_k*_c*.pt",
+                    help="Glob for SAE ckpts, e.g. /n/netscratch/sham_lab/Lab/chloe00/vla-interp/checkpoints/BatchTopKSAE/sae_libero_object_layer11_k*_c*.pt")
     ap.add_argument("--data_root", type=str, default="/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero")
     ap.add_argument("--activations_root", type=str, default="/n/netscratch/sham_lab/Lab/chloe00/pi0_activations")
     ap.add_argument("--group", type=str, default="object", choices=["10", "goal", "object", "spatial"])

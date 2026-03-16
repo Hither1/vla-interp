@@ -68,6 +68,8 @@ ENABLE_DIT_CACHE="${ENABLE_DIT_CACHE:-true}"
 # ── Attention visualisation ────────────────────────────────────────────────────
 VISUALIZE_ATTENTION="${VISUALIZE_ATTENTION:-false}"
 ATTN_ALPHA="${ATTN_ALPHA:-0.5}"
+COMPUTE_ATTENTION_RATIO="${COMPUTE_ATTENTION_RATIO:-true}"
+COMPUTE_ATTENTION_IOU="${COMPUTE_ATTENTION_IOU:-true}"
 
 # ── Prompt perturbation ────────────────────────────────────────────────────────
 PROMPT_MODE="${PROMPT_MODE:-original}"
@@ -158,6 +160,8 @@ echo "Trials per task:     ${NUM_TRIALS}"
 echo "Replan steps:        ${REPLAN_STEPS}"
 echo "Seed:                ${SEED}"
 echo "Attn visualize:      ${VISUALIZE_ATTENTION} (alpha=${ATTN_ALPHA})"
+echo "Attn ratio:          ${COMPUTE_ATTENTION_RATIO}"
+echo "Attn IoU:            ${COMPUTE_ATTENTION_IOU}"
 echo "============================================================"
 
 for SUITE in "${SUITES[@]}"; do
@@ -175,6 +179,16 @@ for SUITE in "${SUITES[@]}"; do
     VISUALIZE_ATTN_ARG=""
     if [[ "${VISUALIZE_ATTENTION}" == "true" ]]; then
         VISUALIZE_ATTN_ARG="--visualize-attention"
+    fi
+
+    COMPUTE_ATTN_RATIO_ARG=""
+    if [[ "${COMPUTE_ATTENTION_RATIO}" == "true" ]]; then
+        COMPUTE_ATTN_RATIO_ARG="--compute-attention-ratio"
+    fi
+
+    COMPUTE_ATTN_IOU_ARG=""
+    if [[ "${COMPUTE_ATTENTION_IOU}" == "true" ]]; then
+        COMPUTE_ATTN_IOU_ARG="--compute-attention-iou"
     fi
 
     torchrun \
@@ -201,7 +215,9 @@ for SUITE in "${SUITES[@]}"; do
             --video-out-path "${VIDEO_OUT}" \
             --attn-alpha "${ATTN_ALPHA}" \
             ${ENABLE_DIT_CACHE_ARG} \
-            ${VISUALIZE_ATTN_ARG}
+            ${VISUALIZE_ATTN_ARG} \
+            ${COMPUTE_ATTN_RATIO_ARG} \
+            ${COMPUTE_ATTN_IOU_ARG}
 
     echo "Finished: ${SUITE}"
 done

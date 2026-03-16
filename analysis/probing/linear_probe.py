@@ -396,7 +396,7 @@ def plot_inlp_metrics(inlp_results, out_path_prefix: Optional[str] = None):
 def main():
     ap = argparse.ArgumentParser()
 
-    ap.add_argument("--ckpt_path", type=str, default="./checkpoints/sae_layer11_k10_c16000.pt",
+    ap.add_argument("--ckpt_path", type=str, default="/n/netscratch/sham_lab/Lab/chloe00/vla-interp/checkpoints/sae_layer11_k10_c16000.pt",
                     help="SAE checkpoint path")
     ap.add_argument("--data_root", type=str, default="/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/data/libero")
     ap.add_argument("--activations_root", type=str, default="/n/netscratch/sham_lab/Lab/chloe00/pi0_activations")

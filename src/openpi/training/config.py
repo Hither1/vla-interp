@@ -589,7 +589,7 @@ class TrainConfig:
     # Base directory for config assets (e.g., norm stats).
     assets_base_dir: str = "./assets"
     # Base directory for checkpoints.
-    checkpoint_base_dir: str = "./checkpoints"
+    checkpoint_base_dir: str = "/n/netscratch/sham_lab/Lab/chloe00/vla-interp/checkpoints"
 
     # Random seed that will be used by random generators during training.
     seed: int = 42
@@ -892,6 +892,7 @@ _CONFIGS = [
         keep_period=10_000,
         batch_size=32,
         num_workers=4,
+        checkpoint_base_dir="/n/netscratch/sham_lab/Lab/chloe00/vla-interp/checkpoints",
     ),
     TrainConfig(
         name="pi0_fast_robocasa_target_composite_seen_lora",
@@ -912,6 +913,7 @@ _CONFIGS = [
             action_dim=12, action_horizon=10, max_token_len=180, paligemma_variant="gemma_2b_lora"
         ).get_freeze_filter(),
         ema_decay=None,
+        checkpoint_base_dir="/n/netscratch/sham_lab/Lab/chloe00/vla-interp/checkpoints",
     ),
     TrainConfig(
         name="pi05_libero",

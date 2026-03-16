@@ -21,7 +21,7 @@ from openpi.shared import nnx_utils
 import openpi.models.gemma as gemma
 from overcomplete.sae import TopKSAE, BatchTopKSAE
 
-# ckpt = torch.load("checkpoints/BatchTopKSAE/sae_libero_all_layer11_k16_c512.pt", map_location="cpu", weights_only=False)
+# ckpt = torch.load("/n/netscratch/sham_lab/Lab/chloe00/vla-interp/checkpoints/BatchTopKSAE/sae_libero_all_layer11_k16_c512.pt", map_location="cpu", weights_only=False)
 # sae = BatchTopKSAE(
 #     ckpt["d"],
 #     nb_concepts=ckpt["nb_concepts"],
