@@ -41,7 +41,7 @@ from scipy import stats
 log = logging.getLogger(__name__)
 
 DEFAULT_INPUTS = [
-    "pi0.5:results/attention/iou/pi05/perturb/none/libero_10_seed7/iou_results_libero_10.json",
+    "pi0.5:results/attention/iou/pi05/perturb/none/libero_10",
     "DreamZero:data/libero/dreamzero/perturb/none/libero_10",
 ]
 

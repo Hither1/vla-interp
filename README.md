@@ -161,7 +161,7 @@ Compare instantaneous grounding (`x_t`) against temporally integrated grounding 
 ```bash
 python analysis/temporal_reliance.py \
   --inputs \
-    pi0.5:results/attention/iou/pi05/perturb/none/libero_10_seed7/iou_results_libero_10.json \
+    pi0.5:results/attention/iou/pi05/perturb/none/libero_10 \
     DreamZero:data/libero/dreamzero/perturb/none/libero_10 \
   --feature iou \
   --rolling-windows 1 3 5 10 \
