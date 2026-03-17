@@ -43,8 +43,10 @@ LAYERS="${LAYERS:-0 8 17 25 26 27}"
 SAVE_VIZ="${SAVE_VIZ:-0}"
 REPLAN_STEPS="${REPLAN_STEPS:-5}"
 
-# IoU-specific configuration
-IOU_METRIC="${IOU_METRIC:-iou}"
+# Prompt perturbation
+PROMPT_MODE="${PROMPT_MODE:-original}"
+CUSTOM_PROMPT="${CUSTOM_PROMPT:-}"
+
 THRESHOLD_METHODS="${THRESHOLD_METHODS:-percentile_90 percentile_75 otsu_0}"
 
 # Expand TASK_SUITE into array of suites to run
@@ -89,11 +91,24 @@ else
     POL_TAG="${POLICY_PERTURB_MODE}"
 fi
 
-if [[ "$VISUAL_PERTURB_MODE" != "none" || "$POLICY_PERTURB_MODE" != "none" ]]; then
-    PERTURB_TAG="vis_${VIS_TAG}__pol_${POL_TAG}"
-else
-    PERTURB_TAG="none"
+PROMPT_TAG=""
+if [[ "$PROMPT_MODE" != "original" ]]; then
+    if [[ "$PROMPT_MODE" == "custom" && -n "$CUSTOM_PROMPT" ]]; then
+        SLUG="${CUSTOM_PROMPT:0:30}"
+        SLUG="${SLUG// /_}"
+        PROMPT_TAG="prompt_custom_${SLUG}"
+    else
+        PROMPT_TAG="prompt_${PROMPT_MODE}"
+    fi
 fi
+
+PERTURB_TAG=""
+for _tag in "$PROMPT_TAG" "vis_${VIS_TAG}" "pol_${POL_TAG}"; do
+    if [[ -n "$_tag" && "$_tag" != "vis_none" && "$_tag" != "pol_none" ]]; then
+        PERTURB_TAG="${PERTURB_TAG:+${PERTURB_TAG}__}${_tag}"
+    fi
+done
+PERTURB_TAG="${PERTURB_TAG:-none}"
 
 TASK_ID_FLAG=()
 if [ -n "$TASK_ID" ]; then
@@ -124,7 +139,10 @@ for SUITE in "${SUITES[@]}"; do
     echo "Seed:          ${SEED}"
     echo "Layers:        ${LAYERS}"
     echo "Save viz:      ${SAVE_VIZ}"
-    echo "IoU metric:    ${IOU_METRIC}"
+    echo "Prompt perturbation: ${PROMPT_MODE}"
+    if [[ "$PROMPT_MODE" == "custom" ]]; then
+        echo "  custom_prompt: ${CUSTOM_PROMPT}"
+    fi
     echo "Thresholds:    ${THRESHOLD_METHODS}"
     echo "Visual perturbation: ${VISUAL_PERTURB_MODE} (rotation=${ROTATION_DEGREES} tx=${TRANSLATE_X_FRAC} ty=${TRANSLATE_Y_FRAC})"
     echo "Policy perturbation: ${POLICY_PERTURB_MODE} (prob=${RANDOM_ACTION_PROB} scale=${RANDOM_ACTION_SCALE} ox=${OBJECT_SHIFT_X_STD} oy=${OBJECT_SHIFT_Y_STD})"
@@ -133,13 +151,16 @@ for SUITE in "${SUITES[@]}"; do
     echo "IoU output:    ${IOU_OUTPUT_DIR}"
     echo "============================================================"
 
-    python "${WORKDIR}/analysis/attention/evaluate_attention_ratio.py" \
+    python "${WORKDIR}/analysis/attention/evaluate_attention_metrics.py" \
         --checkpoint "${CHECKPOINT}" \
         --task-suite "${SUITE}" \
         --num-episodes "${NUM_EPISODES}" \
         --seed "${SEED}" \
         --replan-steps "${REPLAN_STEPS}" \
         --layers "${LAYERS_ARR[@]}" \
+        --threshold-methods "${THRESHOLD_METHODS_ARR[@]}" \
+        --prompt-mode "${PROMPT_MODE}" \
+        --custom-prompt "${CUSTOM_PROMPT}" \
         --visual-perturb-mode "${VISUAL_PERTURB_MODE}" \
         --rotation-degrees "${ROTATION_DEGREES}" \
         --translate-x-frac "${TRANSLATE_X_FRAC}" \
@@ -149,7 +170,8 @@ for SUITE in "${SUITES[@]}"; do
         --random-action-scale "${RANDOM_ACTION_SCALE}" \
         --object-shift-x-std "${OBJECT_SHIFT_X_STD}" \
         --object-shift-y-std "${OBJECT_SHIFT_Y_STD}" \
-        --output-dir "${RATIO_OUTPUT_DIR}" \
+        --ratio-output-dir "${RATIO_OUTPUT_DIR}" \
+        --iou-output-dir "${IOU_OUTPUT_DIR}" \
         "${TASK_ID_FLAG[@]}" \
         "${SAVE_VIZ_FLAG[@]}"
 
@@ -161,28 +183,6 @@ for SUITE in "${SUITES[@]}"; do
             --output-dir "${RATIO_OUTPUT_DIR}/analysis/attention" \
             --plot-all
     fi
-
-    python "${WORKDIR}/analysis/attention/evaluate_attention_iou.py" \
-        --checkpoint "${CHECKPOINT}" \
-        --task-suite "${SUITE}" \
-        --num-episodes "${NUM_EPISODES}" \
-        --seed "${SEED}" \
-        --replan-steps "${REPLAN_STEPS}" \
-        --layers "${LAYERS_ARR[@]}" \
-        --metric "${IOU_METRIC}" \
-        --threshold-methods "${THRESHOLD_METHODS_ARR[@]}" \
-        --visual-perturb-mode "${VISUAL_PERTURB_MODE}" \
-        --rotation-degrees "${ROTATION_DEGREES}" \
-        --translate-x-frac "${TRANSLATE_X_FRAC}" \
-        --translate-y-frac "${TRANSLATE_Y_FRAC}" \
-        --policy-perturb-mode "${POLICY_PERTURB_MODE}" \
-        --random-action-prob "${RANDOM_ACTION_PROB}" \
-        --random-action-scale "${RANDOM_ACTION_SCALE}" \
-        --object-shift-x-std "${OBJECT_SHIFT_X_STD}" \
-        --object-shift-y-std "${OBJECT_SHIFT_Y_STD}" \
-        --output-dir "${IOU_OUTPUT_DIR}" \
-        "${TASK_ID_FLAG[@]}" \
-        "${SAVE_VIZ_FLAG[@]}"
 
     echo
     echo "Finished suite ${SUITE}"
