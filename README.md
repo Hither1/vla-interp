@@ -154,6 +154,69 @@ for fname in ["results/entropy/action_entropy_90_b.json",
             print(f"{fname}  [{outcome}]  mean: {stats.get('mean')}  std: {stats.get('std')}")
 ```
 
+### Temporal Reliance Analysis
+
+Compare instantaneous grounding (`x_t`) against temporally integrated grounding (`mean(x_{t-k:t})`) using per-step IoU or other analysis signals already saved in evaluation JSONs. The script pools episodes per model, computes rolling-window predictiveness for success, and produces summary plots plus a JSON report.
+
+```bash
+python analysis/temporal_reliance.py \
+  --inputs \
+    pi0.5:/path/to/iou_results_libero_10.json \
+    DreamZero:/path/to/attention_results_libero_10.json \
+  --feature iou \
+  --rolling-windows 1 3 5 10 \
+  --output-dir results/temporal_reliance
+```
+
+Useful options:
+
+- `--feature iou` for the non-language version
+- `--feature ratio` or `--feature visual_fraction` if you also want attention-ratio comparisons
+- `--layer layer_25` to force a specific layer instead of auto-preferring `layers_avg`
+
+Outputs in `--output-dir` include:
+
+- `*_window_sweep.png`: correlation with success as a function of rolling window size
+- `*_position_curve.png`: instantaneous vs rolling predictiveness over episode progress
+- `*_trajectory_success_vs_failure.png`: normalized successful vs failed trajectory averages
+- `*_dip_tolerance.png`: transient vs persistent low-grounding sensitivity
+- `temporal_integration_score.png` and `temporal_reliance_results.json`
+
+### Language Rerouting Analysis
+
+Compare clean instructions (`prompt_mode=original`) against corrupted language conditions (`empty`, `random`, `synonym`, `shuffle`, `opposite`) and measure:
+
+- `Δ visual ratio`
+- `Δ IoU`
+- `Δ success`
+- `VCI = Δ visual ratio`
+- `GRI = Δ ratio - λ|ΔIoU|`
+
+The analyzer recursively scans model output directories, matches clean and corrupted episodes by `(suite, task_id, episode_id)`, and uses any discovered rollout JSONs and/or saved `attention_ratio_results_*.json` / `iou_results_*.json` files.
+
+```bash
+python analysis/attention/analyze_language_rerouting.py \
+  --model-run pi0.5=/path/to/pi05_outputs \
+  --model-run DreamZero=/path/to/dreamzero_outputs \
+  --output-dir results/language_rerouting
+```
+
+Useful options:
+
+- `--perturbations empty random synonym shuffle opposite` to restrict the comparison set
+- `--gri-lambda 1.0` to control the penalty term in `GRI`
+- `--skip-plots` to write CSV/Markdown summaries only
+
+Outputs in `--output-dir` include:
+
+- `discovered_episode_metrics.csv`: all discovered per-episode metrics before pairing
+- `episode_pairs.csv`: matched clean vs corrupted episode-level deltas
+- `summary_by_model_and_perturbation.csv`: grouped means/stds for each model and perturbation
+- `summary.md`: short text summary
+- `delta_visual_ratio.png`, `delta_iou.png`, `delta_success.png`
+- `delta_ratio_vs_iou.png`
+- `temporal_delta_ratio.png`, `temporal_delta_iou.png`
+
 ### LIBERO Evaluation
 
 ```bash
@@ -252,9 +315,6 @@ We use [uv](https://docs.astral.sh/uv/) to manage Python dependencies. See the [
 GIT_LFS_SKIP_SMUDGE=1 uv sync
 GIT_LFS_SKIP_SMUDGE=1 uv pip install -e .
 ```
-
-
-
 
 
 
