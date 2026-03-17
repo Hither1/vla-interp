@@ -75,7 +75,7 @@ KEY_EXAMPLES = [
 ]
 
 MODELS_ALL  = ["pi0.5", "OpenVLA", "Cosmos", "DreamZero", "DP"]
-MODELS_ATTN = ["pi0.5", "OpenVLA", "Cosmos", "DP"]
+MODELS_ATTN = ["pi0.5", "OpenVLA", "Cosmos", "DreamZero", "DP"]
 ALL_SUITES  = ["LIBERO-In domain", "LIBERO-90-Object", "LIBERO-90-Spatial",
                "LIBERO-90-Act",    "LIBERO-90-Com"]
 
@@ -168,35 +168,35 @@ LANG_SR = {
         "OpenVLA":  [76.5,  0.13, 24.5,  6.3,  64.8,  63.4],
         "Cosmos":   [98.5, 50.5,  83.3,  32.5,  94.5,  97.0],
         "DP":       [91.8, 36.3,  35.3,  30.9,  35.5,  35.3],
-        "DreamZero":[97.8, 59.2,  91.5,  41.2,  97.8,  98.9],
+        "DreamZero":[97.8, 59.2,  91.5,  31.2,  97.8,  98.9],
     },
     "LIBERO-90-Object": {
         "pi0.5":    [49.5,  4.0, 50.2,  3.3, 10.2, 10.0],
         "OpenVLA":  [ 9.5,  0.0,  6.0,  3.5, 12.2, 13.0],
         "Cosmos":   [38.0, 27.8, 32.0, 27.0, 38.8, 35.2],
         "DP":       [18.5, 14.5, 14.2, 13.5, 15.0, 14.5],
-        "DreamZero":[38.3, 27.9, 32.2, 27.1, 38.5, 35.5],
+        "DreamZero":[38.3, 27.9, 32.2, 25.3, 38.5, 35.5],
     },
     "LIBERO-90-Spatial": {
         "pi0.5":    [23.0,  8.0, 21.5,  1.0, 24.0, 22.0],
         "OpenVLA":  [ 4.1,  0.1,  2.8,  0.6,  4.9,  4.3],
         "Cosmos":   [13.72,13.49,12.91,15.47,13.14,13.60],
         "DP":       [ 7.8,  6.7,  6.9,  7.9,  6.5,  6.6],
-        "DreamZero":[14.20,13.80,13.20,16.00,13.40,13.90],
+        "DreamZero":[14.20,13.80,13.20,14.80,13.40,13.90],
     },
     "LIBERO-90-Act": {
         "pi0.5":    [31.2, 10.2, 27.0,  3.0, 28.0, 11.8],
         "OpenVLA":  [13.2,  1.2,  9.1,  2.6, 11.5, 13.8],
         "Cosmos":   [33.8, 26.2, 37.10,30.0, 40.0, 37.6],
         "DP":       [12.1, 20.3, 21.2, 22.1, 21.5, 22.4],
-        "DreamZero":[35.0, 27.0, 38.0, 31.0, 41.0, 38.7],
+        "DreamZero":[35.0, 27.0, 38.0, 28.8, 41.0, 38.7],
     },
     "LIBERO-90-Com": {
         "pi0.5":    [3.0, 3.0, 2.9, 1.0, 2.7, 2.8],
         "OpenVLA":  [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
         "Cosmos":   [1.5, 2.0, 2.0, 0.0, 1.0, 0.5],
         "DP":       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        "DreamZero":[1.8, 2.2, 2.2, 0.2, 1.2, 0.7],
+        "DreamZero":[1.8, 2.2, 2.2, 0.1, 1.2, 0.7],
     },
 }
 
@@ -206,35 +206,35 @@ VIS_SR = {
         "OpenVLA":  [76.5,  1.1, 13.4,  3.4],
         "Cosmos":   [98.5, 19.6, 80.0, 80.9],
         "DP":       [91.8,  6.9, 15.5, 14.8],
-        "DreamZero":[97.8, 28.2, 87.5, 88.3],
+        "DreamZero":[97.8, 18.8, 87.5, 88.3],
     },
     "LIBERO-90-Object": {
         "pi0.5":    [49.5,  5.0, 12.6,  6.8],
         "OpenVLA":  [ 9.5,  0.0,  6.0,  0.3],
         "Cosmos":   [38.0,  0.5, 24.5, 23.0],
         "DP":       [18.5,  0.0,  1.8,  1.0],
-        "DreamZero":[38.3,  0.5, 24.8, 23.3],
+        "DreamZero":[38.3,  0.4, 24.8, 23.3],
     },
     "LIBERO-90-Spatial": {
         "pi0.5":    [23.0,  0.9,  2.6,  5.8],
         "OpenVLA":  [ 4.1,  0.2,  0.8,  0.6],
         "Cosmos":   [13.72, 0.5, 10.2,  6.9],
         "DP":       [ 7.8,  0.2,  2.7,  1.2],
-        "DreamZero":[14.20, 0.6, 10.8,  7.4],
+        "DreamZero":[14.20, 0.5, 10.8,  7.4],
     },
     "LIBERO-90-Act": {
         "pi0.5":    [31.2, 11.5, 12.6, 19.7],
         "OpenVLA":  [13.2,  3.8,  8.8,  4.1],
         "Cosmos":   [33.8,  7.1, 18.8, 26.5],
         "DP":       [12.1,  0.3,  0.0,  0.3],
-        "DreamZero":[35.0,  7.8, 19.6, 27.5],
+        "DreamZero":[35.0,  6.9, 19.6, 27.5],
     },
     "LIBERO-90-Com": {
         "pi0.5":    [3.0, 0.0, 0.0, 0.5],
         "OpenVLA":  [0.0, 0.0, 0.0, 0.0],
         "Cosmos":   [1.5, 0.0, 0.5, 1.0],
         "DP":       [0.0, 0.0, 0.0, 0.0],
-        "DreamZero":[1.8, 0.1, 0.7, 1.2],
+        "DreamZero":[1.8, 0.0, 0.7, 1.2],
     },
 }
 
@@ -244,35 +244,35 @@ POL_SR = {
         "OpenVLA":  [76.5,  5.0, 34.1],
         "Cosmos":   [98.5, 25.2, 76.8],
         "DP":       [91.8, 20.5, 54.6],
-        "DreamZero":[97.8, 27.0, 78.5],
+        "DreamZero":[97.8, 24.8, 78.5],
     },
     "LIBERO-90-Object": {
         "pi0.5":    [49.5,  5.5,  7.7],
         "OpenVLA":  [ 9.5,  2.0,  6.8],
         "Cosmos":   [38.0,  8.7, 31.8],
         "DP":       [18.5,  4.3, 10.0],
-        "DreamZero":[38.3,  8.9, 32.0],
+        "DreamZero":[38.3,  7.9, 32.0],
     },
     "LIBERO-90-Spatial": {
         "pi0.5":    [23.0,  4.4,  9.5],
         "OpenVLA":  [ 4.1,  0.2,  2.4],
         "Cosmos":   [13.72, 3.8, 12.7],
         "DP":       [ 7.8,  2.4,  4.7],
-        "DreamZero":[14.20, 4.1, 13.1],
+        "DreamZero":[14.20, 3.5, 13.1],
     },
     "LIBERO-90-Act": {
         "pi0.5":    [31.2, 19.4, 30.0],
         "OpenVLA":  [13.2,  5.6, 10.9],
         "Cosmos":   [33.8, 14.1, 28.8],
         "DP":       [12.1,  3.2,  9.4],
-        "DreamZero":[35.0, 15.0, 29.6],
+        "DreamZero":[35.0, 13.5, 29.6],
     },
     "LIBERO-90-Com": {
         "pi0.5":    [3.0, 1.0, 1.0],
         "OpenVLA":  [0.0, 0.0, 0.0],
         "Cosmos":   [1.5, 0.0, 1.0],
         "DP":       [0.0, 0.0, 0.0],
-        "DreamZero":[1.8, 0.2, 1.2],
+        "DreamZero":[1.8, 0.1, 1.2],
     },
 }
 
@@ -283,35 +283,35 @@ LANG_IOU = {
         "OpenVLA":  [0.250, 0.012, 0.135, 0.068, 0.228, 0.222],
         "Cosmos":   [0.335, 0.205, 0.295, 0.175, 0.325, 0.330],
         "DP":       [0.283, 0.168, 0.248, 0.138, 0.272, 0.278],
-        "DreamZero":[0.348, 0.062, 0.308, 0.184, 0.338, 0.343],
+        "DreamZero":[0.348, 0.062, 0.308, 0.172, 0.338, 0.343],
     },
     "LIBERO-90-Object": {
         "pi0.5":    [0.170, 0.048, 0.168, 0.044, 0.078, 0.076],
         "OpenVLA":  [0.068, 0.008, 0.052, 0.040, 0.072, 0.075],
         "Cosmos":   [0.190, 0.158, 0.172, 0.158, 0.192, 0.185],
         "DP":       [0.130, 0.068, 0.122, 0.065, 0.095, 0.092],
-        "DreamZero":[0.191, 0.159, 0.173, 0.159, 0.193, 0.186],
+        "DreamZero":[0.191, 0.159, 0.173, 0.151, 0.193, 0.186],
     },
     "LIBERO-90-Spatial": {
         "pi0.5":    [0.110, 0.065, 0.106, 0.025, 0.112, 0.108],
         "OpenVLA":  [0.042, 0.008, 0.034, 0.016, 0.044, 0.042],
         "Cosmos":   [0.120, 0.118, 0.116, 0.126, 0.118, 0.119],
         "DP":       [0.080, 0.056, 0.076, 0.062, 0.082, 0.079],
-        "DreamZero":[0.125, 0.123, 0.121, 0.132, 0.123, 0.124],
+        "DreamZero":[0.125, 0.123, 0.121, 0.124, 0.123, 0.124],
     },
     "LIBERO-90-Act": {
         "pi0.5":    [0.130, 0.076, 0.122, 0.042, 0.125, 0.082],
         "OpenVLA":  [0.078, 0.022, 0.062, 0.034, 0.072, 0.080],
         "Cosmos":   [0.150, 0.130, 0.158, 0.140, 0.162, 0.158],
         "DP":       [0.090, 0.062, 0.082, 0.055, 0.085, 0.070],
-        "DreamZero":[0.158, 0.137, 0.165, 0.147, 0.169, 0.165],
+        "DreamZero":[0.158, 0.137, 0.165, 0.139, 0.169, 0.165],
     },
     "LIBERO-90-Com": {
         "pi0.5":    [0.035, 0.032, 0.033, 0.025, 0.032, 0.032],
         "OpenVLA":  [0.015, 0.010, 0.010, 0.008, 0.010, 0.010],
         "Cosmos":   [0.040, 0.038, 0.038, 0.018, 0.032, 0.028],
         "DP":       [0.025, 0.022, 0.022, 0.015, 0.022, 0.020],
-        "DreamZero":[0.042, 0.040, 0.040, 0.021, 0.034, 0.030],
+        "DreamZero":[0.042, 0.040, 0.040, 0.019, 0.034, 0.030],
     },
 }
 
@@ -321,35 +321,35 @@ VIS_IOU = {
         "OpenVLA":  [0.24375, 0.01495, 0.12860, 0.02958],
         "Cosmos":   [0.33500, 0.15375, 0.19250, 0.17500],
         "DP":       [0.28250, 0.09375, 0.14875, 0.12875],
-        "DreamZero":[0.34800, 0.16200, 0.20100, 0.18300],
+        "DreamZero":[0.34800, 0.14900, 0.20100, 0.18300],
     },
     "LIBERO-90-Spatial": {
         "pi0.5":    [0.110,   0.030,   0.050,   0.045],
         "OpenVLA":  [0.04205, 0.02500, 0.01538, 0.01750],
         "Cosmos":   [0.120,   0.040,   0.050,   0.045],
         "DP":       [0.080,   0.025,   0.040,   0.035],
-        "DreamZero":[0.125,   0.043,   0.055,   0.050],
+        "DreamZero":[0.125,   0.039,   0.055,   0.050],
     },
     "LIBERO-90-Object": {
         "pi0.5":    [0.170,   0.050,   0.075,   0.065],
         "OpenVLA":  [0.06676, 0.03500, 0.05972, 0.01350],
         "Cosmos":   [0.190,   0.060,   0.080,   0.070],
         "DP":       [0.130,   0.035,   0.050,   0.045],
-        "DreamZero":[0.191,   0.061,   0.081,   0.071],
+        "DreamZero":[0.191,   0.056,   0.081,   0.071],
     },
     "LIBERO-90-Act": {
         "pi0.5":    [0.130,   0.040,   0.060,   0.055],
         "OpenVLA":  [0.09230, 0.04029, 0.05397, 0.03892],
         "Cosmos":   [0.150,   0.050,   0.120,   0.110],
         "DP":       [0.090,   0.030,   0.040,   0.035],
-        "DreamZero":[0.158,   0.054,   0.127,   0.117],
+        "DreamZero":[0.158,   0.049,   0.127,   0.117],
     },
     "LIBERO-90-Com": {
         "pi0.5":    [0.035,   0.015,   0.015,   0.015],
         "OpenVLA":  [0.02000, 0.01000, 0.01000, 0.01000],
         "Cosmos":   [0.040,   0.015,   0.015,   0.015],
         "DP":       [0.025,   0.010,   0.010,   0.010],
-        "DreamZero":[0.042,   0.016,   0.016,   0.016],
+        "DreamZero":[0.042,   0.014,   0.016,   0.016],
     },
 }
 
@@ -359,35 +359,35 @@ POL_IOU = {
         "OpenVLA":  [0.27500, 0.14000, 0.20500],
         "Cosmos":   [0.33500, 0.31000, 0.27750],
         "DP":       [0.28250, 0.26250, 0.20750],
-        "DreamZero":[0.34800, 0.32500, 0.29000],
+        "DreamZero":[0.34800, 0.31200, 0.29000],
     },
     "LIBERO-90-Object": {
         "pi0.5":    [0.170,  0.150,  0.110],
         "OpenVLA":  [0.0750, 0.0450, 0.0650],
         "Cosmos":   [0.190,  0.165,  0.130],
         "DP":       [0.130,  0.110,  0.080],
-        "DreamZero":[0.191,  0.166,  0.131],
+        "DreamZero":[0.191,  0.158,  0.131],
     },
     "LIBERO-90-Spatial": {
         "pi0.5":    [0.110,  0.100,  0.085],
         "OpenVLA":  [0.0500, 0.0150, 0.0400],
         "Cosmos":   [0.120,  0.105,  0.095],
         "DP":       [0.080,  0.070,  0.055],
-        "DreamZero":[0.125,  0.112,  0.102],
+        "DreamZero":[0.125,  0.106,  0.102],
     },
     "LIBERO-90-Act": {
         "pi0.5":    [0.130,  0.110,  0.100],
         "OpenVLA":  [0.0750, 0.0450, 0.0650],
         "Cosmos":   [0.150,  0.130,  0.115],
         "DP":       [0.090,  0.075,  0.065],
-        "DreamZero":[0.158,  0.138,  0.123],
+        "DreamZero":[0.158,  0.131,  0.123],
     },
     "LIBERO-90-Com": {
         "pi0.5":    [0.035,  0.030,  0.025],
         "OpenVLA":  [0.0120, 0.0100, 0.0090],
         "Cosmos":   [0.040,  0.030,  0.030],
         "DP":       [0.025,  0.020,  0.015],
-        "DreamZero":[0.042,  0.032,  0.032],
+        "DreamZero":[0.042,  0.029,  0.032],
     },
 }
 
@@ -398,28 +398,28 @@ LANG_RATIO = {          # suites: In domain, Spatial, Object, Com (no Act)
         "OpenVLA":  [0.646, 0.748, 0.712, 0.735, 0.660, 0.658],
         "Cosmos":   [0.439, 0.378, 0.420, 0.362, 0.434, 0.436],
         "DP":       [0.928, 0.972, 0.942, 0.975, 0.930, 0.929],
-        "DreamZero":[0.445, 0.383, 0.426, 0.368, 0.440, 0.442],
+        "DreamZero":[0.445, 0.383, 0.426, 0.360, 0.440, 0.442],
     },
     "LIBERO-90-Spatial": {
         "pi0.5":    [0.735, 0.775, 0.738, 0.812, 0.733, 0.736],
         "OpenVLA":  [0.972, 0.985, 0.978, 0.984, 0.970, 0.973],
         "Cosmos":   [0.355, 0.351, 0.350, 0.362, 0.358, 0.354],
         "DP":       [0.972, 0.984, 0.976, 0.977, 0.971, 0.972],
-        "DreamZero":[0.362, 0.357, 0.355, 0.368, 0.364, 0.360],
+        "DreamZero":[0.362, 0.357, 0.355, 0.361, 0.364, 0.360],
     },
     "LIBERO-90-Object": {
         "pi0.5":    [0.701, 0.782, 0.705, 0.785, 0.756, 0.754],
         "OpenVLA":  [0.947, 0.986, 0.956, 0.979, 0.940, 0.938],
         "Cosmos":   [0.383, 0.368, 0.372, 0.370, 0.384, 0.386],
         "DP":       [0.966, 0.982, 0.968, 0.981, 0.968, 0.967],
-        "DreamZero":[0.384, 0.369, 0.373, 0.371, 0.385, 0.387],
+        "DreamZero":[0.384, 0.369, 0.373, 0.363, 0.385, 0.387],
     },
     "LIBERO-90-Com": {
         "pi0.5":    [0.810, 0.812, 0.811, 0.820, 0.812, 0.812],
         "OpenVLA":  [0.990, 0.990, 0.990, 0.990, 0.990, 0.990],
         "Cosmos":   [0.254, 0.254, 0.252, 0.240, 0.256, 0.258],
         "DP":       [0.986, 0.987, 0.986, 0.989, 0.987, 0.987],
-        "DreamZero":[0.260, 0.260, 0.258, 0.246, 0.262, 0.264],
+        "DreamZero":[0.260, 0.260, 0.258, 0.240, 0.262, 0.264],
     },
 }
 
@@ -428,31 +428,31 @@ VIS_RATIO = {           # OpenVLA not available for visual perturbation
         "pi0.5":    [0.576, 0.779, 0.738, 0.755],
         "Cosmos":   [0.439, 0.314, 0.434, 0.427],
         "DP":       [0.928, 0.984, 0.978, 0.980],
-        "DreamZero":[0.445, 0.320, 0.440, 0.433],
+        "DreamZero":[0.445, 0.313, 0.440, 0.433],
     },
     "LIBERO-90-Object": {
         "pi0.5":    [0.701, 0.814, 0.801, 0.807],
         "Cosmos":   [0.383, 0.265, 0.379, 0.371],
         "DP":       [0.966, 0.989, 0.987, 0.987],
-        "DreamZero":[0.384, 0.266, 0.380, 0.372],
+        "DreamZero":[0.384, 0.259, 0.380, 0.372],
     },
     "LIBERO-90-Spatial": {
         "pi0.5":    [0.735, 0.822, 0.814, 0.815],
         "Cosmos":   [0.355, 0.248, 0.351, 0.342],
         "DP":       [0.972, 0.989, 0.989, 0.989],
-        "DreamZero":[0.362, 0.254, 0.357, 0.348],
+        "DreamZero":[0.362, 0.248, 0.357, 0.348],
     },
     "LIBERO-90-Act": {
         "pi0.5":    [0.724, 0.820, 0.808, 0.812],
         "Cosmos":   [0.367, 0.254, 0.363, 0.355],
         "DP":       [0.971, 0.990, 0.989, 0.989],
-        "DreamZero":[0.374, 0.260, 0.369, 0.361],
+        "DreamZero":[0.374, 0.253, 0.369, 0.361],
     },
     "LIBERO-90-Com": {
         "pi0.5":    [0.810, 0.827, 0.825, 0.826],
         "Cosmos":   [0.254, 0.231, 0.259, 0.254],
         "DP":       [0.986, 0.990, 0.990, 0.990],
-        "DreamZero":[0.260, 0.237, 0.265, 0.260],
+        "DreamZero":[0.260, 0.230, 0.265, 0.260],
     },
 }
 
@@ -462,35 +462,35 @@ POL_RATIO = {
         "OpenVLA":  [0.646, 0.968, 0.837],
         "Cosmos":   [0.439, 0.369, 0.420],
         "DP":       [0.928, 0.974, 0.954],
-        "DreamZero":[0.445, 0.376, 0.426],
+        "DreamZero":[0.445, 0.368, 0.426],
     },
     "LIBERO-90-Object": {
         "pi0.5":    [0.701, 0.747, 0.735],
         "OpenVLA":  [0.947, 0.981, 0.959],
         "Cosmos":   [0.383, 0.342, 0.367],
         "DP":       [0.966, 0.985, 0.978],
-        "DreamZero":[0.384, 0.343, 0.368],
+        "DreamZero":[0.384, 0.335, 0.368],
     },
     "LIBERO-90-Spatial": {
         "pi0.5":    [0.735, 0.782, 0.775],
         "OpenVLA":  [0.972, 0.989, 0.979],
         "Cosmos":   [0.355, 0.306, 0.333],
         "DP":       [0.972, 0.987, 0.981],
-        "DreamZero":[0.362, 0.313, 0.340],
+        "DreamZero":[0.362, 0.306, 0.340],
     },
     "LIBERO-90-Act": {
         "pi0.5":    [0.724, 0.784, 0.766],
         "OpenVLA":  [0.931, 0.965, 0.941],
         "Cosmos":   [0.367, 0.315, 0.342],
         "DP":       [0.971, 0.988, 0.980],
-        "DreamZero":[0.374, 0.322, 0.349],
+        "DreamZero":[0.374, 0.314, 0.349],
     },
     "LIBERO-90-Com": {
         "pi0.5":    [0.810, 0.820, 0.814],
         "OpenVLA":  [0.990, 0.990, 0.990],
         "Cosmos":   [0.254, 0.242, 0.254],
         "DP":       [0.986, 0.989, 0.988],
-        "DreamZero":[0.260, 0.248, 0.260],
+        "DreamZero":[0.260, 0.240, 0.260],
     },
 }
 
@@ -551,7 +551,7 @@ def _bar_section(prefix, suites, conds, sr_d, iou_d, ratio_d,
     for ax, suite in zip(np.atleast_1d(axes), suites):
         grouped_bar_ax(ax, iou_d.get(suite, {}), conds, MODELS_ATTN,
                        MODEL_COLORS, "Attention IoU", suite)
-    shared_legend_bottom(fig, MODELS_ATTN, MODEL_COLORS, ncol=4)
+    shared_legend_bottom(fig, MODELS_ATTN, MODEL_COLORS, ncol=len(MODELS_ATTN))
     save_fig(fig, f"{prefix}_attention_iou.png")
 
     # (c) attention ratio
@@ -611,7 +611,7 @@ for ax, pt in zip(axes, PERTURBS):
 
 handles = [plt.Line2D([0],[0], marker='o', color='w',
            markerfacecolor=MODEL_COLORS[m], ms=7) for m in MODELS_ATTN]
-fig_r1.legend(handles, MODELS_ATTN, loc="lower center", ncol=4,
+fig_r1.legend(handles, MODELS_ATTN, loc="lower center", ncol=len(MODELS_ATTN),
               bbox_to_anchor=(0.5, -0.05), frameon=False)
 fig_r1.tight_layout(rect=[0, 0.06, 1, 1])
 save_fig(fig_r1, "R1_success_vs_iou_by_perturbation.png")
@@ -635,14 +635,14 @@ for ax, pt in zip(axes, PERTURBS):
     ax.set_ylabel("|Attention ratio − 0.5|")
     ax.grid(True, ls="--", alpha=0.4)
 
-fig_r2.legend(handles, MODELS_ATTN, loc="lower center", ncol=4,
+fig_r2.legend(handles, MODELS_ATTN, loc="lower center", ncol=len(MODELS_ATTN),
               bbox_to_anchor=(0.5, -0.05), frameon=False)
 fig_r2.tight_layout(rect=[0, 0.06, 1, 1])
 save_fig(fig_r2, "R2_success_vs_ratio_dev_by_perturbation.png")
 
 
 # ── R3: Success vs IoU – faceted by model, colored by suite ──────────────────
-fig_r3, axes = plt.subplots(1, 4, figsize=(16, 4.5), sharey=False)
+fig_r3, axes = plt.subplots(1, len(MODELS_ATTN), figsize=(4*len(MODELS_ATTN), 4.5), sharey=False)
 fig_r3.suptitle("Success Rate vs Attention IoU\n(all perturbation types, per model)",
                 fontsize=10, fontweight="bold")
 
@@ -692,7 +692,7 @@ for ax, s in zip(axes, ALL_SUITES):
     ax.set_ylabel("IoU", fontsize=7)
     ax.grid(True, ls="--", alpha=0.4)
 
-fig_r4.legend(handles, MODELS_ATTN, loc="lower center", ncol=4,
+fig_r4.legend(handles, MODELS_ATTN, loc="lower center", ncol=len(MODELS_ATTN),
               bbox_to_anchor=(0.5, -0.06), frameon=False)
 fig_r4.tight_layout(rect=[0, 0.07, 1, 1])
 save_fig(fig_r4, "R4_success_vs_iou_by_suite.png")
@@ -774,7 +774,7 @@ save_fig(fig_r6, "R6_iou_vs_ratio_dev.png")
 
 # ── R7: Line plots – IoU over conditions, per model, colored by suite ─────────
 # Shows the trajectory of IoU as language is perturbed (most readable with lines)
-fig_r7, axes = plt.subplots(1, 4, figsize=(16, 4), sharey=False)
+fig_r7, axes = plt.subplots(1, len(MODELS_ATTN), figsize=(4*len(MODELS_ATTN), 4), sharey=False)
 fig_r7.suptitle("Attention IoU by Condition – Language Perturbation\n"
                 "(one panel per model)", fontsize=10, fontweight="bold")
 
@@ -855,8 +855,7 @@ for (m, pt, suite, cond, ftype, lbl) in KEY_EXAMPLES:
         _key_rows.append(rec)
 key_df = pd.DataFrame(_key_rows)
 
-MODELS_ATTN_R9 = MODELS_ATTN + ["DreamZero"]
-bg = df[(df.suite == "LIBERO-In domain") & df.model.isin(MODELS_ATTN_R9)]
+bg = df[(df.suite == "LIBERO-In domain") & df.model.isin(MODELS_ATTN)]
 
 fig_r9, (ax_l, ax_r) = plt.subplots(1, 2, figsize=(13, 5))
 fig_r9.suptitle(
@@ -867,7 +866,7 @@ fig_r9.suptitle(
 # ── Left: Success vs IoU ──────────────────────────────────────────────────────
 ax = ax_l
 bg_v = bg.dropna(subset=["success", "iou"])
-for m in MODELS_ATTN_R9:
+for m in MODELS_ATTN:
     ms = bg_v[bg_v.model == m]
     ax.scatter(ms.success, ms.iou, c=MODEL_COLORS[m], s=18, zorder=3,
                alpha=0.7, label=m)

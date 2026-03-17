@@ -77,6 +77,7 @@ from policy_perturbations import (  # noqa: E402
     apply_object_shift,
     maybe_perturb_action,
 )
+from prompt_perturbations import perturb_prompt  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
