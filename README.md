@@ -161,8 +161,8 @@ Compare instantaneous grounding (`x_t`) against temporally integrated grounding 
 ```bash
 python analysis/temporal_reliance.py \
   --inputs \
-    pi0.5:/path/to/iou_results_libero_10.json \
-    DreamZero:/path/to/attention_results_libero_10.json \
+    pi0.5:results/attention/outputs_attn_ratio/libero_10_seed7/iou_results_libero_10.json \
+    Cosmos:results/attention/outputs_attn_ratio_cosmos/iou_results_libero_10.json \
   --feature iou \
   --rolling-windows 1 3 5 10 \
   --output-dir results/temporal_reliance
@@ -315,6 +315,5 @@ We use [uv](https://docs.astral.sh/uv/) to manage Python dependencies. See the [
 GIT_LFS_SKIP_SMUDGE=1 uv sync
 GIT_LFS_SKIP_SMUDGE=1 uv pip install -e .
 ```
-
 
 

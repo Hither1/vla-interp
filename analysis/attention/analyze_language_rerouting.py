@@ -279,6 +279,17 @@ def merge_metric(record: dict[str, Any], field: str, value: Any) -> None:
         record[field] = value
 
 
+def merge_record_dicts(existing: dict[str, Any], incoming: dict[str, Any]) -> dict[str, Any]:
+    for field, value in incoming.items():
+        if field == "sources":
+            existing.setdefault("sources", [])
+            existing["sources"].extend(value)
+            continue
+        if existing.get(field) is None and value is not None:
+            existing[field] = value
+    return existing
+
+
 def load_episode_eval_json(
     path: Path,
     model: str,
@@ -744,7 +755,11 @@ def main() -> None:
     all_records: dict[EpisodeKey, dict[str, Any]] = {}
     for model, root in model_runs:
         records = discover_model_records(model, root)
-        all_records.update(records)
+        for key, record in records.items():
+            if key in all_records:
+                merge_record_dicts(all_records[key], record)
+            else:
+                all_records[key] = record
 
     delta_rows = compute_deltas(all_records, args.perturbations, args.gri_lambda)
     summary_rows = summarize_deltas(delta_rows)
