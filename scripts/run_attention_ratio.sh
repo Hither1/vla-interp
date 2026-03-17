@@ -88,9 +88,15 @@ else
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 fi
+WORKDIR="$PROJECT_ROOT"
 
 for SUITE in "${SUITES[@]}"; do
-    OUTPUT_DIR="results/attention/ratio_pi05/${SUITE}/vis_${VIS_TAG}__pol_${POL_TAG}"
+    if [[ "$VISUAL_PERTURB_MODE" != "none" || "$POLICY_PERTURB_MODE" != "none" ]]; then
+        PERTURB_TAG="vis_${VIS_TAG}__pol_${POL_TAG}"
+    else
+        PERTURB_TAG="none"
+    fi
+    OUTPUT_DIR="${WORKDIR}/results/attention/ratio/pi05/perturb/${PERTURB_TAG}/${SUITE}_seed${SEED}"
 
     echo "========================================="
     echo "Visual/Linguistic Attention Ratio Eval"

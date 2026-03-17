@@ -106,7 +106,12 @@ if [ -n "${TASK_ID}" ]; then
 fi
 
 for SUITE in "${SUITES[@]}"; do
-    OUTPUT_DIR="${WORKDIR}/results/attention/ratio_dp/${SUITE}_seed${SEED}/vis_${VIS_TAG}__pol_${POL_TAG}"
+    if [[ "$VISUAL_PERTURB_MODE" != "none" || "$POLICY_PERTURB_MODE" != "none" ]]; then
+        PERTURB_TAG="vis_${VIS_TAG}__pol_${POL_TAG}"
+    else
+        PERTURB_TAG="none"
+    fi
+    OUTPUT_DIR="${WORKDIR}/results/attention/ratio/dp/perturb/${PERTURB_TAG}/${SUITE}_seed${SEED}"
     mkdir -p "${OUTPUT_DIR}"
 
     echo "============================================================"
@@ -152,5 +157,5 @@ for SUITE in "${SUITES[@]}"; do
         ${TASK_ID_FLAG}
 
     echo
-    echo "Done. Results saved to ${OUTPUT_DIR}/ratio_results_${SUITE}.json"
+    echo "Done. Results saved to ${OUTPUT_DIR}/attention_ratio_results_${SUITE}.json"
 done

@@ -131,7 +131,12 @@ if [[ "${SAVE_VIZ}" == "1" ]]; then
 fi
 
 for SUITE in "${SUITES[@]}"; do
-    OUTPUT_DIR="${WORKDIR}/results/attention/iou_dp/${SUITE}_seed${SEED}_perturb_${PERTURB_TAG}"
+    if [[ "$VISUAL_PERTURB_MODE" != "none" || "$POLICY_PERTURB_MODE" != "none" ]]; then
+        FULL_PERTURB_TAG="vis_${VIS_TAG#vis_}__pol_${POL_TAG#pol_}"
+    else
+        FULL_PERTURB_TAG="none"
+    fi
+    OUTPUT_DIR="${WORKDIR}/results/attention/iou/dp/perturb/${FULL_PERTURB_TAG}/${SUITE}_seed${SEED}"
     mkdir -p "${OUTPUT_DIR}"
 
     echo "============================================================"
@@ -149,7 +154,7 @@ for SUITE in "${SUITES[@]}"; do
     echo "Save viz:            ${SAVE_VIZ}"
     echo "Visual perturbation: ${VISUAL_PERTURB_MODE} (rotation=${ROTATION_DEGREES} tx=${TRANSLATE_X_FRAC} ty=${TRANSLATE_Y_FRAC})"
     echo "Policy perturbation: ${POLICY_PERTURB_MODE} (prob=${RANDOM_ACTION_PROB} scale=${RANDOM_ACTION_SCALE} ox=${OBJECT_SHIFT_X_STD} oy=${OBJECT_SHIFT_Y_STD})"
-    echo "Perturbation tag:    ${PERTURB_TAG}"
+    echo "Perturbation tag:    ${FULL_PERTURB_TAG}"
     echo "Output dir:          ${OUTPUT_DIR}"
     echo "============================================================"
 

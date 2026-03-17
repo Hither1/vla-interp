@@ -79,37 +79,26 @@ fi
 # ── Derived perturbation tag ────────────────────────────────────────────
 if [[ "$VISUAL_PERTURB_MODE" != "none" ]]; then
     if [[ "$VISUAL_PERTURB_MODE" == "rotate" ]]; then
-        VIS_TAG="vis_rotate_${ROTATION_DEGREES}deg"
+        VIS_TAG_VALUE="rotate_${ROTATION_DEGREES}deg"
     elif [[ "$VISUAL_PERTURB_MODE" == "translate" ]]; then
-        VIS_TAG="vis_translate_x${TRANSLATE_X_FRAC}_y${TRANSLATE_Y_FRAC}"
+        VIS_TAG_VALUE="translate_x${TRANSLATE_X_FRAC}_y${TRANSLATE_Y_FRAC}"
     else
-        VIS_TAG="vis_rotate_${ROTATION_DEGREES}deg_translate_x${TRANSLATE_X_FRAC}_y${TRANSLATE_Y_FRAC}"
+        VIS_TAG_VALUE="rotate_${ROTATION_DEGREES}deg_translate_x${TRANSLATE_X_FRAC}_y${TRANSLATE_Y_FRAC}"
     fi
 else
-    VIS_TAG=""
+    VIS_TAG_VALUE="none"
 fi
 
 if [[ "$POLICY_PERTURB_MODE" != "none" ]]; then
     if [[ "$POLICY_PERTURB_MODE" == "random_action" ]]; then
-        POL_TAG="pol_random_action_p${RANDOM_ACTION_PROB}_s${RANDOM_ACTION_SCALE}"
+        POL_TAG_VALUE="random_action_p${RANDOM_ACTION_PROB}_s${RANDOM_ACTION_SCALE}"
     elif [[ "$POLICY_PERTURB_MODE" == "object_shift" ]]; then
-        POL_TAG="pol_object_shift_x${OBJECT_SHIFT_X_STD}_y${OBJECT_SHIFT_Y_STD}"
+        POL_TAG_VALUE="object_shift_x${OBJECT_SHIFT_X_STD}_y${OBJECT_SHIFT_Y_STD}"
     else
-        POL_TAG="pol_${POLICY_PERTURB_MODE}"
+        POL_TAG_VALUE="${POLICY_PERTURB_MODE}"
     fi
 else
-    POL_TAG=""
-fi
-
-
-_TAGS=()
-[[ -n "${VIS_TAG}" ]] && _TAGS+=("${VIS_TAG}")
-[[ -n "${POL_TAG}" ]] && _TAGS+=("${POL_TAG}")
-
-if [[ ${#_TAGS[@]} -gt 0 ]]; then
-    PERTURB_TAG="$(IFS='__'; echo "${_TAGS[*]}")"
-else
-    PERTURB_TAG="none"
+    POL_TAG_VALUE="none"
 fi
 
 # Script directory (handle SLURM execution)
@@ -119,6 +108,7 @@ else
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 fi
+WORKDIR="$PROJECT_ROOT"
 
 mkdir -p logs
 
@@ -128,7 +118,14 @@ if [[ "$SAVE_VIZ" == "1" ]]; then
 fi
 
 for SUITE in "${SUITES[@]}"; do
-    OUTPUT_DIR="results/attention/iou_openvla/${SUITE}_seed${SEED}_prompt_${PROMPT_PERTURB_MODE}_perturb_${PERTURB_TAG}"
+    if [[ "$PROMPT_PERTURB_MODE" != "none" ]]; then
+        FULL_PERTURB_TAG="vis_${VIS_TAG_VALUE}__pol_${POL_TAG_VALUE}__prompt_${PROMPT_PERTURB_MODE}"
+    elif [[ "$VISUAL_PERTURB_MODE" != "none" || "$POLICY_PERTURB_MODE" != "none" ]]; then
+        FULL_PERTURB_TAG="vis_${VIS_TAG_VALUE}__pol_${POL_TAG_VALUE}"
+    else
+        FULL_PERTURB_TAG="none"
+    fi
+    OUTPUT_DIR="${WORKDIR}/results/attention/iou/openvla/perturb/${FULL_PERTURB_TAG}/${SUITE}_seed${SEED}"
 
     echo "========================================="
     echo "OpenVLA Attention-Segmentation IoU"
@@ -143,7 +140,7 @@ for SUITE in "${SUITES[@]}"; do
     echo "Visual perturbation: ${VISUAL_PERTURB_MODE} (rotation=${ROTATION_DEGREES} tx=${TRANSLATE_X_FRAC} ty=${TRANSLATE_Y_FRAC})"
     echo "Policy perturbation: ${POLICY_PERTURB_MODE} (prob=${RANDOM_ACTION_PROB} scale=${RANDOM_ACTION_SCALE} ox=${OBJECT_SHIFT_X_STD} oy=${OBJECT_SHIFT_Y_STD})"
     echo "Prompt perturbation: ${PROMPT_PERTURB_MODE}"
-    echo "Perturbation tag:    ${PERTURB_TAG}"
+    echo "Perturbation tag:    ${FULL_PERTURB_TAG}"
     echo "Output:        $OUTPUT_DIR"
     echo "========================================="
     echo

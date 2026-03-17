@@ -65,7 +65,7 @@ python analysis/evaluate_attention_ratio_cosmos.py \
   --query-frame action \
   --visual-frame curr_last \
   --text-frame frame0 \
-  --output-dir results/attention_ratio_cosmos
+  --output-dir results/attention/ratio/cosmos/perturb/none/libero_10_seed7
 ```
 
 **SLURM Script**: `scripts/run_attention_ratio_cosmos.sh`
@@ -240,13 +240,12 @@ python analysis/parse_attention_ratio_results.py \
 ```bash
 # Run multiple suites
 for suite in libero_spatial libero_object libero_goal; do
-  TASK_SUITE=$suite OUTPUT_DIR=results/attention_ratio_cosmos_${suite} \
-    sbatch scripts/run_attention_ratio_cosmos.sh
+  TASK_SUITE=$suite sbatch scripts/run_attention_ratio_cosmos.sh
 done
 
 # Compare results
 python analysis/parse_attention_ratio_results.py \
-  --results results/attention_ratio_cosmos_*/attention_ratio_results_*.json \
+  --results results/attention/ratio/cosmos/perturb/none/libero_goal_seed7/attention_ratio_results_libero_goal.json \
   --plot-comparison \
   --output-dir results/cosmos_comparison
 ```

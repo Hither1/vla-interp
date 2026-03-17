@@ -15,7 +15,7 @@ Usage:
   python evaluate_attention_ratio_cosmos.py \
     --ckpt-path nvidia/Cosmos-Policy-LIBERO-Predict2-2B \
     --task-suite libero_10 --num-episodes 5 \
-    --layers 25 26 27 --output-dir results/attention_ratio_cosmos
+    --layers 25 26 27 --output-dir results/attention/ratio/cosmos/perturb/none/libero_10_seed7
 """
 
 from __future__ import annotations
@@ -726,7 +726,7 @@ def main():
                         help="Custom prompt string (used when --prompt-mode=custom).")
 
     # Output
-    parser.add_argument("--output-dir", type=str, default="results/attention_ratio_cosmos")
+    parser.add_argument("--output-dir", type=str, default="results/attention/ratio/cosmos/perturb/none/libero_10_seed7")
 
     args = parser.parse_args()
 

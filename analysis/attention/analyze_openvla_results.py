@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Analyze all OpenVLA attention results in results/attention_openvla/.
+Analyze all OpenVLA attention results in results/attention/combined/openvla/.
 
 Handles the two-level nested structure:
-  results/attention_openvla/{ratio,iou}_openvla_*/<condition_name>/*.json
+  results/attention/combined/openvla/perturb/<condition_name>/*.json
 
 For ratio folders: calls parse_attention_ratio_results logic
 For iou folders:   calls parse_iou_results logic
@@ -11,8 +11,8 @@ For iou folders:   calls parse_iou_results logic
 Usage:
   cd /path/to/vla-interp
   python analysis/attention/analyze_openvla_results.py \
-      --results-dir results/attention_openvla \
-      --output-dir results/attention_openvla_analysis \
+      --results-dir results/attention/combined/openvla \
+      --output-dir results/attention/combined/openvla_analysis \
       --plot-all
 """
 
@@ -270,12 +270,12 @@ def main():
     parser = argparse.ArgumentParser(description="Analyze all OpenVLA attention results")
     parser.add_argument(
         "--results-dir",
-        default="results/attention_openvla",
-        help="Top-level results directory (default: results/attention_openvla)",
+        default="results/attention/combined/openvla",
+        help="Top-level results directory (default: results/attention/combined/openvla)",
     )
     parser.add_argument(
         "--output-dir",
-        default="results/attention_openvla_analysis",
+        default="results/attention/combined/openvla_analysis",
         help="Directory for output plots/summaries",
     )
     parser.add_argument("--plot-all", action="store_true", help="Generate all plots")

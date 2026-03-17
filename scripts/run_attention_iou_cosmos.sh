@@ -123,32 +123,25 @@ OBJECT_SHIFT_Y_STD="${OBJECT_SHIFT_Y_STD:-0.0}"
 PROMPT_MODE="${PROMPT_MODE:-original}"
 CUSTOM_PROMPT="${CUSTOM_PROMPT:-}"
 
-# ── Derived output tag ────────────────────────────────────────────────────────
-if [[ "$VISUAL_PERTURB_MODE" == "none" && "$POLICY_PERTURB_MODE" == "none" ]]; then
-    PERTURB_TAG="none"
-elif [[ "$VISUAL_PERTURB_MODE" != "none" && "$POLICY_PERTURB_MODE" == "none" ]]; then
-    if [[ "$VISUAL_PERTURB_MODE" == "rotate" ]]; then
-        PERTURB_TAG="vis_rotate_${ROTATION_DEGREES}deg"
-    elif [[ "$VISUAL_PERTURB_MODE" == "translate" ]]; then
-        PERTURB_TAG="vis_translate_x${TRANSLATE_X_FRAC}_y${TRANSLATE_Y_FRAC}"
-    else
-        PERTURB_TAG="vis_rotate_${ROTATION_DEGREES}deg_translate_x${TRANSLATE_X_FRAC}_y${TRANSLATE_Y_FRAC}"
-    fi
-elif [[ "$VISUAL_PERTURB_MODE" == "none" && "$POLICY_PERTURB_MODE" != "none" ]]; then
-    if [[ "$POLICY_PERTURB_MODE" == "random_action" ]]; then
-        PERTURB_TAG="pol_random_action_p${RANDOM_ACTION_PROB}_s${RANDOM_ACTION_SCALE}"
-    elif [[ "$POLICY_PERTURB_MODE" == "object_shift" ]]; then
-        PERTURB_TAG="pol_object_shift_x${OBJECT_SHIFT_X_STD}_y${OBJECT_SHIFT_Y_STD}"
-    else
-        PERTURB_TAG="pol_${POLICY_PERTURB_MODE}"
-    fi
+# ── Derived output tag pieces ─────────────────────────────────────────────────
+if [[ "$VISUAL_PERTURB_MODE" == "rotate" ]]; then
+    VIS_TAG_VALUE="rotate_${ROTATION_DEGREES}deg"
+elif [[ "$VISUAL_PERTURB_MODE" == "translate" ]]; then
+    VIS_TAG_VALUE="translate_x${TRANSLATE_X_FRAC}_y${TRANSLATE_Y_FRAC}"
+elif [[ "$VISUAL_PERTURB_MODE" == "rotate_translate" ]]; then
+    VIS_TAG_VALUE="rotate_${ROTATION_DEGREES}deg_translate_x${TRANSLATE_X_FRAC}_y${TRANSLATE_Y_FRAC}"
 else
-    PERTURB_TAG="vis_${VISUAL_PERTURB_MODE}_pol_${POLICY_PERTURB_MODE}"
+    VIS_TAG_VALUE="none"
 fi
 
-# Append prompt perturbation to tag
-if [[ "$PROMPT_MODE" != "original" ]]; then
-    PERTURB_TAG="${PERTURB_TAG}__prompt_${PROMPT_MODE}"
+if [[ "$POLICY_PERTURB_MODE" == "random_action" ]]; then
+    POL_TAG_VALUE="random_action_p${RANDOM_ACTION_PROB}_s${RANDOM_ACTION_SCALE}"
+elif [[ "$POLICY_PERTURB_MODE" == "object_shift" ]]; then
+    POL_TAG_VALUE="object_shift_x${OBJECT_SHIFT_X_STD}_y${OBJECT_SHIFT_Y_STD}"
+elif [[ "$POLICY_PERTURB_MODE" != "none" ]]; then
+    POL_TAG_VALUE="${POLICY_PERTURB_MODE}"
+else
+    POL_TAG_VALUE="none"
 fi
 
 # ── Run ──────────────────────────────────────────────────────────────────────
@@ -160,7 +153,14 @@ if [[ "$SAVE_VIZ" == "1" ]]; then
 fi
 
 for SUITE in "${SUITES[@]}"; do
-    OUTPUT_DIR="${WORKDIR}/results/attention/outputs_attn_iou_cosmos/${SUITE}_seed${SEED}_perturb_${PERTURB_TAG}"
+    if [[ "$PROMPT_MODE" != "original" ]]; then
+        FULL_PERTURB_TAG="vis_${VIS_TAG_VALUE}__pol_${POL_TAG_VALUE}__prompt_${PROMPT_MODE}"
+    elif [[ "$VISUAL_PERTURB_MODE" != "none" || "$POLICY_PERTURB_MODE" != "none" ]]; then
+        FULL_PERTURB_TAG="vis_${VIS_TAG_VALUE}__pol_${POL_TAG_VALUE}"
+    else
+        FULL_PERTURB_TAG="none"
+    fi
+    OUTPUT_DIR="${WORKDIR}/results/attention/iou/cosmos/perturb/${FULL_PERTURB_TAG}/${SUITE}_seed${SEED}"
     mkdir -p "$OUTPUT_DIR"
 
     echo "============================================================"
@@ -182,6 +182,7 @@ for SUITE in "${SUITES[@]}"; do
     if [[ "$PROMPT_MODE" == "custom" ]]; then
         echo "  custom_prompt:       $CUSTOM_PROMPT"
     fi
+    echo "Perturbation tag:    $FULL_PERTURB_TAG"
     echo "Output dir:          $OUTPUT_DIR"
     echo "Save viz:            $SAVE_VIZ"
     echo "============================================================"

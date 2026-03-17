@@ -20,7 +20,7 @@ Usage:
     --ckpt dp_scratch/ckpt_300.pt \\
     --task-suite libero_10 --num-episodes 5 \\
     --layers layer2 layer3 layer4 \\
-    --output-dir results/attention_iou_dp
+    --output-dir results/attention/iou/dp/perturb/none/libero_10_seed7
 """
 
 from __future__ import annotations
@@ -477,7 +477,7 @@ def main():
                         help="Save GradCAM overlay images per replan step")
 
     # Output
-    parser.add_argument("--output-dir", type=str, default="results/attention_iou_dp")
+    parser.add_argument("--output-dir", type=str, default="results/attention/iou/dp/perturb/none/libero_10_seed7")
 
     # Visual perturbation
     parser.add_argument("--visual-perturb-mode", type=str, default="none",

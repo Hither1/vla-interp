@@ -45,6 +45,11 @@ except ModuleNotFoundError:
     plt = None
 
 DEFAULT_PERTURBATIONS = ["empty", "random", "synonym", "shuffle", "opposite"]
+DEFAULT_MODEL_RUNS = [
+    "pi0.5=results/attention",
+    "DreamZero=data/libero/dreamzero/perturb",
+]
+DEFAULT_OUTPUT_DIR = Path("results/language_rerouting")
 PROMPT_RE = re.compile(r"prompt_([a-z0-9_]+)")
 
 
@@ -62,7 +67,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model-run",
         action="append",
-        default=[],
+        default=None,
         metavar="NAME=PATH",
         help="Model name and root directory to scan recursively.",
     )
@@ -81,7 +86,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        required=True,
+        default=DEFAULT_OUTPUT_DIR,
         help="Directory for CSV summaries and plots.",
     )
     parser.add_argument(
@@ -749,6 +754,7 @@ def parse_model_runs(specs: list[str]) -> list[tuple[str, Path]]:
 
 def main() -> None:
     args = parse_args()
+    args.model_run = args.model_run or list(DEFAULT_MODEL_RUNS)
     model_runs = parse_model_runs(args.model_run)
     args.output_dir.mkdir(parents=True, exist_ok=True)
 

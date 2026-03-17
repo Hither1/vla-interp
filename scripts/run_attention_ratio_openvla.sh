@@ -78,26 +78,26 @@ fi
 # ── Derived perturbation tag ────────────────────────────────────────────
 if [[ "$VISUAL_PERTURB_MODE" != "none" ]]; then
     if [[ "$VISUAL_PERTURB_MODE" == "rotate" ]]; then
-        VIS_TAG="vis_rotate_${ROTATION_DEGREES}deg"
+        VIS_TAG_VALUE="rotate_${ROTATION_DEGREES}deg"
     elif [[ "$VISUAL_PERTURB_MODE" == "translate" ]]; then
-        VIS_TAG="vis_translate_x${TRANSLATE_X_FRAC}_y${TRANSLATE_Y_FRAC}"
+        VIS_TAG_VALUE="translate_x${TRANSLATE_X_FRAC}_y${TRANSLATE_Y_FRAC}"
     else
-        VIS_TAG="vis_rotate_${ROTATION_DEGREES}deg_translate_x${TRANSLATE_X_FRAC}_y${TRANSLATE_Y_FRAC}"
+        VIS_TAG_VALUE="rotate_${ROTATION_DEGREES}deg_translate_x${TRANSLATE_X_FRAC}_y${TRANSLATE_Y_FRAC}"
     fi
 else
-    VIS_TAG=""
+    VIS_TAG_VALUE="none"
 fi
 
 if [[ "$POLICY_PERTURB_MODE" != "none" ]]; then
     if [[ "$POLICY_PERTURB_MODE" == "random_action" ]]; then
-        POL_TAG="pol_random_action_p${RANDOM_ACTION_PROB}_s${RANDOM_ACTION_SCALE}"
+        POL_TAG_VALUE="random_action_p${RANDOM_ACTION_PROB}_s${RANDOM_ACTION_SCALE}"
     elif [[ "$POLICY_PERTURB_MODE" == "object_shift" ]]; then
-        POL_TAG="pol_object_shift_x${OBJECT_SHIFT_X_STD}_y${OBJECT_SHIFT_Y_STD}"
+        POL_TAG_VALUE="object_shift_x${OBJECT_SHIFT_X_STD}_y${OBJECT_SHIFT_Y_STD}"
     else
-        POL_TAG="pol_${POLICY_PERTURB_MODE}"
+        POL_TAG_VALUE="${POLICY_PERTURB_MODE}"
     fi
 else
-    POL_TAG=""
+    POL_TAG_VALUE="none"
 fi
 
 if [[ "$PROMPT_PERTURB_MODE" != "none" ]]; then
@@ -105,23 +105,12 @@ if [[ "$PROMPT_PERTURB_MODE" != "none" ]]; then
         # Truncate fixed text to 20 chars for use in directory names
         _FIXED_SLUG="${PROMPT_FIXED_TEXT:0:20}"
         _FIXED_SLUG="${_FIXED_SLUG// /_}"
-        PROMPT_TAG="prompt_fixed_${_FIXED_SLUG}"
+        PROMPT_TAG_VALUE="fixed_${_FIXED_SLUG}"
     else
-        PROMPT_TAG="prompt_${PROMPT_PERTURB_MODE}"
+        PROMPT_TAG_VALUE="${PROMPT_PERTURB_MODE}"
     fi
 else
-    PROMPT_TAG=""
-fi
-
-_TAGS=()
-[[ -n "${VIS_TAG}" ]] && _TAGS+=("${VIS_TAG}")
-[[ -n "${POL_TAG}" ]] && _TAGS+=("${POL_TAG}")
-[[ -n "${PROMPT_TAG}" ]] && _TAGS+=("${PROMPT_TAG}")
-
-if [[ ${#_TAGS[@]} -gt 0 ]]; then
-    PERTURB_TAG="$(IFS='__'; echo "${_TAGS[*]}")"
-else
-    PERTURB_TAG="none"
+    PROMPT_TAG_VALUE="none"
 fi
 
 # Script directory (handle SLURM execution)
@@ -131,11 +120,19 @@ else
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 fi
+WORKDIR="$PROJECT_ROOT"
 
 mkdir -p logs
 
 for SUITE in "${SUITES[@]}"; do
-    OUTPUT_DIR="results/attention_ratio_openvla/${SUITE}_seed${SEED}_perturb_${PERTURB_TAG}"
+    if [[ "$PROMPT_PERTURB_MODE" != "none" ]]; then
+        PERTURB_TAG="vis_${VIS_TAG_VALUE}__pol_${POL_TAG_VALUE}__prompt_${PROMPT_TAG_VALUE}"
+    elif [[ "$VISUAL_PERTURB_MODE" != "none" || "$POLICY_PERTURB_MODE" != "none" ]]; then
+        PERTURB_TAG="vis_${VIS_TAG_VALUE}__pol_${POL_TAG_VALUE}"
+    else
+        PERTURB_TAG="none"
+    fi
+    OUTPUT_DIR="${WORKDIR}/results/attention/ratio/openvla/perturb/${PERTURB_TAG}/${SUITE}_seed${SEED}"
 
     echo "========================================="
     echo "OpenVLA Visual/Linguistic Attention Ratio"

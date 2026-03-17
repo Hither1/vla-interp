@@ -40,6 +40,11 @@ from scipy import stats
 
 log = logging.getLogger(__name__)
 
+DEFAULT_INPUTS = [
+    "pi0.5:results/attention/iou/pi05/perturb/none/libero_10_seed7/iou_results_libero_10.json",
+    "DreamZero:data/libero/dreamzero/perturb/none/libero_10",
+]
+
 MODEL_COLORS = {
     "pi0.5": "#4C72B0",
     "DreamZero": "#17becf",
@@ -50,37 +55,37 @@ MODEL_COLORS = {
 
 FEATURE_SPECS = {
     "iou": {
-        "container": "per_step_iou",
-        "candidates": ["combined_iou", "iou"],
+        "containers": ["per_step_iou", "attention_steps"],
+        "candidates": ["combined_iou", "iou", "iou_iou"],
         "label": "IoU",
     },
     "dice": {
-        "container": "per_step_iou",
-        "candidates": ["combined_dice", "dice"],
+        "containers": ["per_step_iou", "attention_steps"],
+        "candidates": ["combined_dice", "dice", "iou_dice"],
         "label": "Dice",
     },
     "attention_mass": {
-        "container": "per_step_iou",
-        "candidates": ["attention_mass"],
+        "containers": ["per_step_iou", "attention_steps"],
+        "candidates": ["attention_mass", "iou_attention_mass"],
         "label": "Attention Mass",
     },
     "ratio": {
-        "container": "per_step_ratios",
+        "containers": ["per_step_ratios", "attention_steps"],
         "candidates": ["visual_linguistic_ratio"],
         "label": "Visual/Linguistic Ratio",
     },
     "visual_fraction": {
-        "container": "per_step_ratios",
+        "containers": ["per_step_ratios", "attention_steps"],
         "candidates": ["visual_fraction"],
         "label": "Visual Fraction",
     },
     "linguistic_fraction": {
-        "container": "per_step_ratios",
+        "containers": ["per_step_ratios", "attention_steps"],
         "candidates": ["linguistic_fraction"],
         "label": "Linguistic Fraction",
     },
     "action_fraction": {
-        "container": "per_step_ratios",
+        "containers": ["per_step_ratios"],
         "candidates": ["action_fraction"],
         "label": "Action Fraction",
     },
@@ -107,12 +112,32 @@ def _model_color(name: str) -> str:
 
 
 def _load_trajectories(path: str) -> List[dict]:
+    path_obj = Path(path)
+    if path_obj.is_dir():
+        trajectories = []
+        for json_path in sorted(path_obj.rglob("*.json")):
+            if json_path.name == "summary.json":
+                continue
+            with open(json_path, "r") as f:
+                raw = json.load(f)
+            if isinstance(raw, dict) and ("attention_steps" in raw or "task_id" in raw):
+                trajectories.append(raw)
+            elif isinstance(raw, list):
+                trajectories.extend(item for item in raw if isinstance(item, dict))
+            elif isinstance(raw, dict) and isinstance(raw.get("results"), list):
+                trajectories.extend(item for item in raw["results"] if isinstance(item, dict))
+        if trajectories:
+            return trajectories
+        raise ValueError(f"No supported trajectory JSONs found in directory {path}")
+
     with open(path, "r") as f:
         raw = json.load(f)
     if isinstance(raw, list):
         return raw
     if isinstance(raw, dict) and isinstance(raw.get("results"), list):
         return raw["results"]
+    if isinstance(raw, dict) and ("attention_steps" in raw or "task_id" in raw):
+        return [raw]
     raise ValueError(f"Unsupported JSON format in {path}")
 
 
@@ -154,39 +179,47 @@ def _extract_feature_series(
     layer: Optional[str],
 ) -> Tuple[Optional[str], List[Tuple[int, float]]]:
     spec = FEATURE_SPECS[feature]
-    container = traj.get(spec["container"], {}) or {}
-    layer_name, steps = _pick_layer(container, layer)
-    if not steps:
-        return layer_name, []
-
-    pairs: List[Tuple[int, float]] = []
-    for step_info in steps:
-        if not isinstance(step_info, dict):
-            continue
-        step = step_info.get("step")
-        if step is None:
-            continue
-        value = None
-        for key in spec["candidates"]:
-            if key in step_info:
-                value = _safe_float(step_info[key])
-                if value is not None:
-                    break
-        if value is None:
-            continue
-        try:
-            pairs.append((int(step), value))
-        except Exception:
-            continue
-
-    pairs.sort(key=lambda item: item[0])
-    deduped: List[Tuple[int, float]] = []
-    for step, value in pairs:
-        if deduped and deduped[-1][0] == step:
-            deduped[-1] = (step, float(np.mean([deduped[-1][1], value])))
+    for container_name in spec["containers"]:
+        container = traj.get(container_name, {}) or {}
+        if isinstance(container, list):
+            layer_name = container_name
+            steps = container
         else:
-            deduped.append((step, value))
-    return layer_name, deduped
+            layer_name, steps = _pick_layer(container, layer)
+        if not steps:
+            continue
+
+        pairs: List[Tuple[int, float]] = []
+        for step_info in steps:
+            if not isinstance(step_info, dict):
+                continue
+            step = step_info.get("step", step_info.get("t"))
+            if step is None:
+                continue
+            value = None
+            for key in spec["candidates"]:
+                if key in step_info:
+                    value = _safe_float(step_info[key])
+                    if value is not None:
+                        break
+            if value is None:
+                continue
+            try:
+                pairs.append((int(step), value))
+            except Exception:
+                continue
+
+        pairs.sort(key=lambda item: item[0])
+        deduped: List[Tuple[int, float]] = []
+        for step, value in pairs:
+            if deduped and deduped[-1][0] == step:
+                deduped[-1] = (step, float(np.mean([deduped[-1][1], value])))
+            else:
+                deduped.append((step, value))
+        if deduped:
+            return layer_name, deduped
+
+    return None, []
 
 
 def load_model_episodes(
@@ -704,8 +737,8 @@ def main() -> int:
     parser.add_argument(
         "--inputs",
         nargs="+",
-        required=True,
         metavar="MODEL:PATH",
+        default=None,
         help="Model/path pairs. Multiple files for the same model are merged by (task_id, episode_idx, task_description).",
     )
     parser.add_argument(
@@ -762,6 +795,7 @@ def main() -> int:
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
+    args.inputs = args.inputs or list(DEFAULT_INPUTS)
     features = args.feature or ["iou"]
     windows = sorted(set(args.rolling_windows))
     if 1 not in windows:

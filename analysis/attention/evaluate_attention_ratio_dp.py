@@ -18,7 +18,7 @@ Usage:
   python evaluate_attention_ratio_dp.py \\
     --ckpt dp_scratch/ckpt_300.pt \\
     --task-suite libero_10 --num-episodes 5 \\
-    --output-dir results/attention_ratio_dp
+    --output-dir results/attention/ratio/dp/perturb/none/libero_10_seed7
 """
 
 from __future__ import annotations
@@ -345,7 +345,7 @@ def main():
     parser.add_argument("--object-shift-y-std", type=float, default=0.0)
 
     # Output
-    parser.add_argument("--output-dir", type=str, default="results/attention_ratio_dp")
+    parser.add_argument("--output-dir", type=str, default="results/attention/ratio/dp/perturb/none/libero_10_seed7")
 
     args = parser.parse_args()
 
