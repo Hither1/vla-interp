@@ -46,7 +46,7 @@ Conditions: **original** | **empty** (no prompt) | **shuffle** (shuffled words) 
 | | synonym | 2.7% | 0.0% | 1.0% | 0.0% | 1.2% |
 | | opposite | 2.8% | 0.0% | 0.5% | 0.0% | 0.7% |
 
-### Action Entropy (↓)
+<!-- ### Action Entropy (↓)
 
 | Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP | DreamZero |
 |---|---|---|---|---|---|---|
@@ -79,7 +79,7 @@ Conditions: **original** | **empty** (no prompt) | **shuffle** (shuffled words) 
 | | shuffle | — | — | — | — | — |
 | | random | — | — | — | — | — |
 | | synonym | — | — | — | — | — |
-| | opposite | — | — | — | — | — |
+| | opposite | — | — | — | — | — | -->
 
 ### Attention IoU (↑)
 
