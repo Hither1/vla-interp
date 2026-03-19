@@ -601,12 +601,12 @@ for ax, pt in zip(axes, PERTURBS):
                 "success", "iou")
     for m in MODELS_ATTN:
         ms = sub[sub.model == m]
-        ax.scatter(ms.success, ms.iou, c=MODEL_COLORS[m],
+        ax.scatter(ms.iou, ms.success, c=MODEL_COLORS[m],
                    s=25, alpha=0.7, zorder=4, label=m)
-        add_regline(ax, ms.success.values, ms.iou.values, MODEL_COLORS[m])
+        add_regline(ax, ms.iou.values, ms.success.values, MODEL_COLORS[m])
     ax.set_title(pt.capitalize())
-    ax.set_xlabel("Success rate (%)")
-    ax.set_ylabel("Attention IoU")
+    ax.set_xlabel("Attention IoU")
+    ax.set_ylabel("Success rate (%)")
     ax.grid(True, ls="--", alpha=0.4)
 
 handles = [plt.Line2D([0],[0], marker='o', color='w',
@@ -627,12 +627,12 @@ for ax, pt in zip(axes, PERTURBS):
                 "success", "ratio_dev")
     for m in MODELS_ATTN:
         ms = sub[sub.model == m]
-        ax.scatter(ms.success, ms.ratio_dev, c=MODEL_COLORS[m],
+        ax.scatter(ms.ratio_dev, ms.success, c=MODEL_COLORS[m],
                    s=25, alpha=0.7, zorder=4, label=m)
-        add_regline(ax, ms.success.values, ms.ratio_dev.values, MODEL_COLORS[m])
+        add_regline(ax, ms.ratio_dev.values, ms.success.values, MODEL_COLORS[m])
     ax.set_title(pt.capitalize())
-    ax.set_xlabel("Success rate (%)")
-    ax.set_ylabel("|Attention ratio − 0.5|")
+    ax.set_xlabel("|Attention ratio − 0.5|")
+    ax.set_ylabel("Success rate (%)")
     ax.grid(True, ls="--", alpha=0.4)
 
 fig_r2.legend(handles, MODELS_ATTN, loc="lower center", ncol=len(MODELS_ATTN),
@@ -644,33 +644,34 @@ save_fig(fig_r2, "R2_success_vs_ratio_dev_by_perturbation.png")
 # ── R3: Success vs IoU – faceted by model, colored by suite ──────────────────
 fig_r3, axes = plt.subplots(1, len(MODELS_ATTN), figsize=(4*len(MODELS_ATTN), 4.5), sharey=False)
 fig_r3.suptitle("Success Rate vs Attention IoU\n(all perturbation types, per model)",
-                fontsize=10, fontweight="bold")
+                fontsize=14, fontweight="bold")
 
 suite_handles = [plt.Line2D([0],[0], marker='o', color='w',
-                 markerfacecolor=SUITE_COLORS[s], ms=7) for s in ALL_SUITES]
+                 markerfacecolor=SUITE_COLORS[s], ms=9) for s in ALL_SUITES]
 
 for ax, m in zip(axes, MODELS_ATTN):
     sub = valid(df[df.model == m], "success", "iou")
     for s in ALL_SUITES:
         ss = sub[sub.suite == s]
-        ax.scatter(ss.success, ss.iou, c=SUITE_COLORS[s],
+        ax.scatter(ss.iou, ss.success, c=SUITE_COLORS[s],
                    s=22, alpha=0.75, zorder=4)
     # single regression over all suites for this model
-    add_regline(ax, sub.success.values, sub.iou.values, "black", lw=2)
+    add_regline(ax, sub.iou.values, sub.success.values, "black", lw=2)
     # annotate Pearson r
     mask = ~(sub.success.isna() | sub.iou.isna())
     if mask.sum() > 2:
         r, p = stats.pearsonr(sub.success[mask], sub.iou[mask])
         ax.text(0.05, 0.95, f"r = {r:.2f}", transform=ax.transAxes,
-                va="top", fontsize=8,
+                va="top", fontsize=12,
                 color="black" if p < 0.05 else "grey")
-    ax.set_title(m)
-    ax.set_xlabel("Success rate (%)")
-    ax.set_ylabel("Attention IoU")
+    ax.set_title(m, fontsize=13)
+    ax.set_xlabel("Attention IoU", fontsize=12)
+    ax.set_ylabel("Success rate (%)", fontsize=12)
+    ax.tick_params(axis='both', labelsize=11)
     ax.grid(True, ls="--", alpha=0.4)
 
 fig_r3.legend(suite_handles, ALL_SUITES, loc="lower center", ncol=5,
-              bbox_to_anchor=(0.5, -0.05), frameon=False)
+              bbox_to_anchor=(0.5, -0.05), frameon=False, fontsize=11)
 fig_r3.tight_layout(rect=[0, 0.06, 1, 1])
 save_fig(fig_r3, "R3_success_vs_iou_by_model.png")
 
@@ -678,22 +679,23 @@ save_fig(fig_r3, "R3_success_vs_iou_by_model.png")
 # ── R4: Success vs IoU – faceted by suite, colored by model ──────────────────
 fig_r4, axes = plt.subplots(1, 5, figsize=(20, 4), sharey=False)
 fig_r4.suptitle("Success Rate vs Attention IoU (per suite, colored by model)",
-                fontsize=10, fontweight="bold")
+                fontsize=14, fontweight="bold")
 
 for ax, s in zip(axes, ALL_SUITES):
     sub = valid(df[df.suite == s], "success", "iou")
     for m in MODELS_ATTN:
         ms = sub[sub.model == m]
-        ax.scatter(ms.success, ms.iou, c=MODEL_COLORS[m],
+        ax.scatter(ms.iou, ms.success, c=MODEL_COLORS[m],
                    s=30, alpha=0.8, zorder=4, label=m)
-        add_regline(ax, ms.success.values, ms.iou.values, MODEL_COLORS[m])
-    ax.set_title(s, fontsize=7)
-    ax.set_xlabel("Success (%)", fontsize=7)
-    ax.set_ylabel("IoU", fontsize=7)
+        add_regline(ax, ms.iou.values, ms.success.values, MODEL_COLORS[m])
+    ax.set_title(s, fontsize=12)
+    ax.set_xlabel("IoU", fontsize=12)
+    ax.set_ylabel("Success (%)", fontsize=12)
+    ax.tick_params(axis='both', labelsize=11)
     ax.grid(True, ls="--", alpha=0.4)
 
 fig_r4.legend(handles, MODELS_ATTN, loc="lower center", ncol=len(MODELS_ATTN),
-              bbox_to_anchor=(0.5, -0.06), frameon=False)
+              bbox_to_anchor=(0.5, -0.06), frameon=False, fontsize=11)
 fig_r4.tight_layout(rect=[0, 0.07, 1, 1])
 save_fig(fig_r4, "R4_success_vs_iou_by_suite.png")
 

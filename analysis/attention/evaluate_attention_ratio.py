@@ -47,7 +47,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 # Add src and examples/libero to path
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(_PROJECT_ROOT, "src"))
 _LIBERO_EVAL_DIR = os.path.join(_PROJECT_ROOT, "examples", "libero")
 if _LIBERO_EVAL_DIR not in sys.path:
@@ -92,6 +92,10 @@ TASK_MAX_STEPS = {
     "libero_goal": 300,
     "libero_10": 520,
     "libero_90": 400,
+    "libero_90_obj": 400,
+    "libero_90_spa": 400,
+    "libero_90_act": 400,
+    "libero_90_com": 400,
 }
 
 
@@ -643,7 +647,17 @@ def main():
         "--task-suite",
         type=str,
         default="libero_10",
-        choices=["libero_spatial", "libero_object", "libero_goal", "libero_10", "libero_90"],
+        choices=[
+            "libero_spatial",
+            "libero_object",
+            "libero_goal",
+            "libero_10",
+            "libero_90",
+            "libero_90_obj",
+            "libero_90_spa",
+            "libero_90_act",
+            "libero_90_com",
+        ],
     )
     parser.add_argument("--task-id", type=int, default=None, help="Specific task ID (default: all tasks)")
     parser.add_argument("--num-episodes", type=int, default=5, help="Number of episodes per task")

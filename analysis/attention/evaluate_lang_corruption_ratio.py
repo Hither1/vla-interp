@@ -79,6 +79,10 @@ TASK_MAX_STEPS = {
     "libero_goal": 300,
     "libero_10": 520,
     "libero_90": 400,
+    "libero_90_obj": 400,
+    "libero_90_spa": 400,
+    "libero_90_act": 400,
+    "libero_90_com": 400,
 }
 ALL_PROMPT_MODES = ["original", "empty", "shuffle", "random", "synonym", "opposite"]
 
@@ -393,7 +397,17 @@ def main():
     # LIBERO
     parser.add_argument(
         "--task-suite", type=str, default="libero_10",
-        choices=["libero_spatial", "libero_object", "libero_goal", "libero_10", "libero_90"],
+        choices=[
+            "libero_spatial",
+            "libero_object",
+            "libero_goal",
+            "libero_10",
+            "libero_90",
+            "libero_90_obj",
+            "libero_90_spa",
+            "libero_90_act",
+            "libero_90_com",
+        ],
     )
     parser.add_argument("--task-id", type=int, default=None)
     parser.add_argument("--num-episodes", type=int, default=5)

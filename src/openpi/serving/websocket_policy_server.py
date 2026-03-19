@@ -42,7 +42,11 @@ class WebsocketPolicyServer:
         self._host = host
         self._port = port
         self._metadata = metadata or {}
-        logging.getLogger("websockets.server").setLevel(logging.INFO)
+        # Clients can disappear during the opening handshake, which shows up as
+        # a noisy ConnectionClosedError inside the websockets library. Keep the
+        # policy server logs focused on real serving issues.
+        logging.getLogger("websockets").setLevel(logging.WARNING)
+        logging.getLogger("websockets.server").setLevel(logging.WARNING)
 
     def serve_forever(self) -> None:
         asyncio.run(self.run())

@@ -169,16 +169,19 @@ class Attention(nn.Module):
         cache_dtype = self.cache_dtype or k.dtype
         k_cache = jnp.pad(k.astype(cache_dtype), pad_width)
         v_cache = jnp.pad(v.astype(cache_dtype), pad_width)
-        idx = jnp.zeros((k.shape[0],), dtype=jnp.int32) + prefill_len
+        idx = jnp.full((k.shape[0],), prefill_len, dtype=jnp.int32)
         return idx, k_cache, v_cache
 
     def _update_cache(self, k, v, idx, k_cache, v_cache):
         """Update KV cache with new values"""
         assert k.shape[1] == 1, "Only support kv-cache updates of length 1"
-        indices = (0, idx[0], 0, 0)
+        idx = idx.astype(jnp.int32)
         cache_dtype = self.cache_dtype or k.dtype
-        k_new = jax.lax.dynamic_update_slice(k_cache, k.astype(cache_dtype), indices)
-        v_new = jax.lax.dynamic_update_slice(v_cache, v.astype(cache_dtype), indices)
+        # JAX requires all dynamic_update_slice indices to share the same integer dtype.
+        zero = jnp.array(0, dtype=idx.dtype)
+        start_indices = (zero, idx[0], zero, zero)
+        k_new = jax.lax.dynamic_update_slice(k_cache, k.astype(cache_dtype), start_indices)
+        v_new = jax.lax.dynamic_update_slice(v_cache, v.astype(cache_dtype), start_indices)
         idx_new = idx + 1
         return idx_new, k_new, v_new
 

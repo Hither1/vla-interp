@@ -43,13 +43,14 @@ import matplotlib.pyplot as plt
 import cv2
 
 # Add src to path (your repo layout)
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(_PROJECT_ROOT, "src"))
 
 from openpi.models import pi0_config
 from openpi.models import model as _model
 from openpi.models import gemma
 from openpi.models import tokenizer as _tokenizer
+from openpi.shared import download as _download
 
 from utils import get_frame_opencv, index_libero_dataset
 
@@ -122,13 +123,28 @@ def create_video_from_frames(
 
 def _resolve_params_dir(checkpoint_path: str) -> Path:
     """Accepts either ckpt root or ckpt/params; returns params directory."""
-    ckpt = Path(checkpoint_path).expanduser()
+    try:
+        ckpt = _download.maybe_download(checkpoint_path)
+    except FileNotFoundError:
+        ckpt = Path(checkpoint_path).expanduser()
+    except Exception as e:
+        raise ValueError(f"Failed to resolve checkpoint path {checkpoint_path!r}: {e}") from e
+
     if ckpt.is_dir() and (ckpt / "params").is_dir():
         params_dir = ckpt / "params"
     else:
         params_dir = ckpt
     if not params_dir.is_dir():
-        raise ValueError(f"Checkpoint params path is not a directory: {params_dir}")
+        parent = params_dir.parent
+        available = []
+        if parent.is_dir():
+            available = sorted(p.name for p in parent.iterdir() if p.is_dir())[:10]
+        msg = f"Checkpoint params path is not a directory: {params_dir}"
+        if available:
+            msg += f". Available sibling directories under {parent}: {available}"
+        if checkpoint_path == str(ckpt):
+            msg += " You can also pass a remote checkpoint like gs://openpi-assets/checkpoints/pi05_libero."
+        raise ValueError(msg)
     # quick sanity for OCDBT
     if not (params_dir / "manifest.ocdbt").exists():
         # Not strictly required, but very common for OCDBT.

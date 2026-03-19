@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=attn-metrics
 #SBATCH --output=logs/attn_metrics_%j.log
-#SBATCH -p gpu
+#SBATCH --account=kempner_grads
+#SBATCH --partition=kempner
 #SBATCH -t 12:00:00
 #SBATCH --gres=gpu:1
 #SBATCH --mem=240G
@@ -37,9 +38,9 @@ mkdir -p "$NUMBA_CACHE_DIR" logs
 CHECKPOINT="${CHECKPOINT:-$HOME/.cache/openpi/openpi-assets/checkpoints/pi05_libero}"
 TASK_SUITE="${TASK_SUITE:-libero_10}"
 TASK_ID="${TASK_ID:-}"
-NUM_EPISODES="${NUM_EPISODES:-5}"
+NUM_EPISODES="${NUM_EPISODES:-1}"
 SEED="${SEED:-7}"
-LAYERS="${LAYERS:-0 8 17 25 26 27}"
+LAYERS="${LAYERS:-25 26 27}"
 SAVE_VIZ="${SAVE_VIZ:-0}"
 REPLAN_STEPS="${REPLAN_STEPS:-5}"
 

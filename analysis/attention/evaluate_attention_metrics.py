@@ -18,6 +18,7 @@ import os
 from typing import Dict, List, Optional
 
 import numpy as np
+from tqdm import tqdm
 
 from evaluate_attention_ratio import (  # noqa: E402
     TASK_MAX_STEPS,
@@ -144,10 +145,12 @@ def run_episode(
     t = 0
     done = False
 
+    pbar = tqdm(total=max_steps + num_steps_wait, desc="steps", unit="step", leave=False)
     while t < max_steps + num_steps_wait:
         if t < num_steps_wait:
             obs, _, done, _ = env.step(LIBERO_DUMMY_ACTION)
             t += 1
+            pbar.update(1)
             continue
 
         agentview = np.ascontiguousarray(obs["agentview_image"][::-1, ::-1])
@@ -313,10 +316,12 @@ def run_episode(
         if policy_cfg is not None and policy_rng is not None:
             action, _ = maybe_perturb_action(np.asarray(action, dtype=np.float32), policy_cfg, policy_rng)
         obs, _, done, _ = env.step(action.tolist())
+        pbar.update(1)
         if done:
             break
         t += 1
 
+    pbar.close()
     ratio_summary = {}
     for layer_idx in layers:
         layer_results = [r for r in step_ratio_results if r.get("layer") == layer_idx]
@@ -521,7 +526,17 @@ def main():
         "--task-suite",
         type=str,
         default="libero_10",
-        choices=["libero_spatial", "libero_object", "libero_goal", "libero_10", "libero_90"],
+        choices=[
+            "libero_spatial",
+            "libero_object",
+            "libero_goal",
+            "libero_10",
+            "libero_90",
+            "libero_90_obj",
+            "libero_90_spa",
+            "libero_90_act",
+            "libero_90_com",
+        ],
     )
     parser.add_argument("--task-id", type=int, default=None)
     parser.add_argument("--num-episodes", type=int, default=5)
@@ -629,7 +644,7 @@ def main():
 
     all_results = []
 
-    for task_id in task_ids:
+    for task_id in tqdm(task_ids, desc="tasks", unit="task"):
         task = task_suite.get_task(task_id)
         initial_states = task_suite.get_task_init_states(task_id)
         task_description = task.language
@@ -640,7 +655,7 @@ def main():
 
         env, _ = _get_segmentation_env(task, LIBERO_ENV_RESOLUTION, args.seed)
 
-        for ep_idx in range(min(args.num_episodes, len(initial_states))):
+        for ep_idx in tqdm(range(min(args.num_episodes, len(initial_states))), desc="episodes", unit="ep", leave=False):
             log.info(f"\n--- Episode {ep_idx + 1}/{args.num_episodes} ---")
 
             task_slug = task_description.replace(" ", "_")[:60]

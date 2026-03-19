@@ -255,13 +255,13 @@ class Pi0FAST(_model.BaseModel):
             prefix_token_embeddings, prefix_mask, prefix_attn_mask
         )
         prefill_size = prefix_token_embeddings.shape[1]
-        prefill_len = jnp.sum(prefix_mask, axis=-1)
-        prefix_start = prefill_size - prefill_len
+        prefill_len = jnp.sum(prefix_mask, axis=-1, dtype=jnp.int32)
+        prefix_start = jnp.asarray(prefill_size, dtype=jnp.int32) - prefill_len
 
         # first fill KV cache with a forward pass of the prefix
         # pad attention mask to set the size of the KV cache (prefill_size + max_decoding_steps)
         prefix_attn_mask = jnp.pad(prefix_attn_mask, ((0, 0), (0, 0), (0, max_decoding_steps)))
-        prefix_positions = jnp.cumsum(prefix_mask, axis=-1) - 1
+        prefix_positions = jnp.cumsum(prefix_mask, axis=-1, dtype=jnp.int32) - 1
         prefix_logits, kv_cache, _ = self.PaliGemma.llm(
             embedded_prefix=prefix_token_embeddings, mask=prefix_attn_mask, positions=prefix_positions, decode=True
         )
@@ -290,11 +290,16 @@ class Pi0FAST(_model.BaseModel):
 
             # Decode one step
             token_embedding = self.PaliGemma.llm(token, embed_only=True)
-            positions = prefill_len[:, None] + step + 1
+            step_offset = jnp.asarray(step + 1, dtype=prefill_len.dtype)
+            positions = prefill_len[:, None] + step_offset
             mask = jnp.logical_and(
-                jnp.arange(prefill_size + max_decoding_steps)[None, None, :] >= prefix_start[:, None, None],
-                jnp.arange(prefill_size + max_decoding_steps)[None, None, :]
-                < (jnp.broadcast_to(prefill_size + step + 1, (prefix_start.shape[0], 1, 1))),
+                jnp.arange(prefill_size + max_decoding_steps, dtype=prefix_start.dtype)[None, None, :]
+                >= prefix_start[:, None, None],
+                jnp.arange(prefill_size + max_decoding_steps, dtype=prefix_start.dtype)[None, None, :]
+                < jnp.broadcast_to(
+                    jnp.asarray(prefill_size, dtype=prefix_start.dtype) + step_offset,
+                    (prefix_start.shape[0], 1, 1),
+                ),
             )
             last_logit, kv_cache, _ = self.PaliGemma.llm(
                 embedded_prefix=token_embedding, mask=mask, positions=positions, decode=True, kv_cache=cache

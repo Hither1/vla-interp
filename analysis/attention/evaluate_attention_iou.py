@@ -550,7 +550,17 @@ def main():
         "--task-suite",
         type=str,
         default="libero_10",
-        choices=["libero_spatial", "libero_object", "libero_goal", "libero_10", "libero_90"],
+        choices=[
+            "libero_spatial",
+            "libero_object",
+            "libero_goal",
+            "libero_10",
+            "libero_90",
+            "libero_90_obj",
+            "libero_90_spa",
+            "libero_90_act",
+            "libero_90_com",
+        ],
     )
     parser.add_argument("--task-id", type=int, default=None, help="Specific task ID (default: all tasks)")
     parser.add_argument("--num-episodes", type=int, default=5, help="Number of episodes per task")
@@ -628,6 +638,10 @@ def main():
         "libero_goal": 300,
         "libero_10": 520,
         "libero_90": 400,
+        "libero_90_obj": 400,
+        "libero_90_spa": 400,
+        "libero_90_act": 400,
+        "libero_90_com": 400,
     }
     max_steps = max_steps_map[args.task_suite]
 
