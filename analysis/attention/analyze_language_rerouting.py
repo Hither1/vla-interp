@@ -94,6 +94,14 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Write CSV/markdown summaries only.",
     )
+    parser.add_argument(
+        "--suites",
+        nargs="+",
+        default=None,
+        metavar="SUITE",
+        help="Only include these suite names (e.g. libero_90_obj libero_90_spa). "
+             "If omitted, all suites are included.",
+    )
     return parser.parse_args()
 
 
@@ -425,7 +433,11 @@ def load_iou_results_json(
         record["sources"].append(str(path))
 
 
-def discover_model_records(model: str, root: Path) -> dict[EpisodeKey, dict[str, Any]]:
+def discover_model_records(
+    model: str,
+    root: Path,
+    allowed_suites: list[str] | None = None,
+) -> dict[EpisodeKey, dict[str, Any]]:
     summary_suites = collect_summary_suites(root)
     records: dict[EpisodeKey, dict[str, Any]] = {}
 
@@ -436,6 +448,9 @@ def discover_model_records(model: str, root: Path) -> dict[EpisodeKey, dict[str,
         name = path.name
         prompt_mode = infer_prompt_mode_from_path(path) or "original"
         suite = infer_suite_from_filename(path) or find_suite_for_path(path, summary_suites)
+
+        if allowed_suites is not None and suite not in allowed_suites:
+            continue
 
         if name.startswith("attention_ratio_results_") and suite is not None:
             load_ratio_results_json(path, model, suite, prompt_mode, records)
@@ -760,7 +775,7 @@ def main() -> None:
 
     all_records: dict[EpisodeKey, dict[str, Any]] = {}
     for model, root in model_runs:
-        records = discover_model_records(model, root)
+        records = discover_model_records(model, root, allowed_suites=args.suites)
         for key, record in records.items():
             if key in all_records:
                 merge_record_dicts(all_records[key], record)

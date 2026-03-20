@@ -2,7 +2,7 @@
 
 Models: **pi0.5** | **OpenVLA** | **Cosmos** | **DP** (diffusion policy, trained from scratch) | **DreamZero**
 Suites: LIBERO-In domain | LIBERO-Spatial | LIBERO-Object | LIBERO-Goal
-Metrics: success rate (↑), action entropy (↓), attention IoU (↑), attention ratio (visual/total)
+Metrics: success rate (↑), attention IoU (↑), attention ratio (visual/total)
 *Attention metrics apply to VLA models only (pi0.5, OpenVLA, Cosmos).*
 
 ---
@@ -176,7 +176,7 @@ Conditions: **original** | **rotate 30°** | **translate 20% right** | **rotate 
 | | translate 20% | 0.0% | 0.0% | 0.5% | 0.0% | 0.7% |
 | | rotate+translate | 0.5% | 0.0% | 1.0% | 0.0% | 1.2% |
 
-### Action Entropy (↓)
+<!-- ### Action Entropy (↓)
 
 | Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP | DreamZero |
 |---|---|---|---|---|---|---|
@@ -195,7 +195,7 @@ Conditions: **original** | **rotate 30°** | **translate 20% right** | **rotate 
 | LIBERO-90-Com | original | — | — | — | 0.03 | — |
 | | rotate 30° | — | — | — | 0.01 | — |
 | | translate 20% | — | — | — | 0.01 | — |
-| | rotate+translate | — | — | — | 0.01 | — |
+| | rotate+translate | — | — | — | 0.01 | — | -->
 
 ### Attention IoU (↑)
 
@@ -274,22 +274,7 @@ Conditions: **original** | **random action 25%** (random action replacement, p=0
 | | random action 25% | 1.0% | 0.0% | 0.0% | 0.0% | 0.1% |
 | | object shift x | 1.0% | 0.0% | 1.0% | 0.0% | 1.2% |
 
-### Action Entropy (↓)
 
-| Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP | DreamZero |
-|---|---|---|---|---|---|---|
-| LIBERO-In domain| original | — | — | — | — | — |
-| | random action 25% | — | — | — | — | — |
-| | object shift x | — | — | — | — | — |
-| LIBERO-Spatial | original | — | — | — | — | — |
-| | random action 25% | — | — | — | — | — |
-| | object shift x | — | — | — | — | — |
-| LIBERO-Object | original | — | — | — | — | — |
-| | random action 25% | — | — | — | — | — |
-| | object shift x | — | — | — | — | — |
-| LIBERO-Goal | original | — | — | — | — | — |
-| | random action 25% | — | — | — | — | — |
-| | object shift x | — | — | — | — | — |
 
 ### Attention IoU (↑)
 
