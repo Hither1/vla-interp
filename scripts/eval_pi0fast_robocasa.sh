@@ -111,7 +111,7 @@ echo ""
 echo "Running evaluation on all 16 Composite-Seen tasks..."
 
 python "${WORKDIR}/examples/robocasa/main.py" \
-    --host "0.0.0.0" \
+    --host "127.0.0.1" \
     --port "${PORT}" \
     --num-trials-per-task "${NUM_TRIALS}" \
     --seed "${SEED}" \

@@ -86,28 +86,20 @@ labels = [s["label"] for s in SUBSETS]
 
 wedge_props = dict(width=0.45, edgecolor="white", linewidth=2.5)
 
-wedges, texts, autotexts = ax_pie.pie(
+wedges, texts = ax_pie.pie(
     sizes,
     labels=None,
     colors=colors,
-    autopct="%1.0f%%",
     startangle=90,
     counterclock=False,
     wedgeprops=wedge_props,
-    pctdistance=0.78,
-    textprops={"fontsize": 11},
 )
-
-for at in autotexts:
-    at.set_color("white")
-    at.set_fontweight("bold")
-    at.set_fontsize(10)
 
 # ── Wedge labels (placed along the mid-radius of each wedge) ──────────────────
 for wedge, subset in zip(wedges, SUBSETS):
     angle = (wedge.theta1 + wedge.theta2) / 2          # mid-angle in degrees
     rad   = np.deg2rad(angle)
-    r     = 0.62                                        # label radius (inside ring)
+    r     = 0.78                                        # label radius (inside ring)
     x, y  = r * np.cos(rad), r * np.sin(rad)
     ax_pie.text(
         x, y, subset["label"],
@@ -118,13 +110,19 @@ for wedge, subset in zip(wedges, SUBSETS):
 
 # Centre label
 ax_pie.text(
-    0, 0, "LIBERO-90\n(90 tasks)",
+    0, 0.10, "Sim: LIBERO-90",
     ha="center", va="center",
-    fontsize=11, fontweight="bold", color="#333333",
+    fontsize=9.5, fontweight="bold", color="#333333",
+    multialignment="center",
+)
+ax_pie.text(
+    0, -0.10, "Real: DROID\n(3 tasks each)",
+    ha="center", va="center",
+    fontsize=9.5, fontweight="bold", color="#555555",
     multialignment="center",
 )
 
-ax_pie.set_title("LIBERO-90 Task Subsets", fontsize=14, fontweight="bold", pad=12)
+ax_pie.set_title("Four Generalisation Types", fontsize=14, fontweight="bold", pad=2, y=0.97)
 ax_pie.axis("equal")
 
 # ── Description cards (right side) ───────────────────────────────────────────
@@ -183,7 +181,7 @@ for i, subset in enumerate(SUBSETS):
 # ── Overall title ─────────────────────────────────────────────────────────────
 fig.text(
     0.5, 0.97,
-    "LIBERO-90 Generalisation Benchmark — Task Subset Overview",
+    "Four Generalisation Types — LIBERO-90 (Simulation) & DROID (Real Robot)",
     ha="center", va="top",
     fontsize=13, fontweight="bold", color="#222222",
 )

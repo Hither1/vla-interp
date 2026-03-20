@@ -185,12 +185,22 @@ for SUITE in "${SUITES[@]}"; do
             --plot-all
     fi
 
+    IOU_RESULTS_FILE="${IOU_OUTPUT_DIR}/iou_results_${SUITE}.json"
+    if [ -f "${IOU_RESULTS_FILE}" ]; then
+        python "${WORKDIR}/analysis/attention/parse_attention_iou_results.py" \
+            --results "${IOU_RESULTS_FILE}" \
+            --output "${IOU_OUTPUT_DIR}/summary.txt"
+    fi
+
     echo
     echo "Finished suite ${SUITE}"
     echo "  Ratio results: ${RATIO_OUTPUT_DIR}/attention_ratio_results_${SUITE}.json"
     echo "  IoU results:   ${IOU_OUTPUT_DIR}/iou_results_${SUITE}.json"
     if [ -f "${RATIO_OUTPUT_DIR}/summary.txt" ]; then
         echo "  Ratio summary: ${RATIO_OUTPUT_DIR}/summary.txt"
+    fi
+    if [ -f "${IOU_OUTPUT_DIR}/summary.txt" ]; then
+        echo "  IoU summary:   ${IOU_OUTPUT_DIR}/summary.txt"
     fi
     echo
 done

@@ -509,6 +509,61 @@ def _serialize_iou_results(all_results: List[Dict], layers: List[int]) -> Dict:
     return {"metric": "iou", "results": serializable_results}
 
 
+def print_stepwise_results(result: Dict, layers: List[int]) -> None:
+    """Print a step-wise table of attention ratio and IoU results for one episode."""
+    step_ratio = result.get("step_ratio_results", [])
+    step_iou = result.get("step_iou_results", [])
+
+    if not step_ratio and not step_iou:
+        return
+
+    # Collect all unique steps
+    all_steps = sorted(set(
+        [r["step"] for r in step_ratio] + [r["step"] for r in step_iou]
+    ))
+
+    # Index by (step, layer)
+    ratio_by_step_layer = {(r["step"], r["layer"]): r for r in step_ratio}
+    iou_by_step_layer = {(r["step"], r["layer"]): r for r in step_iou}
+
+    has_iou = bool(step_iou)
+
+    header = f"{'step':>5}  {'ratio':>7}  {'vis_mass':>8}  {'ling_mass':>9}"
+    if has_iou:
+        header += f"  {'iou':>6}  {'attn_mass':>9}  {'pointing':>8}"
+    print(header)
+    print("-" * len(header))
+
+    for step in all_steps:
+        # Average ratio metrics across layers at this step
+        ratio_rows = [ratio_by_step_layer[(step, l)] for l in layers if (step, l) in ratio_by_step_layer]
+        if ratio_rows:
+            avg_ratio = float(np.mean([r["visual_linguistic_ratio"] for r in ratio_rows if np.isfinite(r["visual_linguistic_ratio"])]))
+            avg_vis = float(np.mean([r["visual_mass"] for r in ratio_rows]))
+            avg_ling = float(np.mean([r["linguistic_mass"] for r in ratio_rows]))
+            ratio_str = f"{avg_ratio:>7.3f}  {avg_vis:>8.3f}  {avg_ling:>9.3f}"
+        else:
+            ratio_str = f"{'n/a':>7}  {'n/a':>8}  {'n/a':>9}"
+
+        line = f"{step:>5}  {ratio_str}"
+
+        if has_iou:
+            iou_rows = [iou_by_step_layer[(step, l)] for l in layers if (step, l) in iou_by_step_layer]
+            if iou_rows:
+                avg_iou = float(np.mean([
+                    r["combined"].get("percentile_90", {}).get("iou", 0.0) for r in iou_rows
+                ]))
+                avg_mass = float(np.mean([
+                    r["attention_mass"].get("_all_objects", 0.0) for r in iou_rows
+                ]))
+                hit_rate = float(np.mean([1.0 if r.get("pointing_hit") else 0.0 for r in iou_rows]))
+                line += f"  {avg_iou:>6.3f}  {avg_mass:>9.1%}  {hit_rate:>8.1%}"
+            else:
+                line += f"  {'n/a':>6}  {'n/a':>9}  {'n/a':>8}"
+
+        print(line)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="LIBERO evaluation with joint attention ratio and IoU analysis"
@@ -722,6 +777,9 @@ def main():
                     f"attn_mass={summ.get('attention_mass_on_objects', {}).get('mean', 0):.1%}, "
                     f"pointing={summ.get('pointing_accuracy', 0):.1%}"
                 )
+
+            log.info(f"  Step-wise results (layers avg):")
+            print_stepwise_results(result, args.layers)
 
         env.close()
 

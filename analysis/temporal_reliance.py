@@ -46,11 +46,11 @@ DEFAULT_INPUTS = [
 ]
 
 MODEL_COLORS = {
-    "pi0.5": "#4C72B0",
-    "DreamZero": "#17becf",
-    "Cosmos": "#55A868",
-    "OpenVLA": "#DD8452",
-    "DP": "#C44E52",
+    "pi0.5":    "#4C72B0",
+    "OpenVLA":  "#DD8452",
+    "Cosmos":   "#55A868",
+    "DP":       "#C44E52",
+    "DreamZero":"#17becf",
 }
 
 FEATURE_SPECS = {
