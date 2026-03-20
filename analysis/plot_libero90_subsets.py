@@ -76,9 +76,10 @@ SUBSETS = [
 ]
 
 # ── Figure layout ─────────────────────────────────────────────────────────────
-fig = plt.figure(figsize=(13, 9))
+fig = plt.figure(figsize=(13, 7.0))
 # Left column: donut; right column: legend / description cards
-ax_pie = fig.add_axes([0.03, 0.08, 0.45, 0.84])   # [left, bottom, width, height]
+# Make ax_pie square so the donut fills it without vertical gaps
+ax_pie = fig.add_axes([0.03, 0.10, 0.45, 0.80])   # [left, bottom, width, height]
 
 sizes  = [s["size"]  for s in SUBSETS]
 colors = [s["color"] for s in SUBSETS]
@@ -127,7 +128,7 @@ ax_pie.axis("equal")
 
 # ── Description cards (right side) ───────────────────────────────────────────
 n = len(SUBSETS)
-card_h = 0.20          # height of each card in figure-fraction units
+card_h = 0.16          # height of each card in figure-fraction units
 card_w = 0.46
 card_x = 0.51          # left edge of cards
 gap    = 0.025
@@ -160,21 +161,21 @@ for i, subset in enumerate(SUBSETS):
     card_ax.text(
         0.04, 0.82, subset["title"],
         transform=card_ax.transAxes,
-        fontsize=11, fontweight="bold",
+        fontsize=12, fontweight="bold",
         color=subset["color"], va="top",
     )
     # Key label
     card_ax.text(
         0.96, 0.82, f"({subset['key']})",
         transform=card_ax.transAxes,
-        fontsize=8, color="#888888",
+        fontsize=9, color="#888888",
         va="top", ha="right", style="italic",
     )
     # Description
     card_ax.text(
         0.04, 0.52, subset["desc"],
         transform=card_ax.transAxes,
-        fontsize=9, color="#333333",
+        fontsize=10, color="#333333",
         va="top", multialignment="left",
     )
 
