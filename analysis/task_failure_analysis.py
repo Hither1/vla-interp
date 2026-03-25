@@ -225,7 +225,7 @@ def plot_heatmap(data: dict, threshold: float, out_path: str):
     for suite, task in ordered:
         short = task[:60] + "…" if len(task) > 60 else task
         ylabels.append(short)
-    ax.set_yticklabels(ylabels, fontsize=7.5)
+    ax.set_yticklabels(ylabels, fontsize=8)
     for tick, (suite, _) in zip(ax.get_yticklabels(), ordered):
         tick.set_color(SUITE_COLORS[suite])
 
@@ -243,7 +243,7 @@ def plot_heatmap(data: dict, threshold: float, out_path: str):
             v = mat[i, j]
             if not np.isnan(v):
                 ax.text(j, i, f"{v:.0%}", ha="center", va="center",
-                        fontsize=7, color="black" if 0.2 < v < 0.8 else "white",
+                        fontsize=8, color="black" if 0.2 < v < 0.8 else "white",
                         fontweight="bold")
 
     # Colorbar

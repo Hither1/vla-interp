@@ -190,6 +190,7 @@ def load_model_from_checkpoint(
     action_horizon: int = 10,
     max_token_len: int = 256,
     pi05: bool = True,
+    discrete_state_input: bool = False,
     dtype: str = "bfloat16",
 ):
     """
@@ -219,9 +220,8 @@ def load_model_from_checkpoint(
         action_horizon=action_horizon,
         max_token_len=max_token_len,
         pi05=pi05,
+        discrete_state_input=discrete_state_input,
         dtype=dtype,
-        # If your Pi0Config supports state_dim explicitly, you can add it here.
-        # state_dim=state_dim,
     )
 
     model = config.load(params)

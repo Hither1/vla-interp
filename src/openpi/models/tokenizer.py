@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 
@@ -5,7 +6,9 @@ import jax
 import numpy as np
 import orbax.checkpoint as ocp
 import sentencepiece
-from transformers import AutoProcessor
+from huggingface_hub import try_to_load_from_cache
+from transformers import PreTrainedTokenizerFast
+from transformers.dynamic_module_utils import get_class_from_dynamic_module
 
 import openpi.models.utils.fsq_tokenizer as fsq_tokenizer
 import openpi.shared.download as download
@@ -57,8 +60,33 @@ class FASTTokenizer:
         with path.open("rb") as f:
             self._paligemma_tokenizer = sentencepiece.SentencePieceProcessor(model_proto=f.read())
 
-        # Instantiate FAST tokenizer
-        self._fast_tokenizer = AutoProcessor.from_pretrained(fast_tokenizer_path, trust_remote_code=True)
+        # Instantiate FAST tokenizer.
+        # Note: AutoProcessor.from_pretrained fails offline with transformers >= 5.3.0 because it
+        # loads the "bpe_tokenizer" attribute from a "bpe_tokenizer/" subfolder (new behavior for
+        # non-primary tokenizer attributes) instead of the repo root. Load components manually.
+        cached = try_to_load_from_cache(fast_tokenizer_path, "tokenizer.json")
+        if cached is None:
+            raise RuntimeError(
+                f"'{fast_tokenizer_path}' not found in local HF cache. "
+                "Download it first with HF_HUB_OFFLINE=0 (or HF_HUB_OFFLINE unset)."
+            )
+        snapshot_dir = os.path.dirname(cached)
+        bpe_tokenizer = PreTrainedTokenizerFast.from_pretrained(snapshot_dir)
+        with open(os.path.join(snapshot_dir, "processor_config.json")) as f:
+            proc_config = json.load(f)
+        processor_cls = get_class_from_dynamic_module(
+            "processing_action_tokenizer.UniversalActionProcessor",
+            fast_tokenizer_path,
+            local_files_only=True,
+        )
+        self._fast_tokenizer = processor_cls(
+            bpe_tokenizer=bpe_tokenizer,
+            scale=proc_config.get("scale", 10),
+            min_token=proc_config.get("min_token", 0),
+            vocab_size=proc_config.get("vocab_size", 2048),
+            time_horizon=proc_config.get("time_horizon"),
+            action_dim=proc_config.get("action_dim"),
+        )
         self._fast_skip_tokens = 128  # Skip last 128 tokens in PaliGemma vocab since they are special tokens
 
     def tokenize(

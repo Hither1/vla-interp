@@ -46,40 +46,7 @@ Conditions: **original** | **empty** (no prompt) | **shuffle** (shuffled words) 
 | | synonym | 2.7% | 0.0% | 1.0% | 0.0% | 1.2% |
 | | opposite | 2.8% | 0.0% | 0.5% | 0.0% | 0.7% |
 
-<!-- ### Action Entropy (↓)
 
-| Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP | DreamZero |
-|---|---|---|---|---|---|---|
-| LIBERO-In domain | original | — | — | — | — | — |
-| | empty | — | — | — | — | — |
-| | shuffle | — | — | — | — | — |
-| | random | — | — | — | — | — |
-| | synonym | — | — | — | — | — |
-| | opposite | — | — | — | — | — |
-| LIBERO-90-Object | original | — | — | — | — | — |
-| | empty | — | — | — | — | — |
-| | shuffle | — | — | — | — | — |
-| | random | — | — | — | — | — |
-| | synonym | — | — | — | — | — |
-| | opposite | — | — | — | — | — |
-| LIBERO-90-Spatial | original | — | — | — | — | — |
-| | empty | — | — | — | — | — |
-| | shuffle | — | — | — | — | — |
-| | random | — | — | — | — | — |
-| | synonym | — | — | — | — | — |
-| | opposite | — | — | — | — | — |
-| LIBERO-90-Act | original | — | — | — | — | — |
-| | empty | — | — | — | — | — |
-| | shuffle | — | — | — | — | — |
-| | random | — | — | — | — | — |
-| | synonym | — | — | — | — | — |
-| | opposite | — | — | — | — | — |
-| LIBERO-90-Com | original | — | — | — | — | — |
-| | empty | — | — | — | — | — |
-| | shuffle | — | — | — | — | — |
-| | random | — | — | — | — | — |
-| | synonym | — | — | — | — | — |
-| | opposite | — | — | — | — | — | -->
 
 ### Attention IoU (↑)
 
@@ -176,26 +143,7 @@ Conditions: **original** | **rotate 30°** | **translate 20% right** | **rotate 
 | | translate 20% | 0.0% | 0.0% | 0.5% | 0.0% | 0.7% |
 | | rotate+translate | 0.5% | 0.0% | 1.0% | 0.0% | 1.2% |
 
-<!-- ### Action Entropy (↓)
 
-| Suite | Condition | pi0.5 | OpenVLA | Cosmos | DP | DreamZero |
-|---|---|---|---|---|---|---|
-| LIBERO-In domain | original | — | — | — | — | — |
-| | rotate 30° | — | — | — | — | — |
-| | translate 20% | — | — | — | — | — |
-| | rotate+translate | — | — | — | — | — |
-| LIBERO-90-Spatial | original | — | — | — | 0.08 | — |
-| | rotate 30° | — | — | — | — | — |
-| | translate 20% | — | — | — | — | — |
-| | rotate+translate | — | — | — | — | — |
-| LIBERO-Act | original | — | — | — | 0.09 | — |
-| | rotate 30° | — | — | — | — | — |
-| | translate 20% | — | — | — | — | — |
-| | rotate+translate | — | — | — | — | — |
-| LIBERO-90-Com | original | — | — | — | 0.03 | — |
-| | rotate 30° | — | — | — | 0.01 | — |
-| | translate 20% | — | — | — | 0.01 | — |
-| | rotate+translate | — | — | — | 0.01 | — | -->
 
 ### Attention IoU (↑)
 

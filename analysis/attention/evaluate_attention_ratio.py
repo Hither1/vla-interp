@@ -132,8 +132,17 @@ def create_libero_observation(
     max_token_len: int = 256,
     state_dim: int = 7,
     pi05: bool = True,
+    discrete_state_input: bool = False,
 ) -> _model.Observation:
-    """Create a model Observation from LIBERO environment data."""
+    """Create a model Observation from LIBERO environment data.
+
+    Args:
+        discrete_state_input: Whether to embed the (normalized) state as discrete
+            tokens in the prompt. Must be False for the pi05_libero checkpoint,
+            which was trained with discrete_state_input=False. Passing raw
+            unnormalized state to the tokenizer with this flag True will corrupt
+            the tokenized prompt and cause 0% success rate.
+    """
 
     def _resize(img):
         pil = Image.fromarray(img)
@@ -149,7 +158,9 @@ def create_libero_observation(
 
     text_tok = get_paligemma_tokenizer(max_token_len)
     state_f32 = np.asarray(state, dtype=np.float32)
-    tokens, mask = text_tok.tokenize(prompt, state=state_f32 if pi05 else None)
+    # Only embed state in tokens when discrete_state_input=True (and state must be
+    # pre-normalized to [-1,1]). For pi05_libero discrete_state_input=False.
+    tokens, mask = text_tok.tokenize(prompt, state=state_f32 if discrete_state_input else None)
     tokenized_prompt = jnp.array([tokens], dtype=jnp.int32)
     tokenized_prompt_mask = jnp.array([mask], dtype=jnp.bool_)
 
@@ -448,6 +459,7 @@ def run_episode(
     max_token_len: int = 256,
     state_dim: int = 7,
     pi05: bool = True,
+    discrete_state_input: bool = False,
     save_viz: bool = False,
     output_dir: str = "results/attention_ratio",
     episode_prefix: str = "ep",
@@ -503,6 +515,7 @@ def run_episode(
                 max_token_len=max_token_len,
                 state_dim=state_dim,
                 pi05=pi05,
+                discrete_state_input=discrete_state_input,
             )
 
             num_text_tokens = int(observation.tokenized_prompt.shape[1])
@@ -717,6 +730,7 @@ def main():
         action_horizon=args.action_horizon,
         max_token_len=args.max_token_len,
         pi05=pi05,
+        discrete_state_input=False,
         dtype="bfloat16",
     )
     log.info(f"Model loaded. action_dim={cfg.action_dim}, state_dim={state_dim}")
@@ -762,6 +776,7 @@ def main():
                 max_token_len=args.max_token_len,
                 state_dim=state_dim,
                 pi05=pi05,
+                discrete_state_input=cfg.discrete_state_input,
                 save_viz=args.save_viz,
                 output_dir=args.output_dir,
                 episode_prefix=episode_prefix,

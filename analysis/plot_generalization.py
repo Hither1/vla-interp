@@ -84,6 +84,22 @@ plt.rcParams.update({
     "legend.fontsize": 7, "xtick.labelsize": 7, "ytick.labelsize": 7,
 })
 
+# Larger fonts used for non-R bar chart figures (1_*, 2_*, 3_*).
+# Figures are ~19" wide (5 panels × 3.8"); to appear as ~9pt at 7" paper width
+# (scale factor ≈ 2.7) the matplotlib fontsizes need to be ~2.7× the target pt.
+BAR_RC = {
+    "font.size": 16, "axes.titlesize": 18, "axes.labelsize": 16,
+    "legend.fontsize": 14, "xtick.labelsize": 14, "ytick.labelsize": 14,
+}
+SR_RC = {
+    "font.size": 42, "axes.titlesize": 46, "axes.labelsize": 42,
+    "legend.fontsize": 39, "xtick.labelsize": 39, "ytick.labelsize": 39,
+}
+SCATTER_RC = {
+    "font.size": 12, "axes.titlesize": 13, "axes.labelsize": 12,
+    "legend.fontsize": 11, "xtick.labelsize": 11, "ytick.labelsize": 11,
+}
+
 OUT_DIR = os.path.join(os.path.dirname(__file__), "plots_generalization")
 os.makedirs(OUT_DIR, exist_ok=True)
 
@@ -93,6 +109,9 @@ def save_fig(fig, name):
     path = os.path.join(OUT_DIR, name)
     fig.savefig(path, dpi=150, bbox_inches="tight")
     print(f"Saved: {path}")
+    pdf_path = os.path.splitext(path)[0] + ".pdf"
+    fig.savefig(pdf_path, bbox_inches="tight")
+    print(f"Saved: {pdf_path}")
     plt.close(fig)
 
 
@@ -128,7 +147,7 @@ def add_regline(ax, xs, ys, color, lw=1.5):
 
 def annotate_quadrants(ax, x_thresh, y_thresh, xlim, ylim, quad_labels,
                        colors=("#4daf4a", "#ff7f00", "#1f77b4", "#9467bd"),
-                       fontsize=6.5, line_alpha=0.4):
+                       fontsize=8, line_alpha=0.4):
     """Draw dashed threshold lines and label all 4 quadrants.
 
     quad_labels order: [top-right, top-left, bottom-right, bottom-left]
@@ -146,11 +165,12 @@ def annotate_quadrants(ax, x_thresh, y_thresh, xlim, ylim, quad_labels,
                 color=c, alpha=0.62, fontweight="bold", zorder=2)
 
 
-def shared_legend_bottom(fig, models, colors, ncol=5):
+def shared_legend_beside_title(fig, models, colors, ncol=5):
     handles = [plt.Rectangle((0, 0), 1, 1, color=colors[m]) for m in models]
-    fig.legend(handles, models, loc="lower center", ncol=ncol,
-               bbox_to_anchor=(0.5, -0.04), frameon=False)
-    fig.tight_layout(rect=[0, 0.05, 1, 1])
+    fig.legend(handles, models, loc="upper right", ncol=ncol,
+               bbox_to_anchor=(0.99, 1.0), frameon=False,
+               columnspacing=0.5, handlelength=0.8, handletextpad=0.4)
+    fig.tight_layout(rect=[0, 0, 1, 0.93], w_pad=0.3, h_pad=0.3)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -534,51 +554,63 @@ def _bar_section(prefix, suites, conds, sr_d, iou_d, ratio_d,
                  ratio_suites=None, section_title=""):
     """Emit three bar-chart figures for one perturbation section."""
     n = len(suites)
+    # scale width by number of conditions so each bar group has consistent visual size
+    w_per_panel = 0.65 * len(conds) + 1.5
+    # success rate always uses the same panel width (anchored to language's 6 conditions)
+    w_per_panel_sr = 1.5 * 6 + 3.5
 
     # (a) success rate
-    fig, axes = plt.subplots(1, n, figsize=(3.8*n, 3.6))
-    fig.suptitle(f"{section_title} – Success Rate", fontsize=10, fontweight="bold")
-    for ax, suite in zip(np.atleast_1d(axes), suites):
-        grouped_bar_ax(ax, sr_d.get(suite, {}), conds, MODELS_ALL,
-                       MODEL_COLORS, "Success rate (%)", suite,
-                       ylim=(0, 105), pct_fmt=True)
-    shared_legend_bottom(fig, MODELS_ALL, MODEL_COLORS, ncol=5)
-    save_fig(fig, f"{prefix}_success_rate.png")
+    with plt.rc_context(SR_RC):
+        fig, axes = plt.subplots(1, n, figsize=(w_per_panel_sr * n, 10.5), sharey=True)
+        fig.suptitle(f"{section_title} – Success Rate", fontsize=56, fontweight="bold")
+        for ax, suite in zip(np.atleast_1d(axes), suites):
+            grouped_bar_ax(ax, sr_d.get(suite, {}), conds, MODELS_ALL,
+                           MODEL_COLORS, "Success rate (%)", suite,
+                           ylim=(0, 105), pct_fmt=True)
+        for ax in np.atleast_1d(axes)[1:]:
+            ax.set_ylabel("")
+        shared_legend_beside_title(fig, MODELS_ALL, MODEL_COLORS, ncol=5)
+        save_fig(fig, f"{prefix}_success_rate.png")
 
     # (b) attention IoU
-    fig, axes = plt.subplots(1, n, figsize=(3.5*n, 3.4))
-    fig.suptitle(f"{section_title} – Attention IoU", fontsize=10, fontweight="bold")
+    fig, axes = plt.subplots(1, n, figsize=(w_per_panel * n, 4.3), sharey=True)
+    fig.suptitle(f"{section_title} – Attention IoU", fontsize=28, fontweight="bold")
     for ax, suite in zip(np.atleast_1d(axes), suites):
         grouped_bar_ax(ax, iou_d.get(suite, {}), conds, MODELS_ATTN,
                        MODEL_COLORS, "Attention IoU", suite)
-    shared_legend_bottom(fig, MODELS_ATTN, MODEL_COLORS, ncol=len(MODELS_ATTN))
+    for ax in np.atleast_1d(axes)[1:]:
+        ax.set_ylabel("")
+    shared_legend_beside_title(fig, MODELS_ATTN, MODEL_COLORS, ncol=len(MODELS_ATTN))
     save_fig(fig, f"{prefix}_attention_iou.png")
 
     # (c) attention ratio
     rs = ratio_suites if ratio_suites else suites
     n_r = len(rs)
-    fig, axes = plt.subplots(1, n_r, figsize=(3.5*n_r, 3.4))
-    fig.suptitle(f"{section_title} – Attention Ratio (visual/total)",
-                 fontsize=10, fontweight="bold")
+    fig, axes = plt.subplots(1, n_r, figsize=(w_per_panel * n_r, 4.3), sharey=True)
+    fig.suptitle(f"{section_title} – Attention Ratio",
+                 fontsize=28, fontweight="bold")
     ratio_models = [m for m in MODELS_ATTN
                     if any(ratio_d.get(s, {}).get(m) for s in rs)]
     for ax, suite in zip(np.atleast_1d(axes), rs):
         grouped_bar_ax(ax, ratio_d.get(suite, {}), conds, ratio_models,
                        MODEL_COLORS, "Attention ratio", suite, ylim=(0, 1.05))
-    shared_legend_bottom(fig, ratio_models, MODEL_COLORS, ncol=len(ratio_models))
+    for ax in np.atleast_1d(axes)[1:]:
+        ax.set_ylabel("")
+    shared_legend_beside_title(fig, ratio_models, MODEL_COLORS, ncol=len(ratio_models))
     save_fig(fig, f"{prefix}_attention_ratio.png")
 
 
-_bar_section("1", ALL_SUITES,   LANG_CONDS, LANG_SR, LANG_IOU, LANG_RATIO,
-             ratio_suites=["LIBERO-In domain","LIBERO-90-Spatial",
-                            "LIBERO-90-Object","LIBERO-90-Com"],
-             section_title="Language Perturbation")
+with plt.rc_context(BAR_RC):
+    _bar_section("1", ALL_SUITES,   LANG_CONDS, LANG_SR, LANG_IOU, LANG_RATIO,
+                 ratio_suites=["LIBERO-In domain","LIBERO-90-Spatial",
+                                "LIBERO-90-Object","LIBERO-90-Com"],
+                 section_title="Language Perturbation")
 
-_bar_section("2", ALL_SUITES,   VIS_CONDS,  VIS_SR,  VIS_IOU,  VIS_RATIO,
-             section_title="Visual Perturbation")
+    _bar_section("2", ALL_SUITES,   VIS_CONDS,  VIS_SR,  VIS_IOU,  VIS_RATIO,
+                 section_title="Visual Perturbation")
 
-_bar_section("3", ALL_SUITES,   POL_CONDS,  POL_SR,  POL_IOU,  POL_RATIO,
-             section_title="Policy Perturbation")
+    _bar_section("3", ALL_SUITES,   POL_CONDS,  POL_SR,  POL_IOU,  POL_RATIO,
+                 section_title="Policy Perturbation")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -589,6 +621,8 @@ _bar_section("3", ALL_SUITES,   POL_CONDS,  POL_SR,  POL_IOU,  POL_RATIO,
 def valid(sub, xcol, ycol):
     return sub.dropna(subset=[xcol, ycol])
 
+
+plt.rcParams.update(SCATTER_RC)
 
 # ── R1: Success vs IoU – faceted by perturbation type, colored by model ───────
 PERTURBS = ["language", "visual", "policy"]
@@ -644,7 +678,7 @@ save_fig(fig_r2, "R2_success_vs_ratio_dev_by_perturbation.png")
 # ── R3: Success vs IoU – faceted by model, colored by suite ──────────────────
 fig_r3, axes = plt.subplots(1, len(MODELS_ATTN), figsize=(4*len(MODELS_ATTN), 4.5), sharey=False)
 fig_r3.suptitle("Success Rate vs Attention IoU\n(all perturbation types, per model)",
-                fontsize=14, fontweight="bold")
+                fontsize=28, fontweight="bold")
 
 suite_handles = [plt.Line2D([0],[0], marker='o', color='w',
                  markerfacecolor=SUITE_COLORS[s], ms=9) for s in ALL_SUITES]
@@ -679,7 +713,7 @@ save_fig(fig_r3, "R3_success_vs_iou_by_model.png")
 # ── R4: Success vs IoU – faceted by suite, colored by model ──────────────────
 fig_r4, axes = plt.subplots(1, 5, figsize=(20, 4), sharey=False)
 fig_r4.suptitle("Success Rate vs Attention IoU (per suite, colored by model)",
-                fontsize=14, fontweight="bold")
+                fontsize=28, fontweight="bold")
 
 for ax, s in zip(axes, ALL_SUITES):
     sub = valid(df[df.suite == s], "success", "iou")
@@ -766,7 +800,7 @@ perturb_handles = [plt.Line2D([0],[0], marker=PERTURB_MARKERS[pt],
                    color='grey', ms=8, label=pt.capitalize(), lw=0)
                    for pt in PERTURBS]
 ax.legend(handles=model_handles + perturb_handles,
-          loc="upper right", fontsize=7, framealpha=0.8)
+          loc="upper right", fontsize=8, framealpha=0.8)
 ax.set_xlabel("Attention IoU  (higher = more focused)")
 ax.set_ylabel("|Attention ratio − 0.5|  (higher = more modality-biased)")
 ax.grid(True, ls="--", alpha=0.4)
@@ -837,7 +871,7 @@ for ax, pt in zip(axes, PERTURBS):
     ax.set_ylabel("Normalised value")
     ax.yaxis.grid(True, ls="--", alpha=0.4, zorder=0)
     ax.set_axisbelow(True)
-    ax.legend(fontsize=7, loc="upper right")
+    ax.legend(fontsize=8, loc="upper right")
 
 fig_r8.tight_layout()
 save_fig(fig_r8, "R8_normalised_success_vs_iou.png")
@@ -878,7 +912,7 @@ ax.set_xlabel("Success rate (%)")
 ax.set_ylabel("Attention IoU")
 ax.set_title("Success vs IoU")
 ax.grid(True, ls="--", alpha=0.3)
-ax.legend(loc="upper left", fontsize=7, framealpha=0.8)
+ax.legend(loc="upper left", fontsize=8, framealpha=0.8)
 
 annotate_quadrants(
     ax, x_thresh=40, y_thresh=0.13,
@@ -901,7 +935,7 @@ for _, row in key_df.iterrows():
     ax.annotate(
         row.ex_label, xy=(row.success, row.iou),
         xytext=(9, 5), textcoords="offset points",
-        fontsize=6.5, color=st["color"], zorder=8,
+        fontsize=8, color=st["color"], zorder=8,
         arrowprops=dict(arrowstyle="-", color=st["color"], lw=0.6, alpha=0.7),
     )
 
@@ -939,7 +973,7 @@ for _, row in key_df.iterrows():
     ax.annotate(
         row.ex_label, xy=(row.iou, row.ratio),
         xytext=(6, 5), textcoords="offset points",
-        fontsize=6.5, color=st["color"], zorder=8,
+        fontsize=8, color=st["color"], zorder=8,
         arrowprops=dict(arrowstyle="-", color=st["color"], lw=0.6, alpha=0.7),
     )
 
@@ -951,7 +985,7 @@ ft_handles = [
     for ft in FINDING_STYLE
 ]
 fig_r9.legend(handles=ft_handles, loc="lower center", ncol=3,
-              bbox_to_anchor=(0.5, -0.06), frameon=False, fontsize=7)
+              bbox_to_anchor=(0.5, -0.06), frameon=False, fontsize=8)
 fig_r9.tight_layout(rect=[0, 0.10, 1, 1])
 save_fig(fig_r9, "R9_finding_types_diagnostic.png")
 

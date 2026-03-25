@@ -59,6 +59,14 @@ for _p in [str(_REPO_ROOT / "examples" / "libero"), str(_ATTN_DIR)]:
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
+# Robosuite v1.5 compatibility: load_controller_config was renamed.
+# The robosuite package may load as a namespace package (no __init__.py executed)
+# so we patch it directly before importing libero which calls suite.load_controller_config.
+import robosuite as _robosuite_patch  # noqa: E402
+if not hasattr(_robosuite_patch, "load_controller_config"):
+    from robosuite.controllers.parts.controller_factory import load_part_controller_config as _lcfg
+    _robosuite_patch.load_controller_config = _lcfg
+
 from libero.libero import benchmark  # noqa: E402
 from libero.libero import get_libero_path  # noqa: E402
 from libero.libero.envs.env_wrapper import SegmentationRenderEnv  # noqa: E402
@@ -135,6 +143,7 @@ def create_libero_observation(
     max_token_len: int = 256,
     state_dim: int = 7,
     pi05: bool = True,
+    discrete_state_input: bool = False,
 ) -> _model.Observation:
     """Create a model Observation from LIBERO environment data.
 
@@ -146,7 +155,9 @@ def create_libero_observation(
         prompt: Natural language task instruction.
         max_token_len: Maximum prompt token length.
         state_dim: State dimension the model expects.
-        pi05: Whether to use Pi0-FAST tokenization.
+        pi05: Whether to use the pi0.5 model variant (controls right_wrist mask).
+        discrete_state_input: Whether to embed state as discrete tokens in the prompt.
+            Must be False for pi05_libero (trained with discrete_state_input=False).
     """
 
     def _resize(img):
@@ -163,7 +174,7 @@ def create_libero_observation(
 
     text_tok = get_paligemma_tokenizer(max_token_len)
     state_f32 = np.asarray(state, dtype=np.float32)
-    tokens, mask = text_tok.tokenize(prompt, state=state_f32 if pi05 else None)
+    tokens, mask = text_tok.tokenize(prompt, state=state_f32 if discrete_state_input else None)
     tokenized_prompt = jnp.array([tokens], dtype=jnp.int32)
     tokenized_prompt_mask = jnp.array([mask], dtype=jnp.bool_)
 
@@ -262,6 +273,7 @@ def run_episode(
     max_token_len: int = 256,
     state_dim: int = 7,
     pi05: bool = True,
+    discrete_state_input: bool = False,
     save_viz: bool = False,
     output_dir: str = "outputs_iou",
     episode_prefix: str = "ep",
@@ -369,6 +381,7 @@ def run_episode(
                 max_token_len=max_token_len,
                 state_dim=state_dim,
                 pi05=pi05,
+                discrete_state_input=discrete_state_input,
             )
 
             enable_attention_recording()
@@ -653,6 +666,7 @@ def main():
         action_horizon=args.action_horizon,
         max_token_len=args.max_token_len,
         pi05=pi05,
+        discrete_state_input=False,
         dtype="bfloat16",
     )
     log.info(f"Model loaded. action_dim={cfg.action_dim}, state_dim={state_dim}")
@@ -698,6 +712,7 @@ def main():
                 max_token_len=args.max_token_len,
                 state_dim=state_dim,
                 pi05=pi05,
+                discrete_state_input=cfg.discrete_state_input,
                 save_viz=args.save_viz,
                 output_dir=args.output_dir,
                 episode_prefix=episode_prefix,

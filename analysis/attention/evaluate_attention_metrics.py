@@ -100,6 +100,7 @@ def run_episode(
     max_token_len: int = 256,
     state_dim: int = 7,
     pi05: bool = True,
+    discrete_state_input: bool = False,
     save_viz: bool = False,
     ratio_output_dir: str = "results/attention_ratio",
     iou_output_dir: str = "results/attention/iou",
@@ -179,6 +180,7 @@ def run_episode(
                 max_token_len=max_token_len,
                 state_dim=state_dim,
                 pi05=pi05,
+                discrete_state_input=discrete_state_input,
             )
 
             num_text_tokens = int(observation.tokenized_prompt.shape[1])
@@ -678,6 +680,7 @@ def main():
         action_horizon=args.action_horizon,
         max_token_len=args.max_token_len,
         pi05=pi05,
+        discrete_state_input=False,
         dtype="bfloat16",
     )
     log.info(f"Model loaded. action_dim={cfg.action_dim}, state_dim={state_dim}")
@@ -736,6 +739,7 @@ def main():
                 max_token_len=args.max_token_len,
                 state_dim=state_dim,
                 pi05=pi05,
+                discrete_state_input=cfg.discrete_state_input,
                 save_viz=args.save_viz,
                 ratio_output_dir=args.ratio_output_dir,
                 iou_output_dir=args.iou_output_dir,

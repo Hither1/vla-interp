@@ -27,6 +27,7 @@ import argparse
 import json
 import logging
 import math
+import re
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
@@ -36,9 +37,25 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy import stats
 
 log = logging.getLogger(__name__)
+
+SUITE_LABELS: Dict[str, str] = {
+    "libero_10":      "LIBERO-10",
+    "libero_90_spa":  "LIBERO-Spatial",
+    "libero_90_obj":  "LIBERO-Object",
+    "libero_90_act":  "LIBERO-Goal",
+    "libero_90_com":  "LIBERO-Long",
+}
+_SUITE_RE = re.compile(r"libero_(10|90_(?:act|com|obj|spa))")
+
+
+def _detect_suite(path: str) -> Optional[str]:
+    m = _SUITE_RE.search(path)
+    if not m:
+        return None
+    key = "libero_" + m.group(1)
+    return SUITE_LABELS.get(key, key)
 
 DEFAULT_INPUTS = [
     "pi0.5:results/attention/iou/pi05/perturb/none/libero_10",
@@ -58,11 +75,6 @@ FEATURE_SPECS = {
         "containers": ["per_step_iou", "attention_steps"],
         "candidates": ["combined_iou", "iou", "iou_iou"],
         "label": "IoU",
-    },
-    "dice": {
-        "containers": ["per_step_iou", "attention_steps"],
-        "candidates": ["combined_dice", "dice", "iou_dice"],
-        "label": "Dice",
     },
     "attention_mass": {
         "containers": ["per_step_iou", "attention_steps"],
@@ -120,32 +132,48 @@ def _load_trajectories(path: str) -> List[dict]:
                 continue
             with open(json_path, "r") as f:
                 raw = json.load(f)
+            suite = _detect_suite(str(json_path))
+            items: List[dict] = []
             if isinstance(raw, dict) and ("attention_steps" in raw or "task_id" in raw):
-                trajectories.append(raw)
+                items = [raw]
             elif isinstance(raw, list):
-                trajectories.extend(item for item in raw if isinstance(item, dict))
+                items = [item for item in raw if isinstance(item, dict)]
             elif isinstance(raw, dict) and isinstance(raw.get("results"), list):
-                trajectories.extend(item for item in raw["results"] if isinstance(item, dict))
+                items = [item for item in raw["results"] if isinstance(item, dict)]
+            for traj in items:
+                traj.setdefault("_suite", suite)
+            trajectories.extend(items)
         if trajectories:
             return trajectories
         raise ValueError(f"No supported trajectory JSONs found in directory {path}")
 
     with open(path, "r") as f:
         raw = json.load(f)
+    suite = _detect_suite(path)
     if isinstance(raw, list):
-        return raw
-    if isinstance(raw, dict) and isinstance(raw.get("results"), list):
-        return raw["results"]
-    if isinstance(raw, dict) and ("attention_steps" in raw or "task_id" in raw):
-        return [raw]
-    raise ValueError(f"Unsupported JSON format in {path}")
+        trajs = [item for item in raw if isinstance(item, dict)]
+    elif isinstance(raw, dict) and isinstance(raw.get("results"), list):
+        trajs = [item for item in raw["results"] if isinstance(item, dict)]
+    elif isinstance(raw, dict) and ("attention_steps" in raw or "task_id" in raw):
+        trajs = [raw]
+    else:
+        raise ValueError(f"Unsupported JSON format in {path}")
+    for traj in trajs:
+        traj.setdefault("_suite", suite)
+    return trajs
 
 
-def _episode_key(traj: dict) -> Tuple[object, object, object]:
+def _episode_key(traj: dict) -> Tuple[object, ...]:
+    vis = traj.get("visual_perturbation") or {}
+    pol = traj.get("policy_perturbation") or {}
     return (
+        traj.get("_suite"),
         traj.get("task_id"),
         traj.get("episode_idx"),
         traj.get("task_description"),
+        traj.get("prompt_mode"),
+        vis.get("mode"),
+        pol.get("mode"),
     )
 
 
@@ -244,6 +272,7 @@ def load_model_episodes(
                     "task_description": traj.get("task_description"),
                     "success": bool(traj.get("success", False)),
                     "num_steps": traj.get("num_steps"),
+                    "_suite": traj.get("_suite"),
                     "signals": {},
                     "layers": {},
                     "source_paths": [],
@@ -267,100 +296,6 @@ def load_model_episodes(
     episodes = [ep for ep in merged.values() if ep["signals"]]
     episodes.sort(key=lambda ep: (ep["task_id"], ep["episode_idx"], ep["task_description"] or ""))
     return episodes
-
-
-def rolling_mean(values: Sequence[float], window: int) -> np.ndarray:
-    arr = np.asarray(values, dtype=float)
-    if window <= 1 or arr.size == 0:
-        return arr.copy()
-    out = np.empty_like(arr)
-    cumsum = np.cumsum(arr)
-    for idx in range(arr.size):
-        lo = max(0, idx - window + 1)
-        total = cumsum[idx] - (cumsum[lo - 1] if lo > 0 else 0.0)
-        out[idx] = total / (idx - lo + 1)
-    return out
-
-
-def _pearsonr_safe(x: Sequence[float], y: Sequence[float]) -> float:
-    x_arr = np.asarray(x, dtype=float)
-    y_arr = np.asarray(y, dtype=float)
-    mask = np.isfinite(x_arr) & np.isfinite(y_arr)
-    if mask.sum() < 5:
-        return float("nan")
-    x_use = x_arr[mask]
-    y_use = y_arr[mask]
-    if np.std(x_use) < 1e-12 or np.std(y_use) < 1e-12:
-        return float("nan")
-    return float(stats.pearsonr(x_use, y_use)[0])
-
-
-def pooled_step_correlation(
-    episodes: Sequence[dict],
-    feature: str,
-    window: int,
-    region: Optional[Tuple[float, float]] = None,
-) -> float:
-    xs: List[float] = []
-    ys: List[float] = []
-    for ep in episodes:
-        series = ep["signals"].get(feature)
-        if not series:
-            continue
-        values = [value for _, value in series]
-        rolled = rolling_mean(values, window)
-        n = len(rolled)
-        for idx, value in enumerate(rolled):
-            frac = 0.0 if n <= 1 else idx / (n - 1)
-            if region is not None and not (region[0] <= frac <= region[1]):
-                continue
-            xs.append(float(value))
-            ys.append(float(ep["success"]))
-    return _pearsonr_safe(xs, ys)
-
-
-def window_sweep(
-    episodes: Sequence[dict],
-    feature: str,
-    windows: Sequence[int],
-) -> Dict[str, float]:
-    result = {}
-    for window in windows:
-        result[f"k={window}"] = pooled_step_correlation(episodes, feature, window=window)
-    return result
-
-
-def temporal_integration_score(window_corrs: Dict[str, float]) -> float:
-    instant = window_corrs.get("k=1", float("nan"))
-    if not np.isfinite(instant) or abs(instant) < 1e-9:
-        return float("nan")
-    rolling = [abs(v) for key, v in window_corrs.items() if key != "k=1" and np.isfinite(v)]
-    if not rolling:
-        return float("nan")
-    return float(np.mean(rolling) / abs(instant))
-
-
-def position_curve(
-    episodes: Sequence[dict],
-    feature: str,
-    window: int,
-    positions: Sequence[float],
-) -> Dict[str, float]:
-    result = {}
-    for pos in positions:
-        xs: List[float] = []
-        ys: List[float] = []
-        for ep in episodes:
-            series = ep["signals"].get(feature)
-            if not series:
-                continue
-            values = [value for _, value in series]
-            rolled = rolling_mean(values, window)
-            idx = min(len(rolled) - 1, max(0, int(round(pos * (len(rolled) - 1)))))
-            xs.append(float(rolled[idx]))
-            ys.append(float(ep["success"]))
-        result[f"{pos:.2f}"] = _pearsonr_safe(xs, ys)
-    return result
 
 
 def normalized_episode_curves(
@@ -466,59 +401,6 @@ def _save(fig: plt.Figure, path: Path) -> None:
     log.info("Saved %s", path)
 
 
-def plot_window_sweeps(
-    results: Dict[str, Dict[str, Dict[str, float]]],
-    feature: str,
-    output_path: Path,
-) -> None:
-    models = list(results)
-    if not models:
-        return
-    keys = sorted(
-        {key for model in models for key in results[model][feature]},
-        key=lambda item: int(item.split("=")[1]),
-    )
-    fig, ax = plt.subplots(figsize=(6, 4))
-    for model in models:
-        ys = [results[model][feature].get(key, float("nan")) for key in keys]
-        xs = [int(key.split("=")[1]) for key in keys]
-        ax.plot(xs, ys, "-o", color=_model_color(model), label=model, linewidth=2, markersize=5)
-    ax.axhline(0.0, color="black", linewidth=0.8, linestyle="--")
-    ax.set_xlabel("Rolling window k")
-    ax.set_ylabel(f"Pearson r ({FEATURE_SPECS[feature]['label']} -> success)")
-    ax.set_title(f"{FEATURE_SPECS[feature]['label']}: instantaneous vs rolling predictiveness")
-    ax.grid(alpha=0.3)
-    ax.legend()
-    _save(fig, output_path)
-
-
-def plot_position_curves(
-    instant_curves: Dict[str, Dict[str, Dict[str, float]]],
-    rolling_curves: Dict[str, Dict[str, Dict[str, float]]],
-    feature: str,
-    rolling_window: int,
-    output_path: Path,
-) -> None:
-    models = list(instant_curves)
-    if not models:
-        return
-    fig, ax = plt.subplots(figsize=(6.5, 4))
-    for model in models:
-        positions = sorted(float(key) for key in instant_curves[model][feature])
-        instant_vals = [instant_curves[model][feature][f"{pos:.2f}"] for pos in positions]
-        rolling_vals = [rolling_curves[model][feature][f"{pos:.2f}"] for pos in positions]
-        color = _model_color(model)
-        ax.plot(positions, instant_vals, "-", color=color, linewidth=2, label=f"{model} instant")
-        ax.plot(positions, rolling_vals, "--", color=color, linewidth=2, label=f"{model} rolling k={rolling_window}")
-    ax.axhline(0.0, color="black", linewidth=0.8, linestyle="--")
-    ax.set_xlabel("Episode progress")
-    ax.set_ylabel(f"Pearson r ({FEATURE_SPECS[feature]['label']} -> success)")
-    ax.set_title(f"{FEATURE_SPECS[feature]['label']}: position-wise predictiveness")
-    ax.grid(alpha=0.3)
-    ax.legend(ncol=2)
-    _save(fig, output_path)
-
-
 def plot_episode_trajectories(
     curves: Dict[str, Dict[str, Dict[str, np.ndarray]]],
     feature: str,
@@ -565,7 +447,7 @@ def plot_burst_tolerance(
         ax.bar(offsets, vals, width=width * 0.9, color=_model_color(model), alpha=0.85, label=model)
         for xpos, bucket in zip(offsets, buckets):
             count = stats_dict[bucket]["count"]
-            ax.text(xpos, 0.02, f"n={count}", rotation=90, va="bottom", ha="center", fontsize=7)
+            ax.text(xpos, 0.02, f"n={count}", rotation=90, va="bottom", ha="center", fontsize=8)
     ax.set_xticks(x)
     ax.set_xticklabels(buckets)
     ax.set_ylim(0.0, 1.05)
@@ -576,97 +458,16 @@ def plot_burst_tolerance(
     _save(fig, output_path)
 
 
-def plot_tis_bars(
-    sweep_results: Dict[str, Dict[str, Dict[str, float]]],
-    features: Sequence[str],
-    output_path: Path,
-) -> None:
-    if not sweep_results or not features:
-        return
-    fig, axes = plt.subplots(1, len(features), figsize=(4.5 * len(features), 3.8), sharey=True)
-    if len(features) == 1:
-        axes = [axes]
-    for ax, feature in zip(axes, features):
-        models = [model for model in sweep_results if feature in sweep_results[model]]
-        if not models:
-            ax.set_axis_off()
-            continue
-        vals = [temporal_integration_score(sweep_results[model][feature]) for model in models]
-        bars = ax.bar(models, vals, color=[_model_color(model) for model in models], alpha=0.85)
-        ax.axhline(1.0, color="black", linewidth=0.8, linestyle="--")
-        ax.set_title(FEATURE_SPECS[feature]["label"])
-        ax.set_ylabel("Temporal Integration Score")
-        ax.grid(axis="y", alpha=0.3)
-        for bar, value in zip(bars, vals):
-            if np.isfinite(value):
-                ax.text(
-                    bar.get_x() + bar.get_width() / 2,
-                    value + 0.02,
-                    f"{value:.2f}",
-                    ha="center",
-                    va="bottom",
-                    fontsize=8,
-                )
-    fig.suptitle("Temporal Integration Score by model")
-    _save(fig, output_path)
-
-
-def plot_summary_2x2(
-    sweep_results: Dict[str, Dict[str, Dict[str, float]]],
-    instant_curves: Dict[str, Dict[str, Dict[str, float]]],
-    rolling_curves: Dict[str, Dict[str, Dict[str, float]]],
+def plot_summary(
     trajectory_curves: Dict[str, Dict[str, Dict[str, np.ndarray]]],
     burst_stats: Dict[str, Dict[str, dict]],
     feature: str,
-    rolling_window: int,
     output_path: Path,
 ) -> None:
-    models = list(sweep_results)
-    fig, axes = plt.subplots(2, 2, figsize=(11, 8))
+    models = list(trajectory_curves)
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4))
 
-    ax = axes[0, 0]
-    keys = sorted(
-        {key for model in models for key in sweep_results[model][feature]},
-        key=lambda item: int(item.split("=")[1]),
-    )
-    for model in models:
-        xs = [int(key.split("=")[1]) for key in keys]
-        ys = [sweep_results[model][feature].get(key, float("nan")) for key in keys]
-        ax.plot(xs, ys, "-o", color=_model_color(model), linewidth=2, label=model)
-    ax.axhline(0.0, color="black", linewidth=0.8, linestyle="--")
-    ax.set_title("Window sweep")
-    ax.set_xlabel("Rolling window k")
-    ax.set_ylabel("Pearson r")
-    ax.grid(alpha=0.3)
-    ax.legend()
-
-    ax = axes[0, 1]
-    for model in models:
-        positions = sorted(float(key) for key in instant_curves[model][feature])
-        ax.plot(
-            positions,
-            [instant_curves[model][feature][f"{pos:.2f}"] for pos in positions],
-            "-",
-            color=_model_color(model),
-            linewidth=2,
-            label=f"{model} instant",
-        )
-        ax.plot(
-            positions,
-            [rolling_curves[model][feature][f"{pos:.2f}"] for pos in positions],
-            "--",
-            color=_model_color(model),
-            linewidth=2,
-            label=f"{model} rolling",
-        )
-    ax.axhline(0.0, color="black", linewidth=0.8, linestyle="--")
-    ax.set_title("Position curve")
-    ax.set_xlabel("Episode progress")
-    ax.set_ylabel("Pearson r")
-    ax.grid(alpha=0.3)
-    ax.legend(ncol=2)
-
-    ax = axes[1, 0]
+    ax = axes[0]
     for model in models:
         pos = trajectory_curves[model][feature]["positions"]
         ax.plot(pos, trajectory_curves[model][feature]["success"], color=_model_color(model), linewidth=2, label=f"{model} success")
@@ -677,7 +478,7 @@ def plot_summary_2x2(
     ax.grid(alpha=0.3)
     ax.legend(ncol=2)
 
-    ax = axes[1, 1]
+    ax = axes[1]
     buckets = ["none", "transient", "persistent", "mixed"]
     x = np.arange(len(buckets))
     width = 0.75 / max(len(models), 1)
@@ -685,6 +486,9 @@ def plot_summary_2x2(
         vals = [burst_stats[model][feature][bucket]["success_rate"] for bucket in buckets]
         offsets = x + (idx - len(models) / 2 + 0.5) * width
         ax.bar(offsets, vals, width=width * 0.9, color=_model_color(model), alpha=0.85, label=model)
+        for xpos, bucket in zip(offsets, buckets):
+            count = burst_stats[model][feature][bucket]["count"]
+            ax.text(xpos, 0.02, f"n={count}", rotation=90, va="bottom", ha="center", fontsize=8)
     ax.set_xticks(x)
     ax.set_xticklabels(buckets)
     ax.set_ylim(0.0, 1.05)
@@ -694,7 +498,7 @@ def plot_summary_2x2(
     ax.legend()
 
     fig.suptitle(
-        f"Temporal reliance summary: {FEATURE_SPECS[feature]['label']} (rolling k={rolling_window})",
+        f"Temporal reliance: {FEATURE_SPECS[feature]['label']}",
         fontsize=11,
         fontweight="bold",
     )
@@ -705,19 +509,12 @@ def _print_model_summary(
     model: str,
     episodes: Sequence[dict],
     feature: str,
-    sweep: Dict[str, float],
     burst_stats: Dict[str, dict],
 ) -> None:
     success_rate = float(np.mean([ep["success"] for ep in episodes])) if episodes else float("nan")
-    tis = temporal_integration_score(sweep)
     print(f"\n{'=' * 72}")
     print(f"Model: {model} | feature: {feature}")
     print(f"Episodes: {len(episodes)} | success rate: {success_rate:.1%}")
-    print("Window sweep:")
-    for key, value in sorted(sweep.items(), key=lambda item: int(item[0].split('=')[1])):
-        marker = " <- instant" if key == "k=1" else ""
-        print(f"  {key:>5}: r = {value:+.3f}{marker}")
-    print(f"Temporal Integration Score: {tis:+.3f}")
     print("Dip buckets:")
     for bucket in ("none", "transient", "persistent", "mixed"):
         bucket_stats = burst_stats[bucket]
@@ -754,20 +551,6 @@ def main() -> int:
         help="Requested layer key (for example layer_25). Defaults to layers_avg when present.",
     )
     parser.add_argument(
-        "--rolling-windows",
-        nargs="+",
-        type=int,
-        default=[1, 3, 5, 10],
-        help="Rolling window sizes k. Include 1 for the instantaneous baseline.",
-    )
-    parser.add_argument(
-        "--position-grid",
-        nargs="+",
-        type=float,
-        default=[0.1, 0.25, 0.5, 0.75, 0.9],
-        help="Episode-relative positions used for position-wise curves.",
-    )
-    parser.add_argument(
         "--burst-quantile",
         type=float,
         default=0.2,
@@ -797,11 +580,6 @@ def main() -> int:
 
     args.inputs = args.inputs or list(DEFAULT_INPUTS)
     features = args.feature or ["iou"]
-    windows = sorted(set(args.rolling_windows))
-    if 1 not in windows:
-        windows = [1] + windows
-    positions = [min(1.0, max(0.0, pos)) for pos in args.position_grid]
-    rolling_window_for_position = next((window for window in windows if window > 1), windows[0])
 
     model_paths: Dict[str, List[str]] = defaultdict(list)
     for item in args.inputs:
@@ -819,18 +597,22 @@ def main() -> int:
         if not episodes:
             log.warning("No usable episodes for %s", model)
             continue
-        model_episodes[model] = episodes
-        for feature in features:
-            n_with_feature = sum(1 for ep in episodes if feature in ep["signals"])
-            log.info("%s: %d episodes loaded, %d with feature=%s", model, len(episodes), n_with_feature, feature)
+        suite_groups: Dict[str, List[dict]] = defaultdict(list)
+        for ep in episodes:
+            suite_groups[ep.get("_suite") or "unknown"].append(ep)
+        suite_order = list(SUITE_LABELS.values())
+        for suite in sorted(suite_groups, key=lambda s: suite_order.index(s) if s in suite_order else 99):
+            key = f"{model} ({suite})"
+            eps = suite_groups[suite]
+            model_episodes[key] = eps
+            for feature in features:
+                n_with_feature = sum(1 for ep in eps if feature in ep["signals"])
+                log.info("%s: %d episodes loaded, %d with feature=%s", key, len(eps), n_with_feature, feature)
 
     if not model_episodes:
         log.error("No data loaded.")
         return 1
 
-    sweep_results: Dict[str, Dict[str, Dict[str, float]]] = defaultdict(dict)
-    instant_curves: Dict[str, Dict[str, Dict[str, float]]] = defaultdict(dict)
-    rolling_curves: Dict[str, Dict[str, Dict[str, float]]] = defaultdict(dict)
     trajectory_curves: Dict[str, Dict[str, Dict[str, np.ndarray]]] = defaultdict(dict)
     burst_results: Dict[str, Dict[str, dict]] = defaultdict(dict)
     summary_json: Dict[str, dict] = {}
@@ -845,9 +627,6 @@ def main() -> int:
             usable = [ep for ep in episodes if feature in ep["signals"]]
             if not usable:
                 continue
-            sweep = window_sweep(usable, feature=feature, windows=windows)
-            pos_instant = position_curve(usable, feature=feature, window=1, positions=positions)
-            pos_rolling = position_curve(usable, feature=feature, window=rolling_window_for_position, positions=positions)
             traj_curves = normalized_episode_curves(usable, feature=feature)
             burst_stats = burst_tolerance_stats(
                 usable,
@@ -859,35 +638,20 @@ def main() -> int:
             if not burst_stats:
                 continue
 
-            sweep_results[model][feature] = sweep
-            instant_curves[model][feature] = pos_instant
-            rolling_curves[model][feature] = pos_rolling
             trajectory_curves[model][feature] = traj_curves
             burst_results[model][feature] = burst_stats
 
             summary_json[model]["features"][feature] = {
                 "n_episodes_with_feature": len(usable),
-                "temporal_integration_score": temporal_integration_score(sweep),
-                "window_sweep": sweep,
-                "position_curve_instant": pos_instant,
-                "position_curve_rolling": pos_rolling,
                 "burst_tolerance": burst_stats,
                 "selected_layers": sorted({ep["layers"].get(feature) for ep in usable if ep["layers"].get(feature)}),
             }
-            _print_model_summary(model, usable, feature, sweep, burst_stats)
+            _print_model_summary(model, usable, feature, burst_stats)
 
     for feature in features:
-        models = [model for model in model_episodes if feature in sweep_results.get(model, {})]
+        models = [model for model in model_episodes if feature in trajectory_curves.get(model, {})]
         if not models:
             continue
-        plot_window_sweeps({model: sweep_results[model] for model in models}, feature, out_dir / f"{feature}_window_sweep.png")
-        plot_position_curves(
-            {model: instant_curves[model] for model in models},
-            {model: rolling_curves[model] for model in models},
-            feature,
-            rolling_window_for_position,
-            out_dir / f"{feature}_position_curve.png",
-        )
         plot_episode_trajectories(
             {model: trajectory_curves[model] for model in models},
             feature,
@@ -898,18 +662,12 @@ def main() -> int:
             feature,
             out_dir / f"{feature}_dip_tolerance.png",
         )
-        plot_summary_2x2(
-            {model: sweep_results[model] for model in models},
-            {model: instant_curves[model] for model in models},
-            {model: rolling_curves[model] for model in models},
+        plot_summary(
             {model: trajectory_curves[model] for model in models},
             {model: burst_results[model] for model in models},
             feature,
-            rolling_window_for_position,
             out_dir / f"{feature}_summary.png",
         )
-
-    plot_tis_bars(sweep_results, features, out_dir / "temporal_integration_score.png")
 
     out_json = out_dir / "temporal_reliance_results.json"
     with open(out_json, "w") as f:

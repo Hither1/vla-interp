@@ -278,7 +278,7 @@ def plot_temporal_analysis(
         ax.set_ylabel("visual_fraction (mean)")
         ax.set_title(model_name)
         ax.yaxis.grid(True, ls="--", alpha=0.3)
-        ax.legend(loc="best", fontsize=7, framealpha=0.85)
+        ax.legend(loc="best", fontsize=8, framealpha=0.85)
 
     fig.tight_layout()
     _save_fig(fig, out_dir, "fig3_temporal_analysis.png")
@@ -347,7 +347,7 @@ def plot_vci_vs_delta_success(
         for mn in model_names
     ]
     ax.legend(handles=mode_handles + model_handles, loc="lower right",
-              fontsize=7, framealpha=0.85, ncol=2)
+              fontsize=8, framealpha=0.85, ncol=2)
 
     ax.set_xlabel("VCI = Δ visual_fraction (positive = more visual attention)")
     ax.set_ylabel("Δ success (positive = better)")

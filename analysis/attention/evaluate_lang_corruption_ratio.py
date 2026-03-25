@@ -114,6 +114,7 @@ def run_episode_single_mode(
     max_token_len: int = 256,
     state_dim: int = 7,
     pi05: bool = True,
+    discrete_state_input: bool = False,
     num_image_tokens: int = 256,
     vis_cfg=None,
     policy_cfg=None,
@@ -169,6 +170,7 @@ def run_episode_single_mode(
                 max_token_len=max_token_len,
                 state_dim=state_dim,
                 pi05=pi05,
+                discrete_state_input=discrete_state_input,
             )
 
             num_text_tokens = int(observation.tokenized_prompt.shape[1])
@@ -339,6 +341,7 @@ def run_episode_all_modes(
     max_token_len: int = 256,
     state_dim: int = 7,
     pi05: bool = True,
+    discrete_state_input: bool = False,
     num_image_tokens: int = 256,
     vis_cfg=None,
     policy_cfg=None,
@@ -362,7 +365,8 @@ def run_episode_all_modes(
             prompt=prompt, initial_state=initial_state, layers=layers,
             max_steps=max_steps, num_steps_wait=num_steps_wait,
             replan_steps=replan_steps, max_token_len=max_token_len,
-            state_dim=state_dim, pi05=pi05, num_image_tokens=num_image_tokens,
+            state_dim=state_dim, pi05=pi05, discrete_state_input=discrete_state_input,
+            num_image_tokens=num_image_tokens,
             vis_cfg=vis_cfg, policy_cfg=policy_cfg, policy_rng=policy_rng,
         )
 
@@ -470,6 +474,7 @@ def main():
         action_horizon=args.action_horizon,
         max_token_len=args.max_token_len,
         pi05=pi05,
+        discrete_state_input=False,
         dtype="bfloat16",
     )
     log.info("Model loaded. action_dim=%d state_dim=%d", cfg.action_dim, state_dim)
@@ -504,7 +509,8 @@ def main():
                 prompt_modes=args.prompt_modes, all_tasks=all_task_descriptions,
                 num_steps_wait=10, replan_steps=args.replan_steps,
                 max_token_len=args.max_token_len, state_dim=state_dim,
-                pi05=pi05, num_image_tokens=args.num_image_tokens,
+                pi05=pi05, discrete_state_input=cfg.discrete_state_input,
+                num_image_tokens=args.num_image_tokens,
                 vis_cfg=vis_cfg, policy_cfg=policy_cfg, policy_rng=policy_rng,
             )
 

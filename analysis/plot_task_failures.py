@@ -250,11 +250,11 @@ ax.axvline(0, color="gray", lw=0.4, alpha=0.3)
 
 # Shade quadrants
 ax.fill_between([0, 0.2], 0, 0.2, color="red", alpha=0.06, zorder=1)
-ax.text(0.01, 0.01, "Both\nalways fail", fontsize=6.5, color="red", alpha=0.7,
+ax.text(0.01, 0.01, "Both\nalways fail", fontsize=8, color="red", alpha=0.7,
         ha="left", va="bottom", transform=ax.transAxes)
-ax.text(0.97, 0.01, "PI0.5 only fails", fontsize=6.5, color="#cc4400", alpha=0.8,
+ax.text(0.97, 0.01, "PI0.5 only fails", fontsize=8, color="#cc4400", alpha=0.8,
         ha="right", va="bottom", transform=ax.transAxes)
-ax.text(0.01, 0.97, "Cosmos only fails", fontsize=6.5, color="#0055cc", alpha=0.8,
+ax.text(0.01, 0.97, "Cosmos only fails", fontsize=8, color="#0055cc", alpha=0.8,
         ha="left", va="top", transform=ax.transAxes)
 
 ax.set_xlabel("PI0.5 success rate", fontsize=10)
@@ -270,8 +270,8 @@ ax.grid(True, alpha=0.25, lw=0.5)
 
 legend_handles = [mpatches.Patch(color=SUITE_COLORS[s], label=SUITE_ABBREV.get(s, s))
                   for s in SUITE_COLORS]
-ax.legend(handles=legend_handles, fontsize=7, loc="upper left",
-          framealpha=0.9, ncol=2, columnspacing=0.5, handlelength=0.8, title="Suite", title_fontsize=7)
+ax.legend(handles=legend_handles, fontsize=8, loc="upper left",
+          framealpha=0.9, ncol=2, columnspacing=0.5, handlelength=0.8, title="Suite", title_fontsize=8)
 
 
 # ---------------------------------------------------------------------------
@@ -291,10 +291,10 @@ bars2 = ax.barh(y - h/2, cos_rates, height=h, label="Cosmos", color="#EE6677", a
 
 for bar, val in zip(bars1, pi_rates):
     ax.text(bar.get_width() + 0.01, bar.get_y() + bar.get_height()/2,
-            f"{val:.0%}", va="center", ha="left", fontsize=7)
+            f"{val:.0%}", va="center", ha="left", fontsize=8)
 for bar, val in zip(bars2, cos_rates):
     ax.text(bar.get_width() + 0.01, bar.get_y() + bar.get_height()/2,
-            f"{val:.0%}", va="center", ha="left", fontsize=7)
+            f"{val:.0%}", va="center", ha="left", fontsize=8)
 
 ax.set_yticks(y)
 ax.set_yticklabels(cats_ordered, fontsize=8.5)
@@ -329,7 +329,7 @@ def draw_heatmap(ax, mat, tasks, perturbs, title, cmap="RdYlGn"):
         f"[{SUITE_ABBREV.get(TASK_SUITE.get(t, '?'), '?')}] {t.replace('_', ' ')}"
         for t in tasks2
     ]
-    ax.set_yticklabels(ylabels, fontsize=6.5)
+    ax.set_yticklabels(ylabels, fontsize=8)
     for tick, t in zip(ax.get_yticklabels(), tasks2):
         suite = TASK_SUITE.get(t, "unknown")
         tick.set_color(SUITE_COLORS.get(suite, "#333333"))
@@ -343,7 +343,7 @@ def draw_heatmap(ax, mat, tasks, perturbs, title, cmap="RdYlGn"):
                 txt = f"{v:.0%}"
                 color = "white" if v < 0.3 or v > 0.7 else "black"
                 ax.text(j, i, txt, ha="center", va="center",
-                        fontsize=5.5, color=color, fontweight="bold")
+                        fontsize=8, color=color, fontweight="bold")
 
     plt.colorbar(im, ax=ax, fraction=0.02, pad=0.01, format="%.0%%")
     return im
