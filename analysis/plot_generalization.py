@@ -59,7 +59,6 @@ FINDING_STYLE = {
 # (model, perturbation, suite, condition, finding_type, short_label)
 KEY_EXAMPLES = [
     # Type 1: high success despite semantically wrong / spatially disrupted language/vision
-    ("pi0.5",  "language", "LIBERO-In domain", "opposite",          "shortcutting",  "pi0.5\nopposite"),
     ("Cosmos", "visual",   "LIBERO-In domain", "translate 20%",     "shortcutting",  "Cosmos\ntranslate"),
     # Type 2: ratio increases but IoU collapses → watching hard but at wrong things
     ("OpenVLA","language", "LIBERO-In domain", "empty",             "confused",      "OpenVLA\nempty"),
@@ -96,8 +95,8 @@ SR_RC = {
     "legend.fontsize": 39, "xtick.labelsize": 39, "ytick.labelsize": 39,
 }
 SCATTER_RC = {
-    "font.size": 12, "axes.titlesize": 13, "axes.labelsize": 12,
-    "legend.fontsize": 11, "xtick.labelsize": 11, "ytick.labelsize": 11,
+    "font.size": 18, "axes.titlesize": 20, "axes.labelsize": 18,
+    "legend.fontsize": 16, "xtick.labelsize": 16, "ytick.labelsize": 16,
 }
 
 OUT_DIR = os.path.join(os.path.dirname(__file__), "plots_generalization")
@@ -177,46 +176,46 @@ def shared_legend_beside_title(fig, models, colors, ncol=5):
 # DATA TABLES
 # ═══════════════════════════════════════════════════════════════════════════════
 
-LANG_CONDS = ["original", "empty", "shuffle", "random", "synonym", "opposite"]
+LANG_CONDS = ["original", "empty", "shuffle", "random", "synonym"]
 VIS_CONDS  = ["original", "rotate 30°", "translate 20%", "rotate+translate"]
 POL_CONDS  = ["original", "random action 25%", "object shift x"]
 
 # ── success rates ──────────────────────────────────────────────────────────────
 LANG_SR = {
     "LIBERO-In domain": {
-        "pi0.5":    [98.2, 62.5, 100.0, 34.5,  96.5,  99.5],
-        "OpenVLA":  [76.5,  0.13, 24.5,  6.3,  64.8,  63.4],
-        "Cosmos":   [98.5, 50.5,  83.3,  32.5,  94.5,  97.0],
-        "DP":       [91.8, 36.3,  35.3,  30.9,  35.5,  35.3],
-        "DreamZero":[97.8, 59.2,  91.5,  31.2,  97.8,  98.9],
+        "pi0.5":    [98.2, 62.5, 100.0, 34.5,  96.5],
+        "OpenVLA":  [76.5,  0.13, 24.5,  6.3,  64.8],
+        "Cosmos":   [98.5, 50.5,  83.3,  32.5,  94.5],
+        "DP":       [91.8, 36.3,  35.3,  30.9,  35.5],
+        "DreamZero":[97.8, 59.2,  91.5,  31.2,  97.8],
     },
     "LIBERO-90-Object": {
-        "pi0.5":    [49.5,  4.0, 50.2,  3.3, 10.2, 10.0],
-        "OpenVLA":  [ 9.5,  0.0,  6.0,  3.5, 12.2, 13.0],
-        "Cosmos":   [38.0, 27.8, 32.0, 27.0, 38.8, 35.2],
-        "DP":       [18.5, 14.5, 14.2, 13.5, 15.0, 14.5],
-        "DreamZero":[38.3, 27.9, 32.2, 25.3, 38.5, 35.5],
+        "pi0.5":    [49.5,  4.0, 50.2,  3.3, 10.2],
+        "OpenVLA":  [ 9.5,  0.0,  6.0,  3.5, 12.2],
+        "Cosmos":   [38.0, 27.8, 32.0, 27.0, 38.8],
+        "DP":       [18.5, 14.5, 14.2, 13.5, 15.0],
+        "DreamZero":[38.3, 27.9, 32.2, 25.3, 38.5],
     },
     "LIBERO-90-Spatial": {
-        "pi0.5":    [23.0,  8.0, 21.5,  1.0, 24.0, 22.0],
-        "OpenVLA":  [ 4.1,  0.1,  2.8,  0.6,  4.9,  4.3],
-        "Cosmos":   [13.72,13.49,12.91,15.47,13.14,13.60],
-        "DP":       [ 7.8,  6.7,  6.9,  7.9,  6.5,  6.6],
-        "DreamZero":[14.20,13.80,13.20,14.80,13.40,13.90],
+        "pi0.5":    [23.0,  8.0, 21.5,  1.0, 24.0],
+        "OpenVLA":  [ 4.1,  0.1,  2.8,  0.6,  4.9],
+        "Cosmos":   [13.72,13.49,12.91,15.47,13.14],
+        "DP":       [ 7.8,  6.7,  6.9,  7.9,  6.5],
+        "DreamZero":[14.20,13.80,13.20,14.80,13.40],
     },
     "LIBERO-90-Act": {
-        "pi0.5":    [31.2, 10.2, 27.0,  3.0, 28.0, 11.8],
-        "OpenVLA":  [13.2,  1.2,  9.1,  2.6, 11.5, 13.8],
-        "Cosmos":   [33.8, 26.2, 37.10,30.0, 40.0, 37.6],
-        "DP":       [12.1, 20.3, 21.2, 22.1, 21.5, 22.4],
-        "DreamZero":[35.0, 27.0, 38.0, 28.8, 41.0, 38.7],
+        "pi0.5":    [31.2, 10.2, 27.0,  3.0, 28.0],
+        "OpenVLA":  [13.2,  1.2,  9.1,  2.6, 11.5],
+        "Cosmos":   [33.8, 26.2, 37.10,30.0, 40.0],
+        "DP":       [12.1, 20.3, 21.2, 22.1, 21.5],
+        "DreamZero":[35.0, 27.0, 38.0, 28.8, 41.0],
     },
     "LIBERO-90-Com": {
-        "pi0.5":    [3.0, 3.0, 2.9, 1.0, 2.7, 2.8],
-        "OpenVLA":  [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        "Cosmos":   [1.5, 2.0, 2.0, 0.0, 1.0, 0.5],
-        "DP":       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        "DreamZero":[1.8, 2.2, 2.2, 0.1, 1.2, 0.7],
+        "pi0.5":    [3.0, 3.0, 2.9, 1.0, 2.7],
+        "OpenVLA":  [0.0, 0.0, 0.0, 0.0, 0.0],
+        "Cosmos":   [1.5, 2.0, 2.0, 0.0, 1.0],
+        "DP":       [0.0, 0.0, 0.0, 0.0, 0.0],
+        "DreamZero":[1.8, 2.2, 2.2, 0.1, 1.2],
     },
 }
 
@@ -299,39 +298,39 @@ POL_SR = {
 # ── attention IoU ──────────────────────────────────────────────────────────────
 LANG_IOU = {
     "LIBERO-In domain": {
-        "pi0.5":    [0.302, 0.195, 0.298, 0.162, 0.295, 0.300],
-        "OpenVLA":  [0.250, 0.012, 0.135, 0.068, 0.228, 0.222],
-        "Cosmos":   [0.335, 0.205, 0.295, 0.175, 0.325, 0.330],
-        "DP":       [0.283, 0.168, 0.248, 0.138, 0.272, 0.278],
-        "DreamZero":[0.348, 0.062, 0.308, 0.172, 0.338, 0.343],
+        "pi0.5":    [0.302, 0.195, 0.298, 0.162, 0.295],
+        "OpenVLA":  [0.250, 0.012, 0.135, 0.068, 0.228],
+        "Cosmos":   [0.335, 0.205, 0.295, 0.175, 0.325],
+        "DP":       [0.283, 0.168, 0.248, 0.138, 0.272],
+        "DreamZero":[0.348, 0.062, 0.308, 0.172, 0.338],
     },
     "LIBERO-90-Object": {
-        "pi0.5":    [0.170, 0.048, 0.168, 0.044, 0.078, 0.076],
-        "OpenVLA":  [0.068, 0.008, 0.052, 0.040, 0.072, 0.075],
-        "Cosmos":   [0.190, 0.158, 0.172, 0.158, 0.192, 0.185],
-        "DP":       [0.130, 0.068, 0.122, 0.065, 0.095, 0.092],
-        "DreamZero":[0.191, 0.159, 0.173, 0.151, 0.193, 0.186],
+        "pi0.5":    [0.170, 0.048, 0.168, 0.044, 0.078],
+        "OpenVLA":  [0.068, 0.008, 0.052, 0.040, 0.072],
+        "Cosmos":   [0.190, 0.158, 0.172, 0.158, 0.192],
+        "DP":       [0.130, 0.068, 0.122, 0.065, 0.095],
+        "DreamZero":[0.191, 0.159, 0.173, 0.151, 0.193],
     },
     "LIBERO-90-Spatial": {
-        "pi0.5":    [0.110, 0.065, 0.106, 0.025, 0.112, 0.108],
-        "OpenVLA":  [0.042, 0.008, 0.034, 0.016, 0.044, 0.042],
-        "Cosmos":   [0.120, 0.118, 0.116, 0.126, 0.118, 0.119],
-        "DP":       [0.080, 0.056, 0.076, 0.062, 0.082, 0.079],
-        "DreamZero":[0.125, 0.123, 0.121, 0.124, 0.123, 0.124],
+        "pi0.5":    [0.110, 0.065, 0.106, 0.025, 0.112],
+        "OpenVLA":  [0.042, 0.008, 0.034, 0.016, 0.044],
+        "Cosmos":   [0.120, 0.118, 0.116, 0.126, 0.118],
+        "DP":       [0.080, 0.056, 0.076, 0.062, 0.082],
+        "DreamZero":[0.125, 0.123, 0.121, 0.124, 0.123],
     },
     "LIBERO-90-Act": {
-        "pi0.5":    [0.130, 0.076, 0.122, 0.042, 0.125, 0.082],
-        "OpenVLA":  [0.078, 0.022, 0.062, 0.034, 0.072, 0.080],
-        "Cosmos":   [0.150, 0.130, 0.158, 0.140, 0.162, 0.158],
-        "DP":       [0.090, 0.062, 0.082, 0.055, 0.085, 0.070],
-        "DreamZero":[0.158, 0.137, 0.165, 0.139, 0.169, 0.165],
+        "pi0.5":    [0.130, 0.076, 0.122, 0.042, 0.125],
+        "OpenVLA":  [0.078, 0.022, 0.062, 0.034, 0.072],
+        "Cosmos":   [0.150, 0.130, 0.158, 0.140, 0.162],
+        "DP":       [0.090, 0.062, 0.082, 0.055, 0.085],
+        "DreamZero":[0.158, 0.137, 0.165, 0.139, 0.169],
     },
     "LIBERO-90-Com": {
-        "pi0.5":    [0.035, 0.032, 0.033, 0.025, 0.032, 0.032],
-        "OpenVLA":  [0.015, 0.010, 0.010, 0.008, 0.010, 0.010],
-        "Cosmos":   [0.040, 0.038, 0.038, 0.018, 0.032, 0.028],
-        "DP":       [0.025, 0.022, 0.022, 0.015, 0.022, 0.020],
-        "DreamZero":[0.042, 0.040, 0.040, 0.019, 0.034, 0.030],
+        "pi0.5":    [0.035, 0.032, 0.033, 0.025, 0.032],
+        "OpenVLA":  [0.015, 0.010, 0.010, 0.008, 0.010],
+        "Cosmos":   [0.040, 0.038, 0.038, 0.018, 0.032],
+        "DP":       [0.025, 0.022, 0.022, 0.015, 0.022],
+        "DreamZero":[0.042, 0.040, 0.040, 0.019, 0.034],
     },
 }
 
@@ -414,32 +413,32 @@ POL_IOU = {
 # ── attention ratio (visual / total) ──────────────────────────────────────────
 LANG_RATIO = {          # suites: In domain, Spatial, Object, Com (no Act)
     "LIBERO-In domain": {
-        "pi0.5":    [0.576, 0.628, 0.580, 0.648, 0.578, 0.577],
-        "OpenVLA":  [0.646, 0.748, 0.712, 0.735, 0.660, 0.658],
-        "Cosmos":   [0.439, 0.378, 0.420, 0.362, 0.434, 0.436],
-        "DP":       [0.928, 0.972, 0.942, 0.975, 0.930, 0.929],
-        "DreamZero":[0.445, 0.383, 0.426, 0.360, 0.440, 0.442],
+        "pi0.5":    [0.576, 0.628, 0.580, 0.648, 0.578],
+        "OpenVLA":  [0.646, 0.748, 0.712, 0.735, 0.660],
+        "Cosmos":   [0.439, 0.378, 0.420, 0.362, 0.434],
+        "DP":       [0.928, 0.972, 0.942, 0.975, 0.930],
+        "DreamZero":[0.445, 0.383, 0.426, 0.360, 0.440],
     },
     "LIBERO-90-Spatial": {
-        "pi0.5":    [0.735, 0.775, 0.738, 0.812, 0.733, 0.736],
-        "OpenVLA":  [0.972, 0.985, 0.978, 0.984, 0.970, 0.973],
-        "Cosmos":   [0.355, 0.351, 0.350, 0.362, 0.358, 0.354],
-        "DP":       [0.972, 0.984, 0.976, 0.977, 0.971, 0.972],
-        "DreamZero":[0.362, 0.357, 0.355, 0.361, 0.364, 0.360],
+        "pi0.5":    [0.735, 0.775, 0.738, 0.812, 0.733],
+        "OpenVLA":  [0.972, 0.985, 0.978, 0.984, 0.970],
+        "Cosmos":   [0.355, 0.351, 0.350, 0.362, 0.358],
+        "DP":       [0.972, 0.984, 0.976, 0.977, 0.971],
+        "DreamZero":[0.362, 0.357, 0.355, 0.361, 0.364],
     },
     "LIBERO-90-Object": {
-        "pi0.5":    [0.701, 0.782, 0.705, 0.785, 0.756, 0.754],
-        "OpenVLA":  [0.947, 0.986, 0.956, 0.979, 0.940, 0.938],
-        "Cosmos":   [0.383, 0.368, 0.372, 0.370, 0.384, 0.386],
-        "DP":       [0.966, 0.982, 0.968, 0.981, 0.968, 0.967],
-        "DreamZero":[0.384, 0.369, 0.373, 0.363, 0.385, 0.387],
+        "pi0.5":    [0.701, 0.782, 0.705, 0.785, 0.756],
+        "OpenVLA":  [0.947, 0.986, 0.956, 0.979, 0.940],
+        "Cosmos":   [0.383, 0.368, 0.372, 0.370, 0.384],
+        "DP":       [0.966, 0.982, 0.968, 0.981, 0.968],
+        "DreamZero":[0.384, 0.369, 0.373, 0.363, 0.385],
     },
     "LIBERO-90-Com": {
-        "pi0.5":    [0.810, 0.812, 0.811, 0.820, 0.812, 0.812],
-        "OpenVLA":  [0.990, 0.990, 0.990, 0.990, 0.990, 0.990],
-        "Cosmos":   [0.254, 0.254, 0.252, 0.240, 0.256, 0.258],
-        "DP":       [0.986, 0.987, 0.986, 0.989, 0.987, 0.987],
-        "DreamZero":[0.260, 0.260, 0.258, 0.240, 0.262, 0.264],
+        "pi0.5":    [0.810, 0.812, 0.811, 0.820, 0.812],
+        "OpenVLA":  [0.990, 0.990, 0.990, 0.990, 0.990],
+        "Cosmos":   [0.254, 0.254, 0.252, 0.240, 0.256],
+        "DP":       [0.986, 0.987, 0.986, 0.989, 0.987],
+        "DreamZero":[0.260, 0.260, 0.258, 0.240, 0.262],
     },
 }
 
@@ -612,6 +611,74 @@ with plt.rc_context(BAR_RC):
     _bar_section("3", ALL_SUITES,   POL_CONDS,  POL_SR,  POL_IOU,  POL_RATIO,
                  section_title="Policy Perturbation")
 
+# ── Combined success rate: Language / Visual / Policy ─────────────────────────
+with plt.rc_context(SR_RC):
+    import matplotlib.gridspec as gridspec
+    import matplotlib.image as mpimg
+
+    _w = 1.5 * 6 + 3.5
+    _n = len(ALL_SUITES)
+    _bar_h = 10.5
+    _img_h = 7.0   # height of the example-image header row (inches)
+
+    fig_comb = plt.figure(figsize=(_w * _n, _img_h + 3 * _bar_h))
+    gs = gridspec.GridSpec(
+        4, _n, figure=fig_comb,
+        height_ratios=[_img_h, _bar_h, _bar_h, _bar_h],
+        hspace=0.48, wspace=0.06,
+    )
+
+    # ── Example-image header row ──────────────────────────────────────────────
+    _repo = os.path.join(os.path.dirname(__file__), "..")
+    _img_panels = [
+        (gs[0, :2], os.path.join(_repo, "libero.jpeg"),      "Simulation (LIBERO)"),
+        (gs[0, 2:], os.path.join(_repo, "droid_frame3.png"), "Real World (DROID)"),
+    ]
+    for _spec, _path, _lbl in _img_panels:
+        _ax_img = fig_comb.add_subplot(_spec)
+        _ax_img.imshow(mpimg.imread(_path), aspect="auto")
+        _ax_img.set_title(_lbl, fontsize=SR_RC["axes.titlesize"],
+                          fontweight="bold", pad=18, color="#111111")
+        _ax_img.axis("off")
+
+    # ── Bar chart rows ────────────────────────────────────────────────────────
+    axes_comb = np.array([[fig_comb.add_subplot(gs[_ri + 1, _ci])
+                           for _ci in range(_n)] for _ri in range(3)])
+    for _ri in range(3):
+        for _ci in range(1, _n):
+            axes_comb[_ri, _ci].sharey(axes_comb[_ri, 0])
+
+    _rows = [
+        ("Language Perturbation", LANG_CONDS, LANG_SR),
+        ("Visual Perturbation",   VIS_CONDS,  VIS_SR),
+        ("Policy Perturbation",   POL_CONDS,  POL_SR),
+    ]
+    for _ri, (_rtitle, _conds, _sr_d) in enumerate(_rows):
+        for _ci, _suite in enumerate(ALL_SUITES):
+            _ax = axes_comb[_ri, _ci]
+            grouped_bar_ax(_ax, _sr_d.get(_suite, {}), _conds, MODELS_ALL,
+                           MODEL_COLORS, "Success rate (%)",
+                           _suite if _ri == 0 else "",
+                           ylim=(0, 105), pct_fmt=True)
+            if _ci > 0:
+                _ax.set_ylabel("")
+                _ax.tick_params(labelleft=False)
+                _ax.spines["left"].set_visible(False)
+            _ax.spines["top"].set_visible(False)
+            _ax.spines["right"].set_visible(False)
+        axes_comb[_ri, 0].set_ylabel(f"{_rtitle}\nSuccess rate (%)")
+
+    _handles = [plt.Rectangle((0, 0), 1, 1, color=MODEL_COLORS[m]) for m in MODELS_ALL]
+    fig_comb.legend(
+        _handles, MODELS_ALL,
+        loc="upper right", ncol=5,
+        bbox_to_anchor=(0.99, 1.0), frameon=False,
+        columnspacing=0.5, handlelength=0.8, handletextpad=0.4,
+        fontsize=SR_RC["legend.fontsize"],
+    )
+    fig_comb.tight_layout(rect=[0, 0, 1, 0.965], w_pad=0.3, h_pad=0.5)
+    save_fig(fig_comb, "combined_success_rate.png")
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # RELATIONSHIP SCATTER PLOTS
@@ -626,9 +693,9 @@ plt.rcParams.update(SCATTER_RC)
 
 # ── R1: Success vs IoU – faceted by perturbation type, colored by model ───────
 PERTURBS = ["language", "visual", "policy"]
-fig_r1, axes = plt.subplots(1, 3, figsize=(14, 4.5), sharey=False)
+fig_r1, axes = plt.subplots(1, 3, figsize=(14, 4.5), sharey=True)
 fig_r1.suptitle("Success Rate vs Attention IoU\n(all suites pooled)",
-                fontsize=10, fontweight="bold")
+                fontsize=22, fontweight="bold")
 
 for ax, pt in zip(axes, PERTURBS):
     sub = valid(df[(df.perturbation == pt) & df.model.isin(MODELS_ATTN)],
@@ -652,9 +719,9 @@ save_fig(fig_r1, "R1_success_vs_iou_by_perturbation.png")
 
 
 # ── R2: Success vs |ratio−0.5| – faceted by perturbation type ────────────────
-fig_r2, axes = plt.subplots(1, 3, figsize=(14, 4.5), sharey=False)
+fig_r2, axes = plt.subplots(1, 3, figsize=(14, 4.5), sharey=True)
 fig_r2.suptitle("Success Rate vs Attention Ratio Deviation |ratio − 0.5|\n"
-                "(all suites pooled)", fontsize=10, fontweight="bold")
+                "(all suites pooled)", fontsize=22, fontweight="bold")
 
 for ax, pt in zip(axes, PERTURBS):
     sub = valid(df[(df.perturbation == pt) & df.model.isin(MODELS_ATTN)],
@@ -676,7 +743,7 @@ save_fig(fig_r2, "R2_success_vs_ratio_dev_by_perturbation.png")
 
 
 # ── R3: Success vs IoU – faceted by model, colored by suite ──────────────────
-fig_r3, axes = plt.subplots(1, len(MODELS_ATTN), figsize=(4*len(MODELS_ATTN), 4.5), sharey=False)
+fig_r3, axes = plt.subplots(1, len(MODELS_ATTN), figsize=(4*len(MODELS_ATTN), 4.5), sharey=True)
 fig_r3.suptitle("Success Rate vs Attention IoU\n(all perturbation types, per model)",
                 fontsize=28, fontweight="bold")
 
@@ -696,22 +763,22 @@ for ax, m in zip(axes, MODELS_ATTN):
     if mask.sum() > 2:
         r, p = stats.pearsonr(sub.success[mask], sub.iou[mask])
         ax.text(0.05, 0.95, f"r = {r:.2f}", transform=ax.transAxes,
-                va="top", fontsize=12,
+                va="top", fontsize=18,
                 color="black" if p < 0.05 else "grey")
-    ax.set_title(m, fontsize=13)
-    ax.set_xlabel("Attention IoU", fontsize=12)
-    ax.set_ylabel("Success rate (%)", fontsize=12)
-    ax.tick_params(axis='both', labelsize=11)
+    ax.set_title(m, fontsize=20)
+    ax.set_xlabel("Attention IoU", fontsize=18)
+    ax.set_ylabel("Success rate (%)", fontsize=18)
+    ax.tick_params(axis='both', labelsize=16)
     ax.grid(True, ls="--", alpha=0.4)
 
 fig_r3.legend(suite_handles, ALL_SUITES, loc="lower center", ncol=5,
-              bbox_to_anchor=(0.5, -0.05), frameon=False, fontsize=11)
+              bbox_to_anchor=(0.5, -0.05), frameon=False, fontsize=16)
 fig_r3.tight_layout(rect=[0, 0.06, 1, 1])
 save_fig(fig_r3, "R3_success_vs_iou_by_model.png")
 
 
 # ── R4: Success vs IoU – faceted by suite, colored by model ──────────────────
-fig_r4, axes = plt.subplots(1, 5, figsize=(20, 4), sharey=False)
+fig_r4, axes = plt.subplots(1, 5, figsize=(20, 4), sharey=True)
 fig_r4.suptitle("Success Rate vs Attention IoU (per suite, colored by model)",
                 fontsize=28, fontweight="bold")
 
@@ -722,14 +789,14 @@ for ax, s in zip(axes, ALL_SUITES):
         ax.scatter(ms.iou, ms.success, c=MODEL_COLORS[m],
                    s=30, alpha=0.8, zorder=4, label=m)
         add_regline(ax, ms.iou.values, ms.success.values, MODEL_COLORS[m])
-    ax.set_title(s, fontsize=12)
-    ax.set_xlabel("IoU", fontsize=12)
-    ax.set_ylabel("Success (%)", fontsize=12)
-    ax.tick_params(axis='both', labelsize=11)
+    ax.set_title(s, fontsize=20)
+    ax.set_xlabel("IoU", fontsize=18)
+    ax.set_ylabel("Success (%)", fontsize=18)
+    ax.tick_params(axis='both', labelsize=16)
     ax.grid(True, ls="--", alpha=0.4)
 
 fig_r4.legend(handles, MODELS_ATTN, loc="lower center", ncol=len(MODELS_ATTN),
-              bbox_to_anchor=(0.5, -0.06), frameon=False, fontsize=11)
+              bbox_to_anchor=(0.5, -0.06), frameon=False, fontsize=16)
 fig_r4.tight_layout(rect=[0, 0.07, 1, 1])
 save_fig(fig_r4, "R4_success_vs_iou_by_suite.png")
 

@@ -24,7 +24,6 @@ PERTURBATIONS = [
         "light":    "#e8eef8",
         "items": [
             ("Empty\nPrompt",         "Instruction\nremoved"),
-            ("Opposite\nInstruction", "Key terms negated\n(left → right)"),
             ("Synonym\nSwap",         "Content words\nreplaced"),
             ("Random\nPrompt",        "Replaced with\nunrelated text"),
             ("Shuffled\nWords",       "Words randomly\npermuted"),

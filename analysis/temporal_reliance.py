@@ -48,6 +48,7 @@ SUITE_LABELS: Dict[str, str] = {
     "libero_90_com":  "LIBERO-Long",
 }
 _SUITE_RE = re.compile(r"libero_(10|90_(?:act|com|obj|spa))")
+_PERTURB_RE = re.compile(r"[/\\]perturb[/\\]([^/\\]+)[/\\]")
 
 
 def _detect_suite(path: str) -> Optional[str]:
@@ -56,6 +57,11 @@ def _detect_suite(path: str) -> Optional[str]:
         return None
     key = "libero_" + m.group(1)
     return SUITE_LABELS.get(key, key)
+
+
+def _detect_perturb(path: str) -> Optional[str]:
+    m = _PERTURB_RE.search(path)
+    return m.group(1) if m else None
 
 DEFAULT_INPUTS = [
     "pi0.5:results/attention/iou/pi05/perturb/none/libero_10",
@@ -133,6 +139,7 @@ def _load_trajectories(path: str) -> List[dict]:
             with open(json_path, "r") as f:
                 raw = json.load(f)
             suite = _detect_suite(str(json_path))
+            perturb = _detect_perturb(str(json_path))
             items: List[dict] = []
             if isinstance(raw, dict) and ("attention_steps" in raw or "task_id" in raw):
                 items = [raw]
@@ -142,6 +149,7 @@ def _load_trajectories(path: str) -> List[dict]:
                 items = [item for item in raw["results"] if isinstance(item, dict)]
             for traj in items:
                 traj.setdefault("_suite", suite)
+                traj.setdefault("_perturb", perturb)
             trajectories.extend(items)
         if trajectories:
             return trajectories
@@ -273,6 +281,7 @@ def load_model_episodes(
                     "success": bool(traj.get("success", False)),
                     "num_steps": traj.get("num_steps"),
                     "_suite": traj.get("_suite"),
+                    "_perturb": traj.get("_perturb"),
                     "signals": {},
                     "layers": {},
                     "source_paths": [],
@@ -409,22 +418,57 @@ def plot_episode_trajectories(
     models = list(curves)
     if not models:
         return
-    fig, axes = plt.subplots(1, len(models), figsize=(5 * len(models), 3.8), sharey=True)
-    if len(models) == 1:
-        axes = [axes]
-    for ax, model in zip(axes, models):
+    fig, ax = plt.subplots(figsize=(6, 4))
+    for model in models:
         pos = curves[model][feature]["positions"]
         suc = curves[model][feature]["success"]
         fail = curves[model][feature]["failure"]
         color = _model_color(model)
-        ax.plot(pos, suc, color=color, linewidth=2.5, label="success")
-        ax.plot(pos, fail, color=color, linewidth=2.5, linestyle="--", label="failure")
+        ax.plot(pos, suc, color=color, linewidth=2.5, label=f"{model} success")
+        if not np.all(np.isnan(fail)):
+            ax.plot(pos, fail, color=color, linewidth=2.5, linestyle="--", label=f"{model} failure")
+    ax.set_xlabel("Episode progress")
+    ax.set_ylabel(FEATURE_SPECS[feature]["label"])
+    ax.set_title(f"{FEATURE_SPECS[feature]['label']}: mean trajectory (success vs failure)")
+    ax.legend()
+    ax.grid(alpha=0.3)
+    _save(fig, output_path)
+
+
+def plot_episode_trajectories_per_perturbation(
+    model_episodes: Dict[str, List[dict]],
+    feature: str,
+    output_path: Path,
+) -> None:
+    models = list(model_episodes)
+    if not models:
+        return
+    fig, axes = plt.subplots(1, len(models), figsize=(6 * len(models), 4), sharey=True)
+    if len(models) == 1:
+        axes = [axes]
+    cmap = plt.get_cmap("tab20")
+    for ax, model in zip(axes, models):
+        episodes = model_episodes[model]
+        perturbs = sorted({ep.get("_perturb") or "unknown" for ep in episodes})
+        for i, perturb in enumerate(perturbs):
+            group = [ep for ep in episodes if (ep.get("_perturb") or "unknown") == perturb]
+            curves = normalized_episode_curves(group, feature=feature)
+            pos = curves["positions"]
+            color = cmap(i / max(len(perturbs) - 1, 1))
+            suc = curves["success"]
+            fail = curves["failure"]
+            ax.plot(pos, suc, color=color, linewidth=1.5, label=perturb)
+            if not np.all(np.isnan(fail)):
+                ax.plot(pos, fail, color=color, linewidth=1.5, linestyle="--")
         ax.set_title(model)
         ax.set_xlabel("Episode progress")
         ax.grid(alpha=0.3)
+        ax.legend(fontsize=7, ncol=1)
     axes[0].set_ylabel(FEATURE_SPECS[feature]["label"])
-    axes[0].legend()
-    fig.suptitle(f"{FEATURE_SPECS[feature]['label']}: mean trajectory in successful vs failed episodes")
+    fig.suptitle(
+        f"{FEATURE_SPECS[feature]['label']}: trajectories by perturbation (solid=success, dashed=failure)",
+        fontsize=10,
+    )
     _save(fig, output_path)
 
 
@@ -597,17 +641,10 @@ def main() -> int:
         if not episodes:
             log.warning("No usable episodes for %s", model)
             continue
-        suite_groups: Dict[str, List[dict]] = defaultdict(list)
-        for ep in episodes:
-            suite_groups[ep.get("_suite") or "unknown"].append(ep)
-        suite_order = list(SUITE_LABELS.values())
-        for suite in sorted(suite_groups, key=lambda s: suite_order.index(s) if s in suite_order else 99):
-            key = f"{model} ({suite})"
-            eps = suite_groups[suite]
-            model_episodes[key] = eps
-            for feature in features:
-                n_with_feature = sum(1 for ep in eps if feature in ep["signals"])
-                log.info("%s: %d episodes loaded, %d with feature=%s", key, len(eps), n_with_feature, feature)
+        model_episodes[model] = episodes
+        for feature in features:
+            n_with_feature = sum(1 for ep in episodes if feature in ep["signals"])
+            log.info("%s: %d episodes loaded, %d with feature=%s", model, len(episodes), n_with_feature, feature)
 
     if not model_episodes:
         log.error("No data loaded.")
@@ -648,26 +685,31 @@ def main() -> int:
             }
             _print_model_summary(model, usable, feature, burst_stats)
 
-    for feature in features:
-        models = [model for model in model_episodes if feature in trajectory_curves.get(model, {})]
-        if not models:
-            continue
-        plot_episode_trajectories(
-            {model: trajectory_curves[model] for model in models},
-            feature,
-            out_dir / f"{feature}_trajectory_success_vs_failure.png",
-        )
-        plot_burst_tolerance(
-            {model: burst_results[model] for model in models},
-            feature,
-            out_dir / f"{feature}_dip_tolerance.png",
-        )
-        plot_summary(
-            {model: trajectory_curves[model] for model in models},
-            {model: burst_results[model] for model in models},
-            feature,
-            out_dir / f"{feature}_summary.png",
-        )
+    # Generate exactly 2 figures for the primary feature:
+    # 1. Mean trajectories (success vs failure) — shows instantaneous-signal dependence
+    # 2. Dip tolerance — shows whether models can succeed through persistent low-grounding periods
+    primary_feature = next(
+        (f for f in features if any(f in trajectory_curves.get(m, {}) for m in model_episodes)),
+        None,
+    )
+    if primary_feature is not None:
+        models = [m for m in model_episodes if primary_feature in trajectory_curves.get(m, {})]
+        if models:
+            plot_episode_trajectories(
+                {m: trajectory_curves[m] for m in models},
+                primary_feature,
+                out_dir / f"{primary_feature}_trajectory_success_vs_failure.png",
+            )
+            plot_burst_tolerance(
+                {m: burst_results[m] for m in models},
+                primary_feature,
+                out_dir / f"{primary_feature}_dip_tolerance.png",
+            )
+            plot_episode_trajectories_per_perturbation(
+                {m: model_episodes[m] for m in models},
+                primary_feature,
+                out_dir / f"{primary_feature}_trajectory_by_perturbation.png",
+            )
 
     out_json = out_dir / "temporal_reliance_results.json"
     with open(out_json, "w") as f:

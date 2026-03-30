@@ -402,6 +402,7 @@ class LeRobotRoboCasaDataConfig(DataConfigFactory):
 # Registry mapping dataset split names to their local LeRobot-format directories.
 DATASET_SOUP_REGISTRY: dict[str, str] = {
     "target_composite_seen": "/n/netscratch/sham_lab/Lab/chloe00/robocasa_data/composite_seen/lerobot_v30",
+    "close_blender_lid": "/n/netscratch/sham_lab/Lab/chloe00/robocasa_data/atomic/CloseBlenderLid/lerobot_v30",
 }
 
 
@@ -913,6 +914,21 @@ _CONFIGS = [
             action_dim=12, action_horizon=10, max_token_len=180, paligemma_variant="gemma_2b_lora"
         ).get_freeze_filter(),
         ema_decay=None,
+        checkpoint_base_dir="/n/netscratch/sham_lab/Lab/chloe00/vla-interp/checkpoints",
+    ),
+    TrainConfig(
+        name="pi0_fast_robocasa_close_blender_lid",
+        model=pi0_fast.Pi0FASTConfig(action_dim=12, action_horizon=10, max_token_len=180),
+        data=LeRobotRobocasaDataConfig(
+            data_dirs=DATASET_SOUP_REGISTRY["close_blender_lid"],
+            base_config=DataConfig(prompt_from_task=True),
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi0_fast_base/params"),
+        num_train_steps=10_000,
+        save_interval=2_000,
+        keep_period=5_000,
+        batch_size=32,
+        num_workers=4,
         checkpoint_base_dir="/n/netscratch/sham_lab/Lab/chloe00/vla-interp/checkpoints",
     ),
     TrainConfig(

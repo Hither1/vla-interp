@@ -3,7 +3,7 @@
 #SBATCH --output=/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/logs/norm_stats_robocasa_%j.log
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --gpus-per-node=0
+#SBATCH --gpus-per-node=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
 #SBATCH --account=kempner_grads
@@ -20,7 +20,9 @@ export PYTHONPATH=/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/src:$PYTHO
 
 cd /n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp
 
-echo "Computing norm stats for pi0_robocasa_target_composite_seen"
+CONFIG_NAME="${1:-pi0_fast_robocasa_target_composite_seen}"
+
+echo "Computing norm stats for config: ${CONFIG_NAME}"
 
 /n/home13/chloe00/miniforge3/envs/vla/bin/python scripts/compute_norm_stats.py \
-    --config-name pi0_robocasa_target_composite_seen
+    --config-name "${CONFIG_NAME}"
