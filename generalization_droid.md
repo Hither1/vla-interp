@@ -33,7 +33,7 @@ Metrics: success rate (↑), action entropy (↓), attention IoU (↑), attentio
 | | empty | 0% |
 | | shuffle | 0% |
 | | random | 0% |
-| | synonym | 2% |
+| | synonym | 0% |
 
 <!-- ### Action Entropy (↓)
 
