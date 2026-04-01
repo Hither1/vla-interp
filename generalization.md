@@ -105,6 +105,12 @@ Conditions: **original** | **empty** (no prompt) | **shuffle** (shuffled words) 
 | | random | 0.785 | 0.979 | 0.370 | 0.981 | 0.363 |
 | | synonym | 0.756 | 0.940 | 0.384 | 0.968 | 0.385 |
 | | opposite | 0.754 | 0.938 | 0.386 | 0.967 | 0.387 |
+| LIBERO-90-Act | original |  |  |  |  |  |
+| | empty |  |  |  |  |  |
+| | shuffle |  |  |  |  |  |
+| | random |  |  |  |  |  |
+| | synonym |  |  |  |  |  |
+| | opposite |  |  |  |  |  |
 | LIBERO-90-Com | original | 0.810 | 0.990 | 0.254 | 0.986 | 0.260 |
 | | empty | 0.812 | 0.990 | 0.254 | 0.987 | 0.256 |
 | | shuffle | 0.811 | 0.990 | 0.25 | 0.986 | 0.25 |

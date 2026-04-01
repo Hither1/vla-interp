@@ -6,9 +6,9 @@
 #SBATCH --gpus-per-node=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
-#SBATCH --account=kempner_grads
-#SBATCH --partition=kempner
-#SBATCH --time=2:00:00
+
+#SBATCH --partition=gpu,seas_gpu
+#SBATCH --time=8:00:00
 #SBATCH --mail-user=csu@g.harvard.edu
 #SBATCH --mail-type=END,FAIL
 

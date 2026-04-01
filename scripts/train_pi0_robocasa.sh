@@ -6,12 +6,12 @@
 #SBATCH --gpus-per-node=4
 #SBATCH --cpus-per-task=32
 #SBATCH --mem=480G
-#SBATCH --account=kempner_grads
-#SBATCH --partition=kempner_h100
+
+#SBATCH --partition=gpu
 #SBATCH --time=48:00:00
 #SBATCH --mail-user=csu@g.harvard.edu
 #SBATCH --mail-type=END,FAIL
-
+#SBATCH --gres=gpu:nvidia_a100-sxm4-80gb:1
 set -e
 
 export HF_HOME=/n/netscratch/sham_lab/Lab/chloe00/huggingface

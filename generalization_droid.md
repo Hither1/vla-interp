@@ -1,9 +1,9 @@
 # Generalization Experiments
 
-Models: **pi0.5** | **Cosmos** | **DP** (diffusion policy, trained from scratch)
+Models: **pi0.5** | **DP** (diffusion policy, trained from scratch)
 Suites: -In domain | -Spatial | -Object | LIBERO-Goal
 Metrics: success rate (↑), action entropy (↓), attention IoU (↑), attention ratio (visual/total)
-*Attention metrics apply to VLA models only (pi0.5, Cosmos).*
+*Attention metrics apply to VLA models only (pi0.5).*
 
 ---
 
@@ -13,137 +13,119 @@ Conditions: **original** | **empty** (no prompt) | **shuffle** (shuffled words) 
 
 ### Success Rate (↑)
 
-| Suite | Condition | pi0.5 | Cosmos | DP |
-|---|---|---|---|---|
-| LIBERO-10 | original | — | — | — |
-| | empty | — | — | — |
-| | shuffle | — | — | — |
-| | random | — | — | — |
-| | synonym | — | — | — |
-| | opposite | — | — | — |
-| LIBERO-90-Object | original | — | — | — |
-| | empty | — | — | — |
-| | shuffle | — | — | — |
-| | random | — | — | — |
-| | synonym | — | — | — |
-| | opposite | — | — | — |
-| LIBERO-90-Spatial | original | — | — | — |
-| | empty | — | — | — |
-| | shuffle | — | — | — |
-| | random | — | — | — |
-| | synonym | — | — | — |
-| | opposite | — | — | — |
-| LIBERO-90-Act | original | — | — | — |
-| | empty | — | — | — |
-| | shuffle | — | — | — |
-| | random | — | — | — |
-| | synonym | — | — | — |
-| | opposite | — | — | — |
-| LIBERO-90-Com | original | — | — | — |
-| | empty | — | — | — |
-| | shuffle | — | — | — |
-| | random | — | — | — |
-| | synonym | — | — | — |
-| | opposite | — | — | — |
+| Suite | Condition | pi0.5 | DP |
+|---|---|---|
+| DROID-Object | original | — |
+| | empty | — |
+| | shuffle | — |
+| | random | — |
+| | synonym | — |
+| | opposite | — |
+| DROID-Spatial | original | — |
+| | empty | — |
+| | shuffle | — |
+| | random | — |
+| | synonym | — |
+| | opposite | — |
+| DROID-Act | original | — |
+| | empty | — |
+| | shuffle | — |
+| | random | — |
+| | synonym | — |
+| | opposite | — |
+| DROID-Com | original | — |
+| | empty | — |
+| | shuffle | — |
+| | random | — |
+| | synonym | — |
+| | opposite | — |
 
 ### Action Entropy (↓)
 
-| Suite | Condition | pi0.5 | Cosmos | DP |
-|---|---|---|---|---|
-| LIBERO-In domain | original | — | — | — |
-| | empty | — | — | — |
-| | shuffle | — | — | — |
-| | random | — | — | — |
-| | synonym | — | — | — |
-| | opposite | — | — | — |
-| LIBERO-90-Object | original | — | — | — |
-| | empty | — | — | — |
-| | shuffle | — | — | — |
-| | random | — | — | — |
-| | synonym | — | — | — |
-| | opposite | — | — | — |
-| LIBERO-90-Spatial | original | — | — | — |
-| | empty | — | — | — |
-| | shuffle | — | — | — |
-| | random | — | — | — |
-| | synonym | — | — | — |
-| | opposite | — | — | — |
-| LIBERO-90-Act | original | — | — | — |
-| | empty | — | — | — |
-| | shuffle | — | — | — |
-| | random | — | — | — |
-| | synonym | — | — | — |
-| | opposite | — | — | — |
-| LIBERO-90-Com | original | — | — | — |
-| | empty | — | — | — |
-| | shuffle | — | — | — |
-| | random | — | — | — |
-| | synonym | — | — | — |
-| | opposite | — | — | — |
+| Suite | Condition | pi0.5 | DP |
+|---|---|---|
+| DROID-Object | original | — |
+| | empty | — |
+| | shuffle | — |
+| | random | — |
+| | synonym | — |
+| | opposite | — |
+| DROID-Spatial | original | — |
+| | empty | — |
+| | shuffle | — |
+| | random | — |
+| | synonym | — |
+| | opposite | — |
+| DROID-Act | original | — |
+| | empty | — |
+| | shuffle | — |
+| | random | — |
+| | synonym | — |
+| | opposite | — |
+| DROID-Com | original | — |
+| | empty | — |
+| | shuffle | — |
+| | random | — |
+| | synonym | — |
+| | opposite | — |
 
 ### Attention IoU (↑)
 
-| Suite | Condition | pi0.5 | Cosmos |
-|---|---|---|---|
-| LIBERO-In domain | original | — | — |
-| | empty | — | — |
-| | shuffle | — | — |
-| | random | — | — |
-| | synonym | — | — |
-| | opposite | — | — |
-| LIBERO-90- | original | — | — |
-| | empty | — | — |
-| | shuffle | — | — |
-| | random | — | — |
-| | synonym | — | — |
-| | opposite | — | — |
-| LIBERO-90-Spatial | original | — | — |
-| | empty | — | — |
-| | shuffle | — | — |
-| | random | — | — |
-| | synonym | — | — |
-| | opposite | — | — |
-| LIBERO-90-Act | original | — | — |
-| | empty | — | — |
-| | shuffle | — | — |
-| | random | — | — |
-| | synonym | — | — |
-| | opposite | — | — |
-| LIBERO-90-Com | original | — | — |
-| | empty | — | — |
-| | shuffle | — | — |
-| | random | — | — |
-| | synonym | — | — |
-| | opposite | — | — |
+| Suite | Condition | pi0.5 |
+|---|---|---|
+| DROID-Object | original | — |
+| | empty | — |
+| | shuffle | — |
+| | random | — |
+| | synonym | — |
+| | opposite | — |
+| DROID-Spatial | original | — |
+| | empty | — |
+| | shuffle | — |
+| | random | — |
+| | synonym | — |
+| | opposite | — |
+| DROID-Act | original | — |
+| | empty | — |
+| | shuffle | — |
+| | random | — |
+| | synonym | — |
+| | opposite | — |
+| DROID-Com | original | — |
+| | empty | — |
+| | shuffle | — |
+| | random | — |
+| | synonym | — |
+| | opposite | — |
 
 ### Attention Ratio (visual / total)
 
-| Suite | Condition | pi0.5 | Cosmos |
-|---|---|---|---|
-| LIBERO-In domain | original | — | — |
-| | empty | — | — |
-| | shuffle | — | — |
-| | random | — | — |
-| | synonym | — | — |
-| | opposite | — | — |
-| LIBERO-Spatial | original | — | — |
-| | empty | — | — |
-| | shuffle | — | — |
-| | random | — | — |
-| | synonym | — | — |
-| | opposite | — | — |
-| LIBERO-Object | original | — | — |
-| | empty | — | — |
-| | shuffle | — | — |
-| | random | — | — |
-| | synonym | — | — |
-| | opposite | — | — |
-| LIBERO-Goal | original | — | — |
-| | empty | — | — |
-| | shuffle | — | — |
-| | random | — | — |
-| | synonym | — | — |
-| | opposite | — | — |
+| Suite | Condition | pi0.5 |
+|---|---|---|
+| DROID-Object | original | — |
+| | empty | — |
+| | shuffle | — |
+| | random | — |
+| | synonym | — |
+| | opposite | — |
+| DROID-Spatial | original | — |
+| | empty | — |
+| | shuffle | — |
+| | random | — |
+| | synonym | — |
+| | opposite | — |
+| DROID-Object | original | — |
+| | empty | — |
+| | shuffle | — |
+| | random | — |
+| | synonym | — |
+| | opposite | — |
+| DROID-Goal | original | — |
+| | empty | — |
+| | shuffle | — |
+| | random | — |
+| | synonym | — |
+| | opposite | — |
 
 ---
 
@@ -153,95 +135,91 @@ Conditions: **original** | **rotate 30°** | **translate 20% right** | **rotate 
 
 ### Success Rate (↑)
 
-| Suite | Condition | pi0.5 | Cosmos | DP |
-|---|---|---|---|---|
-| LIBERO-In domain | original | — | — | — |
-| | rotate 30° | — | — | — |
-| | translate 20% | — | — | — |
-| | rotate+translate | — | — | — |
-| LIBERO-90-Object | original | — | — | — |
-| | rotate 30° | — | — | — |
-| | translate 20% | — | — | — |
-| | rotate+translate | — | — | — |
-| LIBERO-90-Spatial | original | — | — | — |
-| | rotate 30° | — | — | — |
-| | translate 20% | — | — | — |
-| | rotate+translate | — | — | — |
-| LIBERO-90-Act | original | — | — | — |
-| | rotate 30° | — | — | — |
-| | translate 20% | — | — | — |
-| | rotate+translate | — | — | — |
-| LIBERO-90-Com | original | — | — | — |
-| | rotate 30° | — | — | — |
-| | translate 20% | — | — | — |
-| | rotate+translate | — | — | — |
+| Suite | Condition | pi0.5 | DP |
+|---|---|---|
+| DROID-Object | original | — |
+| | rotate 30° | — |
+| | translate 20% | — |
+| | rotate+translate | — |
+| DROID-Spatial | original | — |
+| | rotate 30° | — |
+| | translate 20% | — |
+| | rotate+translate | — |
+| DROID-Act | original | — |
+| | rotate 30° | — |
+| | translate 20% | — |
+| | rotate+translate | — |
+| DROID-Com | original | — |
+| | rotate 30° | — |
+| | translate 20% | — |
+| | rotate+translate | — |
 
 ### Action Entropy (↓)
 
-| Suite | Condition | pi0.5 | Cosmos | DP |
-|---|---|---|---|---|
-| LIBERO-In domain | original | — | — | — |
-| | rotate 30° | — | — | — |
-| | translate 20% | — | — | — |
-| | rotate+translate | — | — | — |
-| LIBERO-90-Spatial | original | — | — | — |
-| | rotate 30° | — | — | — |
-| | translate 20% | — | — | — |
-| | rotate+translate | — | — | — |
-| LIBERO-Act | original | — | — | — |
-| | rotate 30° | — | — | — |
-| | translate 20% | — | — | — |
-| | rotate+translate | — | — | — |
-| LIBERO-90-Com | original | — | — | — |
-| | rotate 30° | — | — | — |
-| | translate 20% | — | — | — |
-| | rotate+translate | — | — | — |
+| Suite | Condition | pi0.5 | DP |
+|---|---|---|
+| DROID-Object | original | — |
+| | empty | — |
+| | shuffle | — |
+| | random | — |
+| | synonym | — |
+| | opposite | — |
+| DROID-Spatial | original | — |
+| | rotate 30° | — |
+| | translate 20% | — |
+| | rotate+translate | — |
+| DROID-Act | original | — |
+| | rotate 30° | — |
+| | translate 20% | — |
+| | rotate+translate | — |
+| DROID-Com | original | — |
+| | rotate 30° | — |
+| | translate 20% | — |
+| | rotate+translate | — |
 
 ### Attention IoU (↑)
 
-| Suite | Condition | pi0.5 | Cosmos |
-|---|---|---|---|
-| LIBERO-10 | original | — | — |
-| | rotate 30° | — | — |
-| | translate 20% | — | — |
-| | rotate+translate | — | — |
-| LIBERO-90-Spatial | original | — | — |
-| | rotate 30° | — | — |
-| | translate 20% | — | — |
-| | rotate+translate | — | — |
-| LIBERO-90-Object | original | — | — |
-| | rotate 30° | — | — |
-| | translate 20% | — | — |
-| | rotate+translate | — | — |
-| LIBERO-90-Goal | original | — | — |
-| | rotate 30° | — | — |
-| | translate 20% | — | — |
-| | rotate+translate | — | — |
+| Suite | Condition | pi0.5 |
+|---|---|---|
+| DROID-Object | original | — |
+| | empty | — |
+| | shuffle | — |
+| | random | — |
+| | synonym | — |
+| | opposite | — |
+| DROID-Spatial | original | — |
+| | rotate 30° | — |
+| | translate 20% | — |
+| | rotate+translate | — |
+| DROID-Object | original | — |
+| | rotate 30° | — |
+| | translate 20% | — |
+| | rotate+translate | — |
+| DROID-Goal | original | — |
+| | rotate 30° | — |
+| | translate 20% | — |
+| | rotate+translate | — |
 
 ### Attention Ratio (visual / total)
 
-| Suite | Condition | pi0.5 | Cosmos |
-|---|---|---|---|
-| LIBERO-10 | original | — | — |
-| | rotate 30° | — | — |
-| | translate 20% | — | — |
-| | rotate+translate | — | — |
-| LIBERO-90-Object | original | — | — |
-| | rotate 30° | — | — |
-| | translate 20% | — | — |
-| | rotate+translate | — | — |
-| LIBERO-90-Spatial | original | — | — |
-| | rotate 30° | — | — |
-| | translate 20% | — | — |
-| | rotate+translate | — | — |
-| LIBERO-90-Act | original | — | — |
-| | rotate 30° | — | — |
-| | translate 20% | — | — |
-| | rotate+translate | — | — |
-| LIBERO-90-Com | original | — | — |
-| | rotate 30° | — | — |
-| | translate 20% | — | — |
-| | rotate+translate | — | — |
+| Suite | Condition | pi0.5 |
+|---|---|---|
+| DROID-Object | original | — |
+| | rotate 30° | — |
+| | translate 20% | — |
+| | rotate+translate | — |
+| DROID-Spatial | original | — |
+| | rotate 30° | — |
+| | translate 20% | — |
+| | rotate+translate | — |
+| DROID-Act | original | — |
+| | rotate 30° | — |
+| | translate 20% | — |
+| | rotate+translate | — |
+| DROID-Com | original | — |
+| | rotate 30° | — |
+| | translate 20% | — |
+| | rotate+translate | — |
 
 ---
 
@@ -251,80 +229,71 @@ Conditions: **original** | **random action 25%** (random action replacement, p=0
 
 ### Success Rate (↑)
 
-| Suite | Condition | pi0.5 | Cosmos | DP |
-|---|---|---|---|---|
-| LIBERO-In domain | original | — | — | — |
-| | random action 25% | — | — | — |
-| | object shift x | — | — | — |
-| LIBERO-90-Object | original | — | — | — |
-| | random action 25% | — | — | — |
-| | object shift x | — | — | — |
-| LIBERO-90-Spatial | original | — | — | — |
-| | random action 25% | — | — | — |
-| | object shift x | — | — | — |
-| LIBERO-90-Act | original | — | — | — |
-| | random action 25% | — | — | — |
-| | object shift x | — | — | — |
-| LIBERO-90-Com | original | — | — | — |
-| | random action 25% | — | — | — |
-| | object shift x | — | — | — |
+| Suite | Condition | pi0.5 | DP |
+|---|---|---|
+| DROID-Object | original | — |
+| | random action 25% | — |
+| | object shift x | — |
+| DROID-Spatial | original | — |
+| | random action 25% | — |
+| | object shift x | — |
+| DROID-Act | original | — |
+| | random action 25% | — |
+| | object shift x | — |
+| DROID-Com | original | — |
+| | random action 25% | — |
+| | object shift x | — |
 
 ### Action Entropy (↓)
 
-| Suite | Condition | pi0.5 | Cosmos | DP |
-|---|---|---|---|---|
-| LIBERO-10 | original | — | — | — |
-| | random action 25% | — | — | — |
-| | object shift x | — | — | — |
-| LIBERO-Spatial | original | — | — | — |
-| | random action 25% | — | — | — |
-| | object shift x | — | — | — |
-| LIBERO-Object | original | — | — | — |
-| | random action 25% | — | — | — |
-| | object shift x | — | — | — |
-| LIBERO-Goal | original | — | — | — |
-| | random action 25% | — | — | — |
-| | object shift x | — | — | — |
+| Suite | Condition | pi0.5 | DP |
+|---|---|---|
+| DROID-Object | original | — |
+| | empty | — |
+| | shuffle | — |
+| | random | — |
+| | synonym | — |
+| | opposite | — |
+| DROID-Spatial | original | — |
+| | random action 25% | — |
+| | object shift x | — |
+| DROID-Object | original | — |
+| | random action 25% | — |
+| | object shift x | — |
+| DROID-Goal | original | — |
+| | random action 25% | — |
+| | object shift x | — |
 
 ### Attention IoU (↑)
 
-| Suite | Condition | pi0.5 | Cosmos |
-|---|---|---|---|
-| LIBERO-In domain | original | — | — |
-| | random action 25% | — | — |
-| | object shift x | — | — |
-| LIBERO-10 | original | — | — |
-| | random action 25% | — | — |
-| | object shift x | — | — |
-| LIBERO-90-Object | original | — | — |
-| | random action 25% | — | — |
-| | object shift x | — | — |
-| LIBERO-90-Spatial | original | — | — |
-| | random action 25% | — | — |
-| | object shift x | — | — |
-| LIBERO-90-Act | original | — | — |
-| | random action 25% | — | — |
-| | object shift x | — | — |
-| LIBERO-90-Com | original | — | — |
-| | random action 25% | — | — |
-| | object shift x | — | — |
+| Suite | Condition | pi0.5 |
+|---|---|---|
+| DROID-Object | original | — |
+| | random action 25% | — |
+| | object shift x | — |
+| DROID-Spatial | original | — |
+| | random action 25% | — |
+| | object shift x | — |
+| DROID-Act | original | — |
+| | random action 25% | — |
+| | object shift x | — |
+| DROID-Com | original | — |
+| | random action 25% | — |
+| | object shift x | — |
 
 ### Attention Ratio (visual / total)
 
-| Suite | Condition | pi0.5 | Cosmos |
-|---|---|---|---|
-| LIBERO-In domain | original | — | — |
-| | random action 25% | — | — |
-| | object shift x | — | — |
-| LIBERO-90-Object | original | — | — |
-| | random action 25% | — | — |
-| | object shift x | — | — |
-| LIBERO-90-Spatial | original | — | — |
-| | random action 25% | — | — |
-| | object shift x | — | — |
-| LIBERO-90-Act | original | — | — |
-| | random action 25% | — | — |
-| | object shift x | — | — |
-| LIBERO-90-Com | original | — | — |
-| | random action 25% | — | — |
-| | object shift x | — | — |
+| Suite | Condition | pi0.5 |
+|---|---|---|
+| DROID-Object | original | — |
+| | random action 25% | — |
+| | object shift x | — |
+| DROID-Spatial | original | — |
+| | random action 25% | — |
+| | object shift x | — |
+| DROID-Act | original | — |
+| | random action 25% | — |
+| | object shift x | — |
+| DROID-Com | original | — |
+| | random action 25% | — |
+| | object shift x | — |
