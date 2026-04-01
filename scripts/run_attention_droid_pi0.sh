@@ -106,7 +106,7 @@ FRAME_STEP="${FRAME_STEP:-1}"
 MASK_DIR="${MASK_DIR:-}"           # pre-computed .npy masks
 USE_SAM3="${USE_SAM3:-0}"          # 1 = use SAM3 text-prompted segmentation
 OBJECT_DESC="${OBJECT_DESC:-}"     # text description for SAM3
-SAM3_CHECKPOINT="${SAM3_CHECKPOINT:-}"   # empty = auto-download from HuggingFace
+SAM3_CHECKPOINT="${SAM3_CHECKPOINT:-/n/netscratch/sham_lab/Lab/chloe00/models--facebook--sam3/snapshots/3c879f39826c281e95690f02c7821c4de09afae7/sam3.pt}"
 SAM3_VERSION="${SAM3_VERSION:-sam3.1}"   # "sam3" or "sam3.1"
 SAM3_CONFIDENCE="${SAM3_CONFIDENCE:-0.5}"
 THRESHOLD_METHOD="${THRESHOLD_METHOD:-percentile}"

@@ -12,8 +12,8 @@ Metrics: success rate (↑), action entropy (↓), attention IoU (↑), attentio
 
 ### Success Rate (↑)
 
-| Suite | Condition | pi0.5 | DP |
-|---|---|---|
+| Suite | Condition | pi0.5 | Dreamzero |
+|---|---|---|---|
 | DROID-Object | original | 50% |
 | | empty | 0% |
 | | shuffle | 30% |
@@ -62,7 +62,7 @@ Metrics: success rate (↑), action entropy (↓), attention IoU (↑), attentio
 
 ### Attention IoU (↑)
 
-| Suite | Condition | pi0.5 |
+| Suite | Condition | pi0.5 | Dreamzero |
 |---|---|---|
 | DROID-Object | original | — |
 | | empty | — |
@@ -87,7 +87,7 @@ Metrics: success rate (↑), action entropy (↓), attention IoU (↑), attentio
 
 ### Attention Ratio (visual / total)
 
-| Suite | Condition | pi0.5 |
+| Suite | Condition | pi0.5 | Dreamzero |
 |---|---|---|
 | DROID-Object | original | — |
 | | empty | — |
@@ -118,7 +118,7 @@ Conditions: **original** | **rotate 30°** | **translate 20% right** | **rotate 
 
 ### Success Rate (↑)
 
-| Suite | Condition | pi0.5 | DP |
+| Suite | Condition | pi0.5 | Dreamzero |
 |---|---|---|
 | DROID-Object | original | 50% |
 | | rotate 30° | 0% |
@@ -210,8 +210,8 @@ Conditions: **original** | **random action 25%** (random action replacement, p=0
 
 ### Success Rate (↑)
 
-| Suite | Condition | pi0.5 | DP |
-|---|---|---|
+| Suite | Condition | pi0.5 | Dreamzero |
+|---|---|---|---|
 | DROID-Object | original | 50% |
 | | random action 25% | 0% |
 | | object shift x | 50% |
@@ -225,28 +225,10 @@ Conditions: **original** | **random action 25%** (random action replacement, p=0
 | | random action 25% | 0% |
 | | object shift x | 0% |
 
-<!-- ### Action Entropy (↓)
-
-| Suite | Condition | pi0.5 | DP |
-|---|---|---|
-| DROID-Object | original | — |
-| | empty | — |
-| | shuffle | — |
-| | random | — |
-| | synonym | — |
-| DROID-Spatial | original | — |
-| | random action 25% | — |
-| | object shift x | — |
-| DROID-Object | original | — |
-| | random action 25% | — |
-| | object shift x | — |
-| DROID-Goal | original | — |
-| | random action 25% | — |
-| | object shift x | — | -->
 
 ### Attention IoU (↑)
 
-| Suite | Condition | pi0.5 |
+| Suite | Condition | pi0.5 | Dreamzero| 
 |---|---|---|
 | DROID-Object | original | — |
 | | random action 25% | — |

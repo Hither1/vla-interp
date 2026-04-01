@@ -199,23 +199,27 @@ def load_metadata(data_dir: pathlib.Path, n: int) -> Dict:
 # SAM3 segmentation (optional)
 # ==============================================================================
 
+_SAM3_LOCAL_CHECKPOINT = "/n/netscratch/sham_lab/Lab/chloe00/models--facebook--sam3/snapshots/3c879f39826c281e95690f02c7821c4de09afae7/sam3.pt"
+
+
 def _try_import_sam3():
     try:
-        from sam3 import build_sam3_image_model
+        from sam3.model_builder import build_sam3_image_model
         from sam3.model.sam3_image_processor import Sam3Processor
         return build_sam3_image_model, Sam3Processor
     except ImportError as e:
         raise ImportError(
             f"SAM3 not available: {e}\n"
-            "Install with: cd /path/to/sam3 && pip install -e ."
+            "Install with: pip install git+https://github.com/facebookresearch/sam3.git"
         ) from e
 
 
 def load_sam3_model(checkpoint_path: str = "", device: str = "cuda"):
-    """Load SAM3 image model. Auto-downloads from HuggingFace if checkpoint_path is empty."""
+    """Load SAM3 image model from local checkpoint."""
     build_sam3_image_model, Sam3Processor = _try_import_sam3()
+    ckpt = checkpoint_path if checkpoint_path else _SAM3_LOCAL_CHECKPOINT
     model = build_sam3_image_model(
-        checkpoint_path=checkpoint_path if checkpoint_path else None,
+        checkpoint_path=ckpt,
         device=device,
         eval_mode=True,
     )
@@ -858,7 +862,7 @@ def main():
     parser.add_argument("--object-desc", default="",
                         help="Text description of target object for SAM3 (e.g. 'red cup')")
     parser.add_argument("--sam3-checkpoint", default="",
-                        help="Path to local SAM3 checkpoint (.pt); auto-downloads from HF if empty")
+                        help="Path to local SAM3 checkpoint (.pt); defaults to /n/netscratch/sham_lab/Lab/chloe00/models--facebook--sam3/snapshots/3c879f39826c281e95690f02c7821c4de09afae7/sam3.pt")
     parser.add_argument("--sam3-version", default="sam3.1",
                         choices=["sam3", "sam3.1"],
                         help="SAM3 model version (default: sam3.1)")
