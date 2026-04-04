@@ -33,6 +33,15 @@
 #   PROMPT="pick up the red cup" \
 #   sbatch scripts/run_attention_droid_dreamzero.sh
 #
+#   # From Google Drive by perturbation name (requires rclone "gdrive" remote):
+#   PERTURBATION=shuffle \
+#   CKPT=/path/to/dreamzero_droid_ckpt \
+#   PROMPT="pick up the red cup" \
+#   sbatch scripts/run_attention_droid_dreamzero.sh
+#
+#   # Video is a 2x2 grid: top=wrist (full width), bottom=left_ext|right_ext.
+#   # Splitting is automatic (GDRIVE_SPLIT_COMBINED=1 by default).
+#
 #   # With pre-computed masks (IoU):
 #   DATA_DIR=/path/to/zed_frames \
 #   MASK_DIR=/path/to/masks \
@@ -92,6 +101,77 @@ if [[ -z "${CKPT}" ]]; then
     exit 1
 fi
 
+# ── Google Drive / rclone (optional) ──────────────────────────────────────────
+# Set PERTURBATION to download directly from Google Drive via rclone.
+#
+#   PERTURBATION=shuffle CKPT=... PROMPT=... sbatch scripts/run_attention_droid_dreamzero.sh
+#
+# Folder layout expected on Drive (rclone remote "gdrive"):
+#   gdrive:DROID/dreamzero/<perturbation>/
+#
+# Videos are 2x2 grid .MOV (top=wrist full-width, bottom=left_ext|right_ext).
+# Set GDRIVE_SPLIT_COMBINED=0 to skip splitting (if files are already separate).
+#
+# Override the remote or root path if needed:
+#   GDRIVE_REMOTE=gdrive  GDRIVE_DREAMZERO_ROOT="DROID/dreamzero"
+PERTURBATION="${PERTURBATION:-}"
+GDRIVE_REMOTE="${GDRIVE_REMOTE:-gdrive}"
+GDRIVE_DREAMZERO_ROOT="${GDRIVE_DREAMZERO_ROOT:-DROID/dreamzero}"
+GDRIVE_SPLIT_COMBINED="${GDRIVE_SPLIT_COMBINED:-1}"
+GDRIVE_TMPDIR=""
+
+if [[ -n "${PERTURBATION}" ]]; then
+    GDRIVE_TMPDIR="$(mktemp -d)"
+    GDRIVE_SRC="${GDRIVE_REMOTE}:${GDRIVE_DREAMZERO_ROOT}/${PERTURBATION}"
+    echo "Downloading from Drive: ${GDRIVE_SRC}"
+    rclone copy "${GDRIVE_SRC}" "${GDRIVE_TMPDIR}/" --progress
+
+    if [[ "${GDRIVE_SPLIT_COMBINED}" == "1" || "${GDRIVE_SPLIT_COMBINED}" == "true" ]]; then
+        # 2x2 grid layout:
+        #   [wrist       | wrist      ]   ← top half, full width
+        #   [left_ext    | right_ext  ]   ← bottom half, split L/R
+        COMBINED_VIDEO="$(find "${GDRIVE_TMPDIR}" -maxdepth 1 \( -iname "*.mov" -o -iname "*.mp4" \) | head -1)"
+        if [[ -z "${COMBINED_VIDEO}" ]]; then
+            echo "ERROR: No .MOV or .mp4 found in Drive folder: ${GDRIVE_SRC}"
+            exit 1
+        fi
+        echo "Splitting 2x2 grid video: ${COMBINED_VIDEO}"
+        # wrist: top half, full width
+        ffmpeg -loglevel warning -i "${COMBINED_VIDEO}" \
+            -vf "crop=iw:ih/2:0:0" -c:v libx264 -crf 18 -an \
+            "${GDRIVE_TMPDIR}/wrist.mp4"
+        # left exterior: bottom-left quadrant
+        ffmpeg -loglevel warning -i "${COMBINED_VIDEO}" \
+            -vf "crop=iw/2:ih/2:0:ih/2" -c:v libx264 -crf 18 -an \
+            "${GDRIVE_TMPDIR}/exterior.mp4"
+        # right exterior: bottom-right quadrant
+        ffmpeg -loglevel warning -i "${COMBINED_VIDEO}" \
+            -vf "crop=iw/2:ih/2:iw/2:ih/2" -c:v libx264 -crf 18 -an \
+            "${GDRIVE_TMPDIR}/exterior2.mp4"
+        VIDEO="${GDRIVE_TMPDIR}/exterior.mp4"
+        VIDEO_EXT2="${GDRIVE_TMPDIR}/exterior2.mp4"
+        VIDEO_WRIST="${GDRIVE_TMPDIR}/wrist.mp4"
+    else
+        # Separate files — match by name pattern
+        VIDEO="$(find "${GDRIVE_TMPDIR}" -maxdepth 1 \( -iname "*ext*1*" -o -iname "*exterior*" -o -iname "*left*" \) \( -iname "*.mov" -o -iname "*.mp4" \) | head -1)"
+        VIDEO_EXT2="$(find "${GDRIVE_TMPDIR}" -maxdepth 1 \( -iname "*ext*2*" \) \( -iname "*.mov" -o -iname "*.mp4" \) | head -1)"
+        VIDEO_WRIST="$(find "${GDRIVE_TMPDIR}" -maxdepth 1 \( -iname "*wrist*" \) \( -iname "*.mov" -o -iname "*.mp4" \) | head -1)"
+        # Fallback: first video found if name patterns don't match
+        if [[ -z "${VIDEO}" ]]; then
+            VIDEO="$(find "${GDRIVE_TMPDIR}" -maxdepth 1 \( -iname "*.mov" -o -iname "*.mp4" \) | sort | head -1)"
+        fi
+        if [[ -z "${VIDEO}" ]]; then
+            echo "ERROR: No video files found in Drive folder: ${GDRIVE_SRC}"
+            exit 1
+        fi
+    fi
+fi
+
+# Cleanup temp dir on exit (only if we created one)
+if [[ -n "${GDRIVE_TMPDIR}" ]]; then
+    trap 'echo "Cleaning up ${GDRIVE_TMPDIR}"; rm -rf "${GDRIVE_TMPDIR}"' EXIT
+fi
+
 # ── Required: data source ─────────────────────────────────────────────────────
 DATA_DIR="${DATA_DIR:-}"
 VIDEO="${VIDEO:-}"
@@ -99,7 +179,7 @@ VIDEO_EXT2="${VIDEO_EXT2:-}"
 VIDEO_WRIST="${VIDEO_WRIST:-}"
 
 if [[ -z "${DATA_DIR}" && -z "${VIDEO}" ]]; then
-    echo "ERROR: Set DATA_DIR (frame directory) or VIDEO (exterior-cam-1 MP4)."
+    echo "ERROR: Set DATA_DIR (frame directory), VIDEO (MP4), or PERTURBATION (Drive folder)."
     exit 1
 fi
 
@@ -179,7 +259,12 @@ echo "Embodiment tag:    ${EMBODIMENT_TAG}"
 echo "Num GPUs:          ${NUM_GPUS}"
 echo "Context frames:    ${NUM_CONTEXT_FRAMES}"
 echo "DIT cache:         ${ENABLE_DIT_CACHE}"
-echo "Data source:       ${DATA_DIR:-${VIDEO}}"
+if [[ -n "${PERTURBATION}" ]]; then
+    echo "Perturbation:      ${PERTURBATION} (Drive: ${GDRIVE_REMOTE}:${GDRIVE_DREAMZERO_ROOT}/${PERTURBATION})"
+    echo "Data source:       ${VIDEO}${VIDEO_WRIST:+ + ${VIDEO_WRIST}} (from Drive)"
+else
+    echo "Data source:       ${DATA_DIR:-${VIDEO}}"
+fi
 echo "Prompt:            ${PROMPT}"
 echo "Layers:            ${LAYERS}"
 echo "Frame step:        ${FRAME_STEP}"

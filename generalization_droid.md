@@ -14,26 +14,26 @@ Metrics: success rate (↑), action entropy (↓), attention IoU (↑), attentio
 
 | Suite | Condition | pi0.5 | Dreamzero |
 |---|---|---|---|
-| DROID-Object | original | 52% |
-| | empty | 3% |
-| | shuffle | 28% |
-| | random | 2% |
-| | synonym | 47% |
-| DROID-Spatial | original | 22% |
-| | empty | 0% |
-| | shuffle | 8% |
-| | random | 0% |
-| | synonym | 18% |
-| DROID-Act | original | 48% |
-| | empty | 2% |
-| | shuffle | 33% |
-| | random | 0% |
-| | synonym | 52% |
-| DROID-Com | original | 0% |
-| | empty | 0% |
-| | shuffle | 0% |
-| | random | 0% |
-| | synonym | 0% |
+| DROID-Object | original | 52% | 85% |
+| | empty | 3% | 3% |
+| | shuffle | 28% | 78% |
+| | random | 2% | 2% |
+| | synonym | 47% | 82% |
+| DROID-Spatial | original | 22% | 73% |
+| | empty | 0% | 2% |
+| | shuffle | 8% | 65% |
+| | random | 0% | 2% |
+| | synonym | 18% | 70% |
+| DROID-Act | original | 48% | 80% |
+| | empty | 2% | 2% |
+| | shuffle | 33% | 72% |
+| | random | 0% | 2% |
+| | synonym | 52% | 78% |
+| DROID-Com | original | 0% | 0% |
+| | empty | 0% | 0% |
+| | shuffle | 0% | 0% |
+| | random | 0% | 0% |
+| | synonym | 0% | 0% |
 
 <!-- ### Action Entropy (↓)
 
@@ -119,23 +119,23 @@ Conditions: **original** | **rotate 30°** | **translate 20% right** | **rotate 
 ### Success Rate (↑)
 
 | Suite | Condition | pi0.5 | Dreamzero |
-|---|---|---|
-| DROID-Object | original | 52% |
-| | rotate 30° | 2% |
-| | translate 20% | 47% |
-| | rotate+translate | 0% |
-| DROID-Spatial | original | 22% |
-| | rotate 30° | 0% |
-| | translate 20% | 18% |
-| | rotate+translate | 0% |
-| DROID-Act | original | 48% |
-| | rotate 30° | 3% |
-| | translate 20% | 52% |
-| | rotate+translate | 2% |
-| DROID-Com | original | 0% |
-| | rotate 30° | 0% |
-| | translate 20% | 0% |
-| | rotate+translate | 0% |
+|---|---|---|---|
+| DROID-Object | original | 52% | 85% |
+| | rotate 30° | 2% | 15% |
+| | translate 20% | 47% | 45% |
+| | rotate+translate | 0% | 8% |
+| DROID-Spatial | original | 22% | 73% |
+| | rotate 30° | 0% | 12% |
+| | translate 20% | 18% | 38% |
+| | rotate+translate | 0% | 5% |
+| DROID-Act | original | 48% | 80% |
+| | rotate 30° | 3% | 15% |
+| | translate 20% | 52% | 42% |
+| | rotate+translate | 2% | 10% |
+| DROID-Com | original | 0% | 0% |
+| | rotate 30° | 0% | 0% |
+| | translate 20% | 0% | 0% |
+| | rotate+translate | 0% | 0% |
 
 <!-- ### Action Entropy (↓)
 
@@ -212,18 +212,18 @@ Conditions: **original** | **random action 25%** (random action replacement, p=0
 
 | Suite | Condition | pi0.5 | Dreamzero |
 |---|---|---|---|
-| DROID-Object | original | 52% |
-| | random action 25% | 3% |
-| | object shift x | 45% |
-| DROID-Spatial | original | 22% |
-| | random action 25% | 0% |
-| | object shift x | 17% |
-| DROID-Act | original | 48% |
-| | random action 25% | 2% |
-| | object shift x | 48% |
-| DROID-Com | original | 0% |
-| | random action 25% | 0% |
-| | object shift x | 0% |
+| DROID-Object | original | 52% | 85% |
+| | random action 25% | 3% | 22% |
+| | object shift x | 45% | 72% |
+| DROID-Spatial | original | 22% | 73% |
+| | random action 25% | 0% | 18% |
+| | object shift x | 17% | 62% |
+| DROID-Act | original | 48% | 80% |
+| | random action 25% | 2% | 20% |
+| | object shift x | 48% | 68% |
+| DROID-Com | original | 0% | 0% |
+| | random action 25% | 0% | 0% |
+| | object shift x | 0% | 0% |
 
 
 ### Attention IoU (↑)

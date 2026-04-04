@@ -30,6 +30,12 @@
 #   PROMPT="pick up the red cup" \
 #   sbatch scripts/run_attention_droid_pi0.sh
 #
+#   # From Google Drive by perturbation name (requires rclone "gdrive" remote):
+#   PERTURBATION=shuffle \
+#   CHECKPOINT=/path/to/pi05_droid \
+#   PROMPT="pick up the red cup" \
+#   sbatch scripts/run_attention_droid_pi0.sh
+#
 #   # With pre-computed masks (IoU):
 #   DATA_DIR=/path/to/zed_frames \
 #   MASK_DIR=/path/to/masks \
@@ -80,13 +86,58 @@ if [[ -z "${CHECKPOINT}" ]]; then
     exit 1
 fi
 
+# ── Google Drive / rclone (optional) ──────────────────────────────────────────
+# Set PERTURBATION to download directly from Google Drive via rclone.
+# The video is a side-by-side .MOV (left=exterior, right=wrist); ffmpeg splits it.
+#
+#   PERTURBATION=shuffle CHECKPOINT=... PROMPT=... sbatch scripts/run_attention_droid_pi0.sh
+#
+# Folder layout expected on Drive (rclone remote "gdrive"):
+#   gdrive:DROID/pi05/<perturbation>/<any>.MOV
+#
+# Override the remote or root path if needed:
+#   GDRIVE_REMOTE=gdrive  GDRIVE_PI05_ROOT="DROID/pi05"
+PERTURBATION="${PERTURBATION:-}"
+GDRIVE_REMOTE="${GDRIVE_REMOTE:-gdrive}"
+GDRIVE_PI05_ROOT="${GDRIVE_PI05_ROOT:-DROID/pi05}"
+GDRIVE_TMPDIR=""
+
+if [[ -n "${PERTURBATION}" ]]; then
+    GDRIVE_TMPDIR="$(mktemp -d)"
+    GDRIVE_SRC="${GDRIVE_REMOTE}:${GDRIVE_PI05_ROOT}/${PERTURBATION}"
+    echo "Downloading from Drive: ${GDRIVE_SRC}"
+    rclone copy "${GDRIVE_SRC}" "${GDRIVE_TMPDIR}/" --progress
+
+    # Find the video file (any .MOV or .mp4)
+    COMBINED_VIDEO="$(find "${GDRIVE_TMPDIR}" -maxdepth 1 \( -iname "*.mov" -o -iname "*.mp4" \) | head -1)"
+    if [[ -z "${COMBINED_VIDEO}" ]]; then
+        echo "ERROR: No .MOV or .mp4 found in Drive folder: ${GDRIVE_SRC}"
+        exit 1
+    fi
+    echo "Splitting side-by-side video: ${COMBINED_VIDEO}"
+    # left half → exterior, right half → wrist
+    ffmpeg -loglevel warning -i "${COMBINED_VIDEO}" \
+        -vf "crop=iw/2:ih:0:0" -c:v libx264 -crf 18 -an \
+        "${GDRIVE_TMPDIR}/exterior.mp4"
+    ffmpeg -loglevel warning -i "${COMBINED_VIDEO}" \
+        -vf "crop=iw/2:ih:iw/2:0" -c:v libx264 -crf 18 -an \
+        "${GDRIVE_TMPDIR}/wrist.mp4"
+    VIDEO="${GDRIVE_TMPDIR}/exterior.mp4"
+    VIDEO_WRIST="${GDRIVE_TMPDIR}/wrist.mp4"
+fi
+
+# Cleanup temp dir on exit (only if we created one)
+if [[ -n "${GDRIVE_TMPDIR}" ]]; then
+    trap 'echo "Cleaning up ${GDRIVE_TMPDIR}"; rm -rf "${GDRIVE_TMPDIR}"' EXIT
+fi
+
 # ── Required: data source (one of DATA_DIR or VIDEO) ──────────────────────────
 DATA_DIR="${DATA_DIR:-}"
 VIDEO="${VIDEO:-}"
 VIDEO_WRIST="${VIDEO_WRIST:-}"
 
 if [[ -z "${DATA_DIR}" && -z "${VIDEO}" ]]; then
-    echo "ERROR: Set DATA_DIR (frame directory) or VIDEO (MP4 path)."
+    echo "ERROR: Set DATA_DIR (frame directory), VIDEO (MP4 path), or GDRIVE_VIDEO (Drive URL/ID)."
     exit 1
 fi
 
@@ -160,7 +211,12 @@ echo "============================================================"
 echo "Job:          ${SLURM_JOB_ID:-local}"
 echo "Model:        pi0.5-DROID"
 echo "Checkpoint:   ${CHECKPOINT}"
-echo "Data source:  ${DATA_DIR:-${VIDEO}}"
+if [[ -n "${PERTURBATION}" ]]; then
+    echo "Perturbation: ${PERTURBATION} (Drive: ${GDRIVE_REMOTE}:${GDRIVE_PI05_ROOT}/${PERTURBATION})"
+    echo "Data source:  ${VIDEO} + ${VIDEO_WRIST} (split from Drive)"
+else
+    echo "Data source:  ${DATA_DIR:-${VIDEO}}"
+fi
 echo "Prompt:       ${PROMPT}"
 echo "Layers:       ${LAYERS}"
 echo "Frame step:   ${FRAME_STEP}"
