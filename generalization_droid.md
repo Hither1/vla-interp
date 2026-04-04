@@ -121,17 +121,17 @@ Conditions: **original** | **rotate 30°** | **translate 20% right** | **rotate 
 | Suite | Condition | pi0.5 | Dreamzero |
 |---|---|---|---|
 | DROID-Object | original | 52% | 85% |
-| | rotate 30° | 2% | 15% |
-| | translate 20% | 47% | 45% |
-| | rotate+translate | 0% | 8% |
-| DROID-Spatial | original | 22% | 73% |
-| | rotate 30° | 0% | 12% |
-| | translate 20% | 18% | 38% |
+| | rotate 30° | 2% | 8% |
+| | translate 20% | 45% | 48% |
 | | rotate+translate | 0% | 5% |
+| DROID-Spatial | original | 22% | 73% |
+| | rotate 30° | 0% | 5% |
+| | translate 20% | 18% | 38% |
+| | rotate+translate | 0% | 3% |
 | DROID-Act | original | 48% | 80% |
-| | rotate 30° | 3% | 15% |
-| | translate 20% | 52% | 42% |
-| | rotate+translate | 2% | 10% |
+| | rotate 30° | 3% | 8% |
+| | translate 20% | 42% | 45% |
+| | rotate+translate | 2% | 5% |
 | DROID-Com | original | 0% | 0% |
 | | rotate 30° | 0% | 0% |
 | | translate 20% | 0% | 0% |
