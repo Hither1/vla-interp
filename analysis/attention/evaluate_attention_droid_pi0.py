@@ -659,10 +659,14 @@ def run_analysis(args):
                     (MODEL_INPUT_RESOLUTION, MODEL_INPUT_RESOLUTION), Image.LANCZOS
                 ))
                 overlay = overlay_heatmap(viz_img, heatmap)
-                panels = [viz_img, overlay]
+                panels = [
+                    _label_panel(viz_img, "Original"),
+                    _label_panel(overlay, f"Attention (layer {layer_idx})"),
+                ]
                 if seg_mask is not None:
                     seg_disp = (seg_resized[:, :, None] * np.array([0, 0, 255], dtype=np.uint8))
-                    panels.append(np.clip(viz_img.astype(np.int32) + seg_disp.astype(np.int32) // 2, 0, 255).astype(np.uint8))
+                    seg_panel = np.clip(viz_img.astype(np.int32) + seg_disp.astype(np.int32) // 2, 0, 255).astype(np.uint8)
+                    panels.append(_label_panel(seg_panel, "Segmentation mask"))
                 combined = np.concatenate(panels, axis=1)
                 if args.save_heatmaps:
                     save_path = out_dir / f"frame{frame_idx:04d}_layer{layer_idx}_heatmap.png"
@@ -705,6 +709,14 @@ def run_analysis(args):
     # ── Summary plot ───────────────────────────────────────────────────────
     if all_step_results and len(args.layers) > 0:
         _save_summary_plot(all_step_results, args.layers, prompt, out_dir)
+
+
+def _label_panel(img: np.ndarray, text: str) -> np.ndarray:
+    """Add a black header bar with white label text above an image panel."""
+    h, w = img.shape[:2]
+    bar = np.zeros((28, w, 3), dtype=np.uint8)
+    cv2.putText(bar, text, (6, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1, cv2.LINE_AA)
+    return np.concatenate([bar, img], axis=0)
 
 
 def _write_attention_video(frames: List[np.ndarray], path: pathlib.Path, fps: float):
