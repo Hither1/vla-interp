@@ -6,7 +6,7 @@ Produces three grouped bar chart figures:
   fig3_droid_policy.png    -- Policy perturbation success rates
 
 Usage:
-  python analysis/plot_droid_generalization.py --output-dir results/droid_generalization_plots
+  python analysis/plot_droid_generalization.py --output-dir analysis/droid_generalization_plots
 """
 
 import argparse
@@ -260,7 +260,7 @@ def _plot_combined(out_dir):
 
 def main():
     parser = argparse.ArgumentParser(description="Plot DROID generalization success rates")
-    parser.add_argument("--output-dir", type=str, default="results/droid_generalization_plots",
+    parser.add_argument("--output-dir", type=str, default="analysis/droid_generalization_plots",
                         help="Directory to save figures")
     parser.add_argument("--combined-only", action="store_true",
                         help="Only produce the combined 3×4 figure")

@@ -79,7 +79,7 @@ export NUMBA_CACHE_DIR="${NUMBA_CACHE_DIR:-${TMPDIR:-/tmp}/numba_cache}"
 mkdir -p "${WORKDIR}/logs" "${NUMBA_CACHE_DIR}"
 
 # ── Required: checkpoint ───────────────────────────────────────────────────────
-CHECKPOINT="${CHECKPOINT:-}"
+CHECKPOINT="${CHECKPOINT:-/n/netscratch/sham_lab/Lab/chloe00/openpi-assets/checkpoints/pi05_droid}"
 if [[ -z "${CHECKPOINT}" ]]; then
     echo "ERROR: CHECKPOINT is required."
     echo "  CHECKPOINT=/path/to/pi05_droid sbatch $0"
@@ -87,41 +87,62 @@ if [[ -z "${CHECKPOINT}" ]]; then
 fi
 
 # ── Google Drive / rclone (optional) ──────────────────────────────────────────
-# Set PERTURBATION to download directly from Google Drive via rclone.
-# The video is a side-by-side .MOV (left=exterior, right=wrist); ffmpeg splits it.
+# Set GDRIVE_ROOT to auto-download and split the first video found there.
+# Mirrors the approach in run_visualize_sam3_masks.sh.
 #
-#   PERTURBATION=shuffle CHECKPOINT=... PROMPT=... sbatch scripts/run_attention_droid_pi0.sh
+#   GDRIVE_ROOT="DROID/pi05/pi05_image_logs" CHECKPOINT=... PROMPT=... sbatch ...
 #
-# Folder layout expected on Drive (rclone remote "gdrive"):
-#   gdrive:DROID/pi05/<perturbation>/<any>.MOV
-#
-# Override the remote or root path if needed:
-#   GDRIVE_REMOTE=gdrive  GDRIVE_PI05_ROOT="DROID/pi05"
-PERTURBATION="${PERTURBATION:-}"
 GDRIVE_REMOTE="${GDRIVE_REMOTE:-gdrive}"
-GDRIVE_PI05_ROOT="${GDRIVE_PI05_ROOT:-DROID/pi05}"
+GDRIVE_ROOT="${GDRIVE_ROOT:-DROID/pi05/pi05_image_logs}"
+GDRIVE_VIDEO="${GDRIVE_VIDEO:-}"
 GDRIVE_TMPDIR=""
 
-if [[ -n "${PERTURBATION}" ]]; then
+if [[ -n "${GDRIVE_ROOT}" || -n "${GDRIVE_VIDEO}" ]] && [[ -z "${DATA_DIR:-}" && -z "${VIDEO:-}" ]]; then
     GDRIVE_TMPDIR="$(mktemp -d)"
-    GDRIVE_SRC="${GDRIVE_REMOTE}:${GDRIVE_PI05_ROOT}/${PERTURBATION}"
-    echo "Downloading from Drive: ${GDRIVE_SRC}"
-    rclone copy "${GDRIVE_SRC}" "${GDRIVE_TMPDIR}/" --progress
-
-    # Find the video file (any .MOV or .mp4)
-    COMBINED_VIDEO="$(find "${GDRIVE_TMPDIR}" -maxdepth 1 \( -iname "*.mov" -o -iname "*.mp4" \) | head -1)"
+    if [[ -n "${GDRIVE_VIDEO}" ]]; then
+        GDRIVE_SRC="${GDRIVE_REMOTE}:${GDRIVE_ROOT:+${GDRIVE_ROOT}/}${GDRIVE_VIDEO}"
+        echo "Downloading from Drive: ${GDRIVE_SRC}"
+        rclone copy "${GDRIVE_SRC}" "${GDRIVE_TMPDIR}/" --progress
+    else
+        GDRIVE_SRC="${GDRIVE_REMOTE}:${GDRIVE_ROOT}"
+        echo "Browsing Drive folder: ${GDRIVE_SRC}"
+        GDRIVE_VIDEO="$(rclone lsf "${GDRIVE_SRC}" --include "*.mp4" --include "*.MOV" --include "*.mov" | head -1)"
+        if [[ -z "${GDRIVE_VIDEO}" ]]; then
+            echo "ERROR: No video found in Drive folder: ${GDRIVE_SRC}"
+            exit 1
+        fi
+        echo "Auto-selected: ${GDRIVE_VIDEO}"
+        rclone copy "${GDRIVE_SRC}/${GDRIVE_VIDEO}" "${GDRIVE_TMPDIR}/" --progress
+    fi
+    COMBINED_VIDEO="$(find "${GDRIVE_TMPDIR}" -maxdepth 2 \( -iname "*.mov" -o -iname "*.mp4" \) | head -1)"
     if [[ -z "${COMBINED_VIDEO}" ]]; then
-        echo "ERROR: No .MOV or .mp4 found in Drive folder: ${GDRIVE_SRC}"
+        echo "ERROR: No video found after download."
         exit 1
     fi
+    # Split side-by-side video: left=exterior, right=wrist
     echo "Splitting side-by-side video: ${COMBINED_VIDEO}"
-    # left half → exterior, right half → wrist
-    ffmpeg -loglevel warning -i "${COMBINED_VIDEO}" \
-        -vf "crop=iw/2:ih:0:0" -c:v libx264 -crf 18 -an \
-        "${GDRIVE_TMPDIR}/exterior.mp4"
-    ffmpeg -loglevel warning -i "${COMBINED_VIDEO}" \
-        -vf "crop=iw/2:ih:iw/2:0" -c:v libx264 -crf 18 -an \
-        "${GDRIVE_TMPDIR}/wrist.mp4"
+    export _COMBINED_VIDEO="${COMBINED_VIDEO}" _GDRIVE_TMPDIR="${GDRIVE_TMPDIR}"
+    python - <<'PYEOF'
+import cv2, os
+src = os.environ["_COMBINED_VIDEO"]
+tmpdir = os.environ["_GDRIVE_TMPDIR"]
+cap = cv2.VideoCapture(src)
+fps = cap.get(cv2.CAP_PROP_FPS) or 10.0
+w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+half = w // 2
+fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+ext_w = cv2.VideoWriter(f"{tmpdir}/exterior.mp4", fourcc, fps, (half, h))
+wst_w = cv2.VideoWriter(f"{tmpdir}/wrist.mp4",    fourcc, fps, (half, h))
+while True:
+    ok, frame = cap.read()
+    if not ok:
+        break
+    ext_w.write(frame[:, :half])
+    wst_w.write(frame[:, half:])
+cap.release(); ext_w.release(); wst_w.release()
+print(f"Split into exterior.mp4 and wrist.mp4 ({half}x{h} each)")
+PYEOF
     VIDEO="${GDRIVE_TMPDIR}/exterior.mp4"
     VIDEO_WRIST="${GDRIVE_TMPDIR}/wrist.mp4"
 fi
@@ -142,7 +163,7 @@ if [[ -z "${DATA_DIR}" && -z "${VIDEO}" ]]; then
 fi
 
 # ── Language prompt ────────────────────────────────────────────────────────────
-PROMPT="${PROMPT:-}"
+PROMPT="${PROMPT:-pick up the green cup and place it in the blue bowl}"
 
 # ── Attention layers ───────────────────────────────────────────────────────────
 LAYERS="${LAYERS:-0 8 17}"
@@ -155,16 +176,16 @@ FRAME_STEP="${FRAME_STEP:-1}"
 
 # ── Segmentation / IoU ────────────────────────────────────────────────────────
 MASK_DIR="${MASK_DIR:-}"           # pre-computed .npy masks
-USE_SAM3="${USE_SAM3:-0}"          # 1 = use SAM3 text-prompted segmentation
-OBJECT_DESC="${OBJECT_DESC:-}"     # text description for SAM3
-SAM3_CHECKPOINT="${SAM3_CHECKPOINT:-/n/netscratch/sham_lab/Lab/chloe00/models--facebook--sam3/snapshots/3c879f39826c281e95690f02c7821c4de09afae7/sam3.pt}"
-SAM3_VERSION="${SAM3_VERSION:-sam3.1}"   # "sam3" or "sam3.1"
+USE_SAM3="${USE_SAM3:-1}"          # 1 = use SAM3 text-prompted segmentation
+OBJECT_DESC="${OBJECT_DESC:-green cup}"     # text description for SAM3
+SAM3_CHECKPOINT="${SAM3_CHECKPOINT:-/n/netscratch/sham_lab/Lab/chloe00/models--facebook--sam3/snapshots/3c879f39826c281e95690f02c7821c4de09afae7}"
 SAM3_CONFIDENCE="${SAM3_CONFIDENCE:-0.5}"
 THRESHOLD_METHOD="${THRESHOLD_METHOD:-percentile}"
 THRESHOLD_VALUE="${THRESHOLD_VALUE:-90.0}"
 
 # ── Output ─────────────────────────────────────────────────────────────────────
 SAVE_HEATMAPS="${SAVE_HEATMAPS:-0}"
+SAVE_VIDEO="${SAVE_VIDEO:-1}"
 MAX_TOKEN_LEN="${MAX_TOKEN_LEN:-256}"
 
 # Derive output tag from data source
@@ -196,12 +217,12 @@ elif [[ "${USE_SAM3}" == "1" || "${USE_SAM3}" == "true" ]]; then
     SEG_ARGS+=(--use-sam3)
     [[ -n "${OBJECT_DESC}" ]]      && SEG_ARGS+=(--object-desc "${OBJECT_DESC}")
     [[ -n "${SAM3_CHECKPOINT}" ]]  && SEG_ARGS+=(--sam3-checkpoint "${SAM3_CHECKPOINT}")
-    SEG_ARGS+=(--sam3-version "${SAM3_VERSION}")
     SEG_ARGS+=(--sam3-confidence "${SAM3_CONFIDENCE}")
 fi
 
 SAVE_HEATMAPS_ARG=()
 [[ "${SAVE_HEATMAPS}" == "1" || "${SAVE_HEATMAPS}" == "true" ]] && SAVE_HEATMAPS_ARG+=(--save-heatmaps)
+[[ "${SAVE_VIDEO}" == "1" || "${SAVE_VIDEO}" == "true" ]] && SAVE_HEATMAPS_ARG+=(--save-video)
 
 NUM_IMG_TOK_ARG=()
 [[ "${NUM_IMAGE_TOKENS}" -gt 0 ]] && NUM_IMG_TOK_ARG+=(--num-image-tokens "${NUM_IMAGE_TOKENS}")
@@ -211,8 +232,8 @@ echo "============================================================"
 echo "Job:          ${SLURM_JOB_ID:-local}"
 echo "Model:        pi0.5-DROID"
 echo "Checkpoint:   ${CHECKPOINT}"
-if [[ -n "${PERTURBATION}" ]]; then
-    echo "Perturbation: ${PERTURBATION} (Drive: ${GDRIVE_REMOTE}:${GDRIVE_PI05_ROOT}/${PERTURBATION})"
+if [[ -n "${PERTURBATION:-}" ]]; then
+    echo "Perturbation: ${PERTURBATION} (Drive: ${GDRIVE_REMOTE}:${GDRIVE_PI05_ROOT:-}/${PERTURBATION})"
     echo "Data source:  ${VIDEO} + ${VIDEO_WRIST} (split from Drive)"
 else
     echo "Data source:  ${DATA_DIR:-${VIDEO}}"
@@ -223,7 +244,7 @@ echo "Frame step:   ${FRAME_STEP}"
 if [[ -n "${MASK_DIR}" ]]; then
     echo "Segmentation: pre-computed masks from ${MASK_DIR}"
 elif [[ "${USE_SAM3}" == "1" ]]; then
-    echo "Segmentation: SAM3 ${SAM3_VERSION} (object: '${OBJECT_DESC}')"
+    echo "Segmentation: SAM3 tracking (object: '${OBJECT_DESC}')"
 else
     echo "Segmentation: none (ratio only)"
 fi

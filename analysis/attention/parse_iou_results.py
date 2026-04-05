@@ -322,8 +322,8 @@ def main():
     parser.add_argument(
         "--directory",
         type=str,
-        default="outputs_iou_cosmos/test",
-        help="Directory containing JSON files (default: outputs_iou_cosmos/test)",
+        default="analysis/attention/outputs_iou_cosmos/test",
+        help="Directory containing JSON files (default: analysis/attention/outputs_iou_cosmos/test)",
     )
     parser.add_argument(
         "--layer",

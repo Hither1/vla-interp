@@ -147,10 +147,11 @@ def load_frames_from_video(
     video_path: str,
     wrist_video_path: Optional[str],
     frame_step: int = 1,
-) -> Tuple[List[np.ndarray], List[Optional[np.ndarray]], List[int]]:
-    """Load frames from MP4 video files."""
+) -> Tuple[List[np.ndarray], List[Optional[np.ndarray]], List[int], float]:
+    """Load frames from MP4 video files. Returns (ext_frames, wrist_frames, indices, fps)."""
     def _read_video(path):
         cap = cv2.VideoCapture(path)
+        fps = cap.get(cv2.CAP_PROP_FPS) or 10.0
         frames = []
         i = 0
         while True:
@@ -161,13 +162,13 @@ def load_frames_from_video(
                 frames.append(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             i += 1
         cap.release()
-        return frames
+        return frames, fps
 
-    ext_frames = _read_video(video_path)
+    ext_frames, source_fps = _read_video(video_path)
     indices = list(range(0, len(ext_frames) * frame_step, frame_step))
 
     if wrist_video_path:
-        wrist_frames = _read_video(wrist_video_path)
+        wrist_frames, _ = _read_video(wrist_video_path)
         # Align lengths
         n = min(len(ext_frames), len(wrist_frames))
         ext_frames = ext_frames[:n]
@@ -176,7 +177,7 @@ def load_frames_from_video(
     else:
         wrist_frames = [None] * len(ext_frames)
 
-    return ext_frames, wrist_frames, indices
+    return ext_frames, wrist_frames, indices, source_fps
 
 
 def load_masks_from_dir(
@@ -215,60 +216,68 @@ def load_metadata(data_dir: pathlib.Path, n_frames: int) -> Dict:
 # SAM3 segmentation (optional)
 # ==============================================================================
 
-_SAM3_LOCAL_CHECKPOINT = "/n/netscratch/sham_lab/Lab/chloe00/models--facebook--sam3/snapshots/3c879f39826c281e95690f02c7821c4de09afae7/sam3.pt"
+_SAM3_HF_CHECKPOINT = (
+    "/n/netscratch/sham_lab/Lab/chloe00/models--facebook--sam3/snapshots/"
+    "3c879f39826c281e95690f02c7821c4de09afae7"
+)
 
 
-def _try_import_sam3():
-    """Try to import SAM3 components."""
-    try:
-        from sam3.model_builder import build_sam3_image_model
-        from sam3.model.sam3_image_processor import Sam3Processor
-        return build_sam3_image_model, Sam3Processor
-    except ImportError as e:
-        raise ImportError(
-            f"SAM3 not available: {e}\n"
-            "Install with: pip install git+https://github.com/facebookresearch/sam3.git"
-        ) from e
+def load_sam3_hf(checkpoint: str, device: str = "cuda"):
+    from transformers import Sam3Model, Sam3Processor
+    log.info("Loading SAM3 from %s …", checkpoint)
+    processor = Sam3Processor.from_pretrained(checkpoint)
+    model = Sam3Model.from_pretrained(
+        checkpoint, torch_dtype=torch.float16
+    ).eval().to(device)
+    log.info("SAM3 loaded on %s", device)
+    return processor, model
 
 
-def load_sam3_model(checkpoint_path: str = "", version: str = "sam3.1", device: str = "cuda"):
-    """Load SAM3 image model from local checkpoint."""
-    build_sam3_image_model, Sam3Processor = _try_import_sam3()
-    ckpt = checkpoint_path if checkpoint_path else _SAM3_LOCAL_CHECKPOINT
-    model = build_sam3_image_model(
-        checkpoint_path=ckpt,
-        device=device,
-        eval_mode=True,
+def _run_sam3_inference(inputs, processor, model, device, h, w, confidence_threshold):
+    """Shared SAM3 forward pass. Returns union mask (H, W) float32, or None."""
+    inputs = {k: v.to(device) if hasattr(v, "to") else v for k, v in inputs.items()}
+    if "pixel_values" in inputs:
+        inputs["pixel_values"] = inputs["pixel_values"].to(torch.float16)
+    with torch.no_grad():
+        outputs = model(**inputs)
+    results = processor.post_process_instance_segmentation(
+        outputs, target_sizes=[[h, w]], threshold=confidence_threshold,
     )
-    processor = Sam3Processor(model, device=device)
-    return processor
+    masks = results[0].get("masks")
+    if masks is None or len(masks) == 0:
+        return None
+    return torch.stack(list(masks)).any(dim=0).float().cpu().numpy()
 
 
-def segment_with_sam3(
-    image: np.ndarray,
+def _segment_text_sam3(image_rgb, object_desc, processor, model, device, confidence_threshold):
+    h, w = image_rgb.shape[:2]
+    inputs = processor(images=Image.fromarray(image_rgb), text=object_desc, return_tensors="pt")
+    return _run_sam3_inference(inputs, processor, model, device, h, w, confidence_threshold)
+
+
+def compute_tracking_masks(
+    frames_rgb: List[np.ndarray],
     object_desc: str,
     processor,
+    model,
+    device: str = "cuda",
     confidence_threshold: float = 0.5,
-) -> Optional[np.ndarray]:
-    """Run SAM3 text-prompted segmentation on `image` for `object_desc`.
+) -> List[Optional[np.ndarray]]:
+    """Segment object in each frame using SAM3 text prompts.
 
-    Returns the highest-confidence binary mask (H, W) float32, or None if no detection.
+    SAM3 requires text conditioning on every call, so each frame is
+    independently prompted (no mask-guided propagation).
+    Returns one mask (or None) per frame.
     """
-    img_pil = Image.fromarray(image)
-    state = processor.set_image(img_pil)
-    processor.set_confidence_threshold(confidence_threshold, state)
-    state = processor.set_text_prompt(prompt=object_desc, state=state)
-
-    masks = state.get("masks")    # (N, H, W) binary torch.Tensor
-    scores = state.get("scores")  # (N,) torch.Tensor
-
-    if masks is None or len(masks) == 0:
-        log.warning("SAM3: no detection for '%s'", object_desc)
-        return None
-
-    best_idx = int(scores.argmax())
-    mask = masks[best_idx].cpu().float().numpy()  # (H, W), values in {0, 1}
-    return mask
+    masks: List[Optional[np.ndarray]] = []
+    for i, frame_rgb in enumerate(frames_rgb):
+        mask = _segment_text_sam3(frame_rgb, object_desc, processor, model,
+                                  device, confidence_threshold)
+        log.info("  SAM3 frame %d: %s", i, "found" if mask is not None else "not found")
+        masks.append(mask)
+    n_found = sum(1 for m in masks if m is not None)
+    log.info("SAM3 tracking: %d / %d frames with mask", n_found, len(masks))
+    return masks
 
 
 # ==============================================================================
@@ -456,13 +465,15 @@ def run_analysis(args):
 
     # ── Load frames ────────────────────────────────────────────────────────
     if args.video:
-        ext_frames, wrist_frames, frame_indices = load_frames_from_video(
+        ext_frames, wrist_frames, frame_indices, source_fps = load_frames_from_video(
             args.video, args.video_wrist, frame_step=args.frame_step,
         )
+        video_fps = source_fps / args.frame_step
         data_dir = pathlib.Path(args.video).parent
     else:
         data_dir = pathlib.Path(args.data_dir)
         ext_frames, wrist_frames, frame_indices = load_frames_from_dir(data_dir, args.frame_step)
+        video_fps = 10.0
 
     if not ext_frames:
         log.error("No frames found. Check --data-dir / --video arguments.")
@@ -504,14 +515,10 @@ def run_analysis(args):
 
     # ── Load segmentation model ────────────────────────────────────────────
     sam3_processor = None
+    sam3_model = None
     if args.use_sam3:
-        log.info("Loading SAM3 (version=%s) …", args.sam3_version)
-        sam3_processor = load_sam3_model(
-            checkpoint_path=args.sam3_checkpoint,
-            version=args.sam3_version,
-            device="cuda",
-        )
-        log.info("SAM3 ready.")
+        ckpt = args.sam3_checkpoint or _SAM3_HF_CHECKPOINT
+        sam3_processor, sam3_model = load_sam3_hf(ckpt, device="cuda")
 
     provided_masks = None
     if args.mask_dir:
@@ -519,8 +526,28 @@ def run_analysis(args):
         provided_masks = load_masks_from_dir(mask_dir, frame_indices)
         log.info("Loaded %d pre-computed masks", sum(1 for m in provided_masks if m is not None))
 
+    # Pre-compute SAM3 tracking masks (sequential — must run before main loop)
+    tracking_masks: Optional[List[Optional[np.ndarray]]] = None
+    if sam3_processor is not None and args.object_desc:
+        log.info("Pre-computing SAM3 tracking masks for '%s' over %d frames …",
+                 args.object_desc, len(ext_frames))
+        frames_for_tracking = [
+            np.array(Image.fromarray(f).resize(
+                (MODEL_INPUT_RESOLUTION, MODEL_INPUT_RESOLUTION), Image.LANCZOS
+            )) for f in ext_frames
+        ]
+        tracking_masks = compute_tracking_masks(
+            frames_for_tracking,
+            args.object_desc,
+            sam3_processor,
+            sam3_model,
+            device="cuda",
+            confidence_threshold=args.sam3_confidence,
+        )
+
     # ── Analysis loop ──────────────────────────────────────────────────────
     all_step_results: List[Dict] = []
+    video_frame_buf: Dict[int, List[np.ndarray]] = {l: [] for l in args.layers}
 
     for i, (ext_img, wrist_img, frame_idx) in enumerate(zip(ext_frames, wrist_frames, frame_indices)):
         log.info("Frame %d/%d (idx=%d)", i + 1, len(ext_frames), frame_idx)
@@ -554,17 +581,8 @@ def run_analysis(args):
         seg_mask = None
         if provided_masks is not None:
             seg_mask = provided_masks[i]
-        elif sam3_processor is not None and args.object_desc:
-            # Resize to model input resolution for consistency with the heatmap
-            analysis_img = np.array(Image.fromarray(ext_img).resize(
-                (MODEL_INPUT_RESOLUTION, MODEL_INPUT_RESOLUTION), Image.LANCZOS
-            ))
-            seg_mask = segment_with_sam3(
-                image=analysis_img,
-                object_desc=args.object_desc,
-                processor=sam3_processor,
-                confidence_threshold=args.sam3_confidence,
-            )
+        elif tracking_masks is not None:
+            seg_mask = tracking_masks[i]
 
         # Process per layer
         frame_results = {"frame_idx": frame_idx, "layers": {}}
@@ -602,14 +620,17 @@ def run_analysis(args):
                     (MODEL_INPUT_RESOLUTION, MODEL_INPUT_RESOLUTION),
                     interpolation=cv2.INTER_NEAREST,
                 )
+                _thresh_val = args.threshold_value
+                _thresh_key = f"{args.threshold_method}_{int(_thresh_val) if _thresh_val == int(_thresh_val) else _thresh_val}"
                 iou_result = compute_attention_object_iou(
                     attention_heatmap=heatmap,
                     segmentation_mask=seg_resized.astype(np.int32),
                     object_ids={"object": 1},
+                    threshold_methods=[(args.threshold_method, _thresh_val)],
                 )
                 layer_result.update({
-                    "iou": iou_result["combined"].get("percentile_90", {}).get("iou", None),
-                    "dice": iou_result["combined"].get("percentile_90", {}).get("dice", None),
+                    "iou": iou_result["combined"].get(_thresh_key, {}).get("iou", None),
+                    "dice": iou_result["combined"].get(_thresh_key, {}).get("dice", None),
                     "attention_mass_on_object": iou_result["attention_mass"].get("_all_objects", None),
                     "pointing_hit": iou_result.get("pointing_hit", None),
                 })
@@ -632,18 +653,22 @@ def run_analysis(args):
             frame_results["layers"][layer_key] = layer_result
             all_step_results.append(layer_result)
 
-            # Optionally save heatmap
-            if args.save_heatmaps and heatmap is not None:
+            # Build overlay frame (used for both --save-heatmaps and --save-video)
+            if (args.save_heatmaps or args.save_video) and heatmap is not None:
                 viz_img = np.array(Image.fromarray(ext_img).resize(
                     (MODEL_INPUT_RESOLUTION, MODEL_INPUT_RESOLUTION), Image.LANCZOS
                 ))
-                panels = [viz_img, (overlay_heatmap(viz_img, heatmap) if heatmap is not None else viz_img)]
+                overlay = overlay_heatmap(viz_img, heatmap)
+                panels = [viz_img, overlay]
                 if seg_mask is not None:
                     seg_disp = (seg_resized[:, :, None] * np.array([0, 0, 255], dtype=np.uint8))
                     panels.append(np.clip(viz_img.astype(np.int32) + seg_disp.astype(np.int32) // 2, 0, 255).astype(np.uint8))
                 combined = np.concatenate(panels, axis=1)
-                save_path = out_dir / f"frame{frame_idx:04d}_layer{layer_idx}_heatmap.png"
-                Image.fromarray(combined).save(str(save_path))
+                if args.save_heatmaps:
+                    save_path = out_dir / f"frame{frame_idx:04d}_layer{layer_idx}_heatmap.png"
+                    Image.fromarray(combined).save(str(save_path))
+                if args.save_video:
+                    video_frame_buf[layer_idx].append(combined)
 
     # ── Save results ───────────────────────────────────────────────────────
     per_layer_summary = {}
@@ -671,9 +696,26 @@ def run_analysis(args):
         json.dump(output, f, indent=2, default=_json_default)
     log.info("Results saved to %s", results_path)
 
+    # ── Attention video ────────────────────────────────────────────────────
+    if args.save_video:
+        for layer_idx, frames in video_frame_buf.items():
+            if frames:
+                _write_attention_video(frames, out_dir / f"attention_layer_{layer_idx}.mp4", video_fps)
+
     # ── Summary plot ───────────────────────────────────────────────────────
     if all_step_results and len(args.layers) > 0:
         _save_summary_plot(all_step_results, args.layers, prompt, out_dir)
+
+
+def _write_attention_video(frames: List[np.ndarray], path: pathlib.Path, fps: float):
+    """Write a list of RGB numpy frames to an MP4 video."""
+    h, w = frames[0].shape[:2]
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    writer = cv2.VideoWriter(str(path), fourcc, fps, (w, h))
+    for frame in frames:
+        writer.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+    writer.release()
+    log.info("Attention video saved: %s (%d frames @ %.1f fps)", path.name, len(frames), fps)
 
 
 def _save_summary_plot(step_results, layers, prompt, out_dir):
@@ -752,17 +794,23 @@ def main():
     parser.add_argument("--object-desc", type=str, default="",
                         help="Text description of target object for SAM3 (e.g. 'red cup')")
     parser.add_argument("--sam3-checkpoint", type=str, default="",
-                        help="Path to local SAM3 checkpoint (.pt); defaults to /n/netscratch/sham_lab/Lab/chloe00/models--facebook--sam3/snapshots/3c879f39826c281e95690f02c7821c4de09afae7/sam3.pt")
-    parser.add_argument("--sam3-version", type=str, default="sam3.1",
-                        choices=["sam3", "sam3.1"],
-                        help="SAM3 model version (default: sam3.1)")
+                        help="Path to HuggingFace SAM3 checkpoint directory; "
+                             "defaults to /n/netscratch/sham_lab/Lab/chloe00/models--facebook--sam3/snapshots/3c879f39826c281e95690f02c7821c4de09afae7")
     parser.add_argument("--sam3-confidence", type=float, default=0.5,
                         help="SAM3 confidence threshold for mask acceptance (default: 0.5)")
+
+    # IoU thresholding
+    parser.add_argument("--threshold-method", type=str, default="percentile",
+                        help="Attention thresholding method: 'percentile' or 'otsu' (default: percentile)")
+    parser.add_argument("--threshold-value", type=float, default=90.0,
+                        help="Threshold value (percentile 0–100 for 'percentile' mode; unused for 'otsu'). Default: 90.0")
 
     # Output
     parser.add_argument("--output-dir", default="results/attention_droid_pi0")
     parser.add_argument("--save-heatmaps", action="store_true",
                         help="Save per-frame attention heatmap PNGs")
+    parser.add_argument("--save-video", action="store_true",
+                        help="Save per-layer attention overlay video (attention_layer_N.mp4)")
 
     args = parser.parse_args()
     run_analysis(args)

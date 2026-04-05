@@ -10,7 +10,7 @@ import numpy as np
 from pathlib import Path
 
 
-def create_visualizations(csv_file="libero_entropy_analysis.csv", output_dir="entropy_plots"):
+def create_visualizations(csv_file="libero_entropy_analysis.csv", output_dir="analysis/entropy/entropy_plots"):
     """Create comprehensive visualizations of entropy analysis."""
 
     # Load data

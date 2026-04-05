@@ -11,7 +11,7 @@ import numpy as np
 from scipy import stats
 
 
-def analyze_entropy_task_correlation(csv_file="libero_entropy_analysis.csv", output_dir="entropy_plots"):
+def analyze_entropy_task_correlation(csv_file="libero_entropy_analysis.csv", output_dir="analysis/entropy/entropy_plots"):
     """Analyze correlation between entropy and task success rates."""
 
     # Load data

@@ -1057,7 +1057,7 @@ def main():
                         help="Custom prompt string (used when --prompt-mode=custom).")
 
     # Output
-    parser.add_argument("--output-dir", type=str, default="outputs_iou_cosmos")
+    parser.add_argument("--output-dir", type=str, default="analysis/attention/outputs_iou_cosmos")
     parser.add_argument("--save-viz", action="store_true")
 
     args = parser.parse_args()

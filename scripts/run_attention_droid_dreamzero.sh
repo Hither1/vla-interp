@@ -114,7 +114,7 @@ fi
 #
 # Override the remote or root path if needed:
 #   GDRIVE_REMOTE=gdrive  GDRIVE_DREAMZERO_ROOT="DROID/dreamzero"
-PERTURBATION="${PERTURBATION:-}"
+PERTURBATION="${PERTURBATION:-original/pick up the green cup and put it in the pink bowl}"
 GDRIVE_REMOTE="${GDRIVE_REMOTE:-gdrive}"
 GDRIVE_DREAMZERO_ROOT="${GDRIVE_DREAMZERO_ROOT:-DROID/dreamzero}"
 GDRIVE_SPLIT_COMBINED="${GDRIVE_SPLIT_COMBINED:-1}"
@@ -136,18 +136,30 @@ if [[ -n "${PERTURBATION}" ]]; then
             exit 1
         fi
         echo "Splitting 2x2 grid video: ${COMBINED_VIDEO}"
-        # wrist: top half, full width
-        ffmpeg -loglevel warning -i "${COMBINED_VIDEO}" \
-            -vf "crop=iw:ih/2:0:0" -c:v libx264 -crf 18 -an \
-            "${GDRIVE_TMPDIR}/wrist.mp4"
-        # left exterior: bottom-left quadrant
-        ffmpeg -loglevel warning -i "${COMBINED_VIDEO}" \
-            -vf "crop=iw/2:ih/2:0:ih/2" -c:v libx264 -crf 18 -an \
-            "${GDRIVE_TMPDIR}/exterior.mp4"
-        # right exterior: bottom-right quadrant
-        ffmpeg -loglevel warning -i "${COMBINED_VIDEO}" \
-            -vf "crop=iw/2:ih/2:iw/2:ih/2" -c:v libx264 -crf 18 -an \
-            "${GDRIVE_TMPDIR}/exterior2.mp4"
+        export _COMBINED_VIDEO="${COMBINED_VIDEO}" _GDRIVE_TMPDIR="${GDRIVE_TMPDIR}"
+        python - <<'PYEOF'
+import cv2, os
+src = os.environ["_COMBINED_VIDEO"]
+tmpdir = os.environ["_GDRIVE_TMPDIR"]
+cap = cv2.VideoCapture(src)
+fps = cap.get(cv2.CAP_PROP_FPS) or 10.0
+w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+half_w, half_h = w // 2, h // 2
+fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+wst_w = cv2.VideoWriter(f"{tmpdir}/wrist.mp4",     fourcc, fps, (w,      half_h))
+ext_w = cv2.VideoWriter(f"{tmpdir}/exterior.mp4",  fourcc, fps, (half_w, half_h))
+ex2_w = cv2.VideoWriter(f"{tmpdir}/exterior2.mp4", fourcc, fps, (half_w, half_h))
+while True:
+    ok, frame = cap.read()
+    if not ok:
+        break
+    wst_w.write(frame[:half_h, :])           # top half, full width
+    ext_w.write(frame[half_h:, :half_w])     # bottom-left
+    ex2_w.write(frame[half_h:, half_w:])     # bottom-right
+cap.release(); wst_w.release(); ext_w.release(); ex2_w.release()
+print(f"Split into wrist ({w}x{half_h}), exterior/exterior2 ({half_w}x{half_h})")
+PYEOF
         VIDEO="${GDRIVE_TMPDIR}/exterior.mp4"
         VIDEO_EXT2="${GDRIVE_TMPDIR}/exterior2.mp4"
         VIDEO_WRIST="${GDRIVE_TMPDIR}/wrist.mp4"
@@ -184,7 +196,7 @@ if [[ -z "${DATA_DIR}" && -z "${VIDEO}" ]]; then
 fi
 
 # ── Language prompt ────────────────────────────────────────────────────────────
-PROMPT="${PROMPT:-}"
+PROMPT="${PROMPT:-pick up the green cup and put it in the pink bowl}"
 
 # ── Model / inference settings ────────────────────────────────────────────────
 NUM_GPUS="${NUM_GPUS:-4}"
@@ -200,10 +212,9 @@ FRAME_STEP="${FRAME_STEP:-1}"
 
 # ── Segmentation / IoU ────────────────────────────────────────────────────────
 MASK_DIR="${MASK_DIR:-}"
-USE_SAM3="${USE_SAM3:-0}"
-OBJECT_DESC="${OBJECT_DESC:-}"
-SAM3_CHECKPOINT="${SAM3_CHECKPOINT:-/n/netscratch/sham_lab/Lab/chloe00/models--facebook--sam3/snapshots/3c879f39826c281e95690f02c7821c4de09afae7/sam3.pt}"
-SAM3_VERSION="${SAM3_VERSION:-sam3.1}"   # "sam3" or "sam3.1"
+USE_SAM3="${USE_SAM3:-1}"
+OBJECT_DESC="${OBJECT_DESC:-green cup}"
+SAM3_CHECKPOINT="${SAM3_CHECKPOINT:-/n/netscratch/sham_lab/Lab/chloe00/models--facebook--sam3/snapshots/3c879f39826c281e95690f02c7821c4de09afae7}"
 SAM3_CONFIDENCE="${SAM3_CONFIDENCE:-0.5}"
 THRESHOLD_METHOD="${THRESHOLD_METHOD:-percentile}"
 THRESHOLD_VALUE="${THRESHOLD_VALUE:-90.0}"
@@ -240,7 +251,6 @@ elif [[ "${USE_SAM3}" == "1" || "${USE_SAM3}" == "true" ]]; then
     SEG_ARGS+=(--use-sam3)
     [[ -n "${OBJECT_DESC}" ]]     && SEG_ARGS+=(--object-desc "${OBJECT_DESC}")
     [[ -n "${SAM3_CHECKPOINT}" ]] && SEG_ARGS+=(--sam3-checkpoint "${SAM3_CHECKPOINT}")
-    SEG_ARGS+=(--sam3-version "${SAM3_VERSION}")
     SEG_ARGS+=(--sam3-confidence "${SAM3_CONFIDENCE}")
 fi
 
@@ -271,7 +281,7 @@ echo "Frame step:        ${FRAME_STEP}"
 if [[ -n "${MASK_DIR}" ]]; then
     echo "Segmentation:      pre-computed masks from ${MASK_DIR}"
 elif [[ "${USE_SAM3}" == "1" ]]; then
-    echo "Segmentation:      SAM3 ${SAM3_VERSION} (object: '${OBJECT_DESC}')"
+    echo "Segmentation:      SAM3 tracking (object: '${OBJECT_DESC}')"
 else
     echo "Segmentation:      none (ratio only)"
 fi

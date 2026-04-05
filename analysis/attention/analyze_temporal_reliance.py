@@ -30,12 +30,12 @@ Usage:
     --layer layer_25 \\
     --rolling-windows 3 5 10 \\
     --max-lag 10 \\
-    --output-dir results/temporal_reliance
+    --output-dir analysis/temporal_reliance
 
   # Multiple files per model (pooled):
   python analyze_temporal_reliance.py \\
     --inputs pi0.5:/path/A.json pi0.5:/path/B.json DreamZero:/path/C.json \\
-    --output-dir results/temporal_reliance
+    --output-dir analysis/temporal_reliance
 """
 
 from __future__ import annotations
@@ -641,7 +641,7 @@ def main():
         help="How to aggregate per-episode step series for correlation sweep (default: mean).",
     )
     parser.add_argument(
-        "--output-dir", type=str, default="results/temporal_reliance",
+        "--output-dir", type=str, default="analysis/temporal_reliance",
     )
     args = parser.parse_args()
 

@@ -199,52 +199,87 @@ def load_metadata(data_dir: pathlib.Path, n: int) -> Dict:
 # SAM3 segmentation (optional)
 # ==============================================================================
 
-_SAM3_LOCAL_CHECKPOINT = "/n/netscratch/sham_lab/Lab/chloe00/models--facebook--sam3/snapshots/3c879f39826c281e95690f02c7821c4de09afae7/sam3.pt"
+_SAM3_HF_CHECKPOINT = (
+    "/n/netscratch/sham_lab/Lab/chloe00/models--facebook--sam3/snapshots/"
+    "3c879f39826c281e95690f02c7821c4de09afae7"
+)
 
 
-def _try_import_sam3():
-    try:
-        from sam3.model_builder import build_sam3_image_model
-        from sam3.model.sam3_image_processor import Sam3Processor
-        return build_sam3_image_model, Sam3Processor
-    except ImportError as e:
-        raise ImportError(
-            f"SAM3 not available: {e}\n"
-            "Install with: pip install git+https://github.com/facebookresearch/sam3.git"
-        ) from e
+def load_sam3_hf(checkpoint: str, device: str = "cuda"):
+    from transformers import Sam3Model, Sam3Processor
+    log.info("Loading SAM3 from %s …", checkpoint)
+    processor = Sam3Processor.from_pretrained(checkpoint)
+    model = Sam3Model.from_pretrained(
+        checkpoint, torch_dtype=torch.float16
+    ).eval().to(device)
+    log.info("SAM3 loaded on %s", device)
+    return processor, model
 
 
-def load_sam3_model(checkpoint_path: str = "", device: str = "cuda"):
-    """Load SAM3 image model from local checkpoint."""
-    build_sam3_image_model, Sam3Processor = _try_import_sam3()
-    ckpt = checkpoint_path if checkpoint_path else _SAM3_LOCAL_CHECKPOINT
-    model = build_sam3_image_model(
-        checkpoint_path=ckpt,
-        device=device,
-        eval_mode=True,
+def _run_sam3_inference(inputs, processor, model, device, h, w, confidence_threshold):
+    """Shared SAM3 forward pass. Returns union mask (H, W) float32, or None."""
+    inputs = {k: v.to(device) if hasattr(v, "to") else v for k, v in inputs.items()}
+    if "pixel_values" in inputs:
+        inputs["pixel_values"] = inputs["pixel_values"].to(torch.float16)
+    with torch.no_grad():
+        outputs = model(**inputs)
+    results = processor.post_process_instance_segmentation(
+        outputs, target_sizes=[[h, w]], threshold=confidence_threshold,
     )
-    return Sam3Processor(model, device=device)
+    masks = results[0].get("masks")
+    if masks is None or len(masks) == 0:
+        return None
+    return torch.stack(list(masks)).any(dim=0).float().cpu().numpy()
 
 
-def segment_with_sam3(
-    image: np.ndarray,
+def _segment_text_sam3(image_rgb, object_desc, processor, model, device, confidence_threshold):
+    h, w = image_rgb.shape[:2]
+    inputs = processor(images=Image.fromarray(image_rgb), text=object_desc, return_tensors="pt")
+    return _run_sam3_inference(inputs, processor, model, device, h, w, confidence_threshold)
+
+
+def _segment_mask_guided_sam3(image_rgb, prev_mask, processor, model, device, confidence_threshold):
+    h, w = image_rgb.shape[:2]
+    mask_tensor = torch.from_numpy(prev_mask > 0.5).unsqueeze(0).unsqueeze(0)
+    inputs = processor(images=Image.fromarray(image_rgb), input_masks=mask_tensor, return_tensors="pt")
+    return _run_sam3_inference(inputs, processor, model, device, h, w, confidence_threshold)
+
+
+def compute_tracking_masks(
+    frames_rgb: List[np.ndarray],
     object_desc: str,
     processor,
+    model,
+    device: str = "cuda",
     confidence_threshold: float = 0.5,
-) -> Optional[np.ndarray]:
-    """Run SAM3 text-prompted segmentation. Returns best binary mask (H, W) or None."""
-    img_pil = Image.fromarray(image)
-    state = processor.set_image(img_pil)
-    processor.set_confidence_threshold(confidence_threshold, state)
-    state = processor.set_text_prompt(prompt=object_desc, state=state)
+) -> List[Optional[np.ndarray]]:
+    """Track object through frames using SAM3.
 
-    masks = state.get("masks")
-    scores = state.get("scores")
-    if masks is None or len(masks) == 0:
-        log.warning("SAM3: no detection for '%s'", object_desc)
-        return None
-
-    return masks[int(scores.argmax())].cpu().float().numpy()
+    Frame 0 (and any frame where tracking is lost): text-prompted init.
+    Subsequent frames: mask-guided propagation from previous frame.
+    Returns one mask (or None) per frame.
+    """
+    masks: List[Optional[np.ndarray]] = []
+    prev_mask: Optional[np.ndarray] = None
+    for i, frame_rgb in enumerate(frames_rgb):
+        if prev_mask is None:
+            mask = _segment_text_sam3(frame_rgb, object_desc, processor, model,
+                                      device, confidence_threshold)
+            log.info("  SAM3 frame %d: text init → %s", i,
+                     "found" if mask is not None else "not found")
+        else:
+            mask = _segment_mask_guided_sam3(frame_rgb, prev_mask, processor, model,
+                                             device, confidence_threshold)
+            if mask is None:
+                log.info("  SAM3 frame %d: tracking lost, re-init with text", i)
+                mask = _segment_text_sam3(frame_rgb, object_desc, processor, model,
+                                          device, confidence_threshold)
+        masks.append(mask)
+        if mask is not None:
+            prev_mask = mask
+    n_found = sum(1 for m in masks if m is not None)
+    log.info("SAM3 tracking: %d / %d frames with mask", n_found, len(masks))
+    return masks
 
 
 # ==============================================================================
@@ -615,16 +650,28 @@ def run_analysis_rank0(args, policy, signal_group):
 
     # ── Segmentation (IoU) ─────────────────────────────────────────────────
     sam3_processor = None
+    sam3_model = None
     if args.use_sam3:
-        log.info("Loading SAM3 (version=%s) …", args.sam3_version)
-        sam3_processor = load_sam3_model(
-            checkpoint_path=args.sam3_checkpoint,
-            device="cuda",
-        )
+        ckpt = args.sam3_checkpoint or _SAM3_HF_CHECKPOINT
+        sam3_processor, sam3_model = load_sam3_hf(ckpt, device="cuda")
 
     provided_masks = None
     if args.mask_dir:
         provided_masks = load_masks_from_dir(pathlib.Path(args.mask_dir), frame_indices)
+
+    # Pre-compute SAM3 tracking masks (sequential — must run before main loop)
+    tracking_masks: Optional[List[Optional[np.ndarray]]] = None
+    if sam3_processor is not None and args.object_desc:
+        log.info("Pre-computing SAM3 tracking masks for '%s' over %d frames …",
+                 args.object_desc, len(ext1_frames))
+        tracking_masks = compute_tracking_masks(
+            ext1_frames,
+            args.object_desc,
+            sam3_processor,
+            sam3_model,
+            device="cuda",
+            confidence_threshold=args.sam3_confidence,
+        )
 
     out_dir = pathlib.Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -690,13 +737,8 @@ def run_analysis_rank0(args, policy, signal_group):
         seg_mask = None
         if provided_masks is not None:
             seg_mask = provided_masks[i]
-        elif sam3_processor is not None and args.object_desc:
-            seg_mask = segment_with_sam3(
-                image=ext1,
-                object_desc=args.object_desc,
-                processor=sam3_processor,
-                confidence_threshold=args.sam3_confidence,
-            )
+        elif tracking_masks is not None:
+            seg_mask = tracking_masks[i]
 
         # Process per layer
         for layer_idx in args.layers:
@@ -862,10 +904,7 @@ def main():
     parser.add_argument("--object-desc", default="",
                         help="Text description of target object for SAM3 (e.g. 'red cup')")
     parser.add_argument("--sam3-checkpoint", default="",
-                        help="Path to local SAM3 checkpoint (.pt); defaults to /n/netscratch/sham_lab/Lab/chloe00/models--facebook--sam3/snapshots/3c879f39826c281e95690f02c7821c4de09afae7/sam3.pt")
-    parser.add_argument("--sam3-version", default="sam3.1",
-                        choices=["sam3", "sam3.1"],
-                        help="SAM3 model version (default: sam3.1)")
+                        help="Path to local SAM3 HuggingFace checkpoint directory")
     parser.add_argument("--sam3-confidence", type=float, default=0.5,
                         help="SAM3 confidence threshold (default: 0.5)")
     parser.add_argument("--threshold-method", default="percentile",

@@ -18,7 +18,7 @@ python analysis/temporal_reliance.py \
            DreamZero:results/.../attention_results_libero_10.json \
   --feature iou \
   --rolling-windows 3 5 10 \
-  --output-dir results/temporal_reliance
+  --output-dir analysis/temporal_reliance
 """
 
 from __future__ import annotations
@@ -615,7 +615,7 @@ def main() -> int:
     parser.add_argument(
         "--output-dir",
         type=str,
-        default="results/temporal_reliance",
+        default="analysis/temporal_reliance",
         help="Directory for plots and JSON summary.",
     )
     args = parser.parse_args()

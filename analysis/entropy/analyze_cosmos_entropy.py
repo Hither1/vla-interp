@@ -361,7 +361,7 @@ def main():
     )
     parser.add_argument(
         "--output-dir", type=str,
-        default="results/entropy/cosmos",
+        default="analysis/entropy/cosmos",
         help="Output directory for plots and summary"
     )
     parser.add_argument(
