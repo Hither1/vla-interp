@@ -635,113 +635,116 @@ def run_analysis(args):
                 seg_object_ids[desc] = obj_id
             seg_mask = labeled.astype(np.float32)
 
-        # Process per layer
+        # Average attention weights across requested layers, then compute once
         frame_results = {"frame_idx": frame_idx, "layers": {}}
         frame_heatmaps: List[np.ndarray] = []  # collected for avg video
         seg_resized = None
         viz_img = None
 
-        for layer_idx in args.layers:
-            layer_key = f"layer_{layer_idx}"
-            if layer_key not in attention_dict:
-                continue
+        layer_attns = [
+            np.array(attention_dict[f"layer_{l}"][0])
+            for l in args.layers
+            if f"layer_{l}" in attention_dict
+        ]
+        if not layer_attns:
+            continue
+        attn = np.mean(layer_attns, axis=0)  # (B, K, G, T, S) averaged across layers
+        layer_label_str = f"layers {', '.join(str(l) for l in args.layers)}"
 
-            attn = np.array(attention_dict[layer_key][0])  # (B, K, G, T, S)
+        # Attention ratio
+        ratio_result = compute_attention_ratio(
+            attention_weights=attn,
+            num_image_tokens=num_image_tokens,
+            num_text_tokens=num_text_tokens,
+            num_image_tokens_total=NUM_IMAGE_TOKENS_TOTAL,
+        )
 
-            # Attention ratio
-            ratio_result = compute_attention_ratio(
-                attention_weights=attn,
-                num_image_tokens=num_image_tokens,
-                num_text_tokens=num_text_tokens,
-                num_image_tokens_total=NUM_IMAGE_TOKENS_TOTAL,
-            )
+        # Spatial heatmap (from exterior/base camera, slot 0)
+        heatmap = build_spatial_heatmap(
+            attention_weights=attn,
+            num_image_tokens=num_image_tokens,
+            image_resolution=MODEL_INPUT_RESOLUTION,
+            image_slot=0,
+        )
+        if heatmap is not None:
+            frame_heatmaps.append(heatmap)
 
-            # Spatial heatmap (from exterior/base camera, slot 0)
-            heatmap = build_spatial_heatmap(
-                attention_weights=attn,
-                num_image_tokens=num_image_tokens,
-                image_resolution=MODEL_INPUT_RESOLUTION,
-                image_slot=0,
-            )
-            if heatmap is not None:
-                frame_heatmaps.append(heatmap)
+        layer_result = dict(ratio_result)
+        layer_result["layer"] = "avg"
+        layer_result["frame_idx"] = frame_idx
+        layer_result["num_text_tokens"] = num_text_tokens
 
-            layer_result = dict(ratio_result)
-            layer_result["layer"] = layer_idx
-            layer_result["frame_idx"] = frame_idx
-            layer_result["num_text_tokens"] = num_text_tokens
-
-            # IoU vs segmentation mask
-            if heatmap is not None and seg_mask is not None:
-                if seg_resized is None:
-                    seg_resized = cv2.resize(
-                        seg_mask.astype(np.float32),
-                        (MODEL_INPUT_RESOLUTION, MODEL_INPUT_RESOLUTION),
-                        interpolation=cv2.INTER_NEAREST,
-                    )
-                _thresh_val = args.threshold_value
-                _thresh_key = f"{args.threshold_method}_{int(_thresh_val) if _thresh_val == int(_thresh_val) else _thresh_val}"
-                iou_result = compute_attention_object_iou(
-                    attention_heatmap=heatmap,
-                    segmentation_mask=seg_resized.astype(np.int32),
-                    object_ids=seg_object_ids,
-                    threshold_methods=[(args.threshold_method, _thresh_val)],
+        # IoU vs segmentation mask
+        if heatmap is not None and seg_mask is not None:
+            if seg_resized is None:
+                seg_resized = cv2.resize(
+                    seg_mask.astype(np.float32),
+                    (MODEL_INPUT_RESOLUTION, MODEL_INPUT_RESOLUTION),
+                    interpolation=cv2.INTER_NEAREST,
                 )
-                layer_result.update({
-                    "iou": iou_result["combined"].get(_thresh_key, {}).get("iou", None),
-                    "dice": iou_result["combined"].get(_thresh_key, {}).get("dice", None),
-                    "attention_mass_on_object": iou_result["attention_mass"].get("_all_objects", None),
-                    "pointing_hit": iou_result.get("pointing_hit", None),
-                    "iou_per_object": {
-                        obj: iou_result["per_object"].get(obj, {}).get(_thresh_key, {}).get("iou", None)
-                        for obj in seg_object_ids
-                    },
-                    "attention_mass_per_object": {
-                        obj: iou_result["attention_mass"].get(obj, None)
-                        for obj in seg_object_ids
-                    },
-                })
-                per_obj_iou_str = " | ".join(
-                    f"{obj}={layer_result['iou_per_object'].get(obj, 0.0) or 0.0:.3f}"
+            _thresh_val = args.threshold_value
+            _thresh_key = f"{args.threshold_method}_{int(_thresh_val) if _thresh_val == int(_thresh_val) else _thresh_val}"
+            iou_result = compute_attention_object_iou(
+                attention_heatmap=heatmap,
+                segmentation_mask=seg_resized.astype(np.int32),
+                object_ids=seg_object_ids,
+                threshold_methods=[(args.threshold_method, _thresh_val)],
+            )
+            layer_result.update({
+                "iou": iou_result["combined"].get(_thresh_key, {}).get("iou", None),
+                "dice": iou_result["combined"].get(_thresh_key, {}).get("dice", None),
+                "attention_mass_on_object": iou_result["attention_mass"].get("_all_objects", None),
+                "pointing_hit": iou_result.get("pointing_hit", None),
+                "iou_per_object": {
+                    obj: iou_result["per_object"].get(obj, {}).get(_thresh_key, {}).get("iou", None)
                     for obj in seg_object_ids
-                )
-                log.info(
-                    "  layer=%d ratio=%.3f iou(combined)=%.3f [%s] mass=%.3f",
-                    layer_idx,
-                    ratio_result["visual_linguistic_ratio"],
-                    layer_result.get("iou", 0.0) or 0.0,
-                    per_obj_iou_str,
-                    layer_result.get("attention_mass_on_object", 0.0) or 0.0,
-                )
-            else:
-                log.info(
-                    "  layer=%d ratio=%.3f visual=%.3f linguistic=%.3f",
-                    layer_idx,
-                    ratio_result["visual_linguistic_ratio"],
-                    ratio_result["visual_fraction"],
-                    ratio_result["linguistic_fraction"],
-                )
+                },
+                "attention_mass_per_object": {
+                    obj: iou_result["attention_mass"].get(obj, None)
+                    for obj in seg_object_ids
+                },
+            })
+            per_obj_iou_str = " | ".join(
+                f"{obj}={layer_result['iou_per_object'].get(obj, 0.0) or 0.0:.3f}"
+                for obj in seg_object_ids
+            )
+            log.info(
+                "  avg(%s) ratio=%.3f iou(combined)=%.3f [%s] mass=%.3f",
+                layer_label_str,
+                ratio_result["visual_linguistic_ratio"],
+                layer_result.get("iou", 0.0) or 0.0,
+                per_obj_iou_str,
+                layer_result.get("attention_mass_on_object", 0.0) or 0.0,
+            )
+        else:
+            log.info(
+                "  avg(%s) ratio=%.3f visual=%.3f linguistic=%.3f",
+                layer_label_str,
+                ratio_result["visual_linguistic_ratio"],
+                ratio_result["visual_fraction"],
+                ratio_result["linguistic_fraction"],
+            )
 
-            frame_results["layers"][layer_key] = layer_result
-            all_step_results.append(layer_result)
+        frame_results["layers"]["avg"] = layer_result
+        all_step_results.append(layer_result)
 
-            if args.save_heatmaps and heatmap is not None:
-                if viz_img is None:
-                    viz_img = np.array(Image.fromarray(ext_img).resize(
-                        (MODEL_INPUT_RESOLUTION, MODEL_INPUT_RESOLUTION), Image.LANCZOS
-                    ))
-                overlay = overlay_heatmap(viz_img, heatmap)
-                panels = [
-                    _label_panel(viz_img, "Original"),
-                    _label_panel(overlay, f"Attention (layer {layer_idx})"),
-                ]
-                if seg_resized is not None:
-                    seg_disp = (seg_resized[:, :, None] * np.array([0, 0, 255], dtype=np.uint8))
-                    seg_panel = np.clip(viz_img.astype(np.int32) + seg_disp.astype(np.int32) // 2, 0, 255).astype(np.uint8)
-                    panels.append(_label_panel(seg_panel, "Segmentation mask"))
-                combined = np.concatenate(panels, axis=1)
-                save_path = out_dir / f"frame{frame_idx:04d}_layer{layer_idx}_heatmap.png"
-                Image.fromarray(combined).save(str(save_path))
+        if args.save_heatmaps and heatmap is not None:
+            if viz_img is None:
+                viz_img = np.array(Image.fromarray(ext_img).resize(
+                    (MODEL_INPUT_RESOLUTION, MODEL_INPUT_RESOLUTION), Image.LANCZOS
+                ))
+            overlay = overlay_heatmap(viz_img, heatmap)
+            panels = [
+                _label_panel(viz_img, "Original"),
+                _label_panel(overlay, f"Attention (avg {layer_label_str})"),
+            ]
+            if seg_resized is not None:
+                seg_disp = (seg_resized[:, :, None] * np.array([0, 0, 255], dtype=np.uint8))
+                seg_panel = np.clip(viz_img.astype(np.int32) + seg_disp.astype(np.int32) // 2, 0, 255).astype(np.uint8)
+                panels.append(_label_panel(seg_panel, "Segmentation mask"))
+            combined = np.concatenate(panels, axis=1)
+            save_path = out_dir / f"frame{frame_idx:04d}_avg_heatmap.png"
+            Image.fromarray(combined).save(str(save_path))
 
         # Build averaged heatmap video frame
         if args.save_video and frame_heatmaps:
@@ -766,15 +769,11 @@ def run_analysis(args):
             avg_video_buf.append(np.concatenate(panels, axis=1))
 
     # ── Save results ───────────────────────────────────────────────────────
-    per_layer_summary = {}
-    for layer_idx in args.layers:
-        lr = [r for r in all_step_results if r.get("layer") == layer_idx]
-        if lr:
-            per_layer_summary[f"layer_{layer_idx}"] = summarize_ratios(lr)
-            iou_vals = [r["iou"] for r in lr if r.get("iou") is not None]
-            if iou_vals:
-                per_layer_summary[f"layer_{layer_idx}"]["iou_mean"] = float(np.mean(iou_vals))
-                per_layer_summary[f"layer_{layer_idx}"]["iou_std"] = float(np.std(iou_vals))
+    avg_summary = summarize_ratios(all_step_results)
+    iou_vals = [r["iou"] for r in all_step_results if r.get("iou") is not None]
+    if iou_vals:
+        avg_summary["iou_mean"] = float(np.mean(iou_vals))
+        avg_summary["iou_std"] = float(np.std(iou_vals))
 
     output = {
         "prompt": prompt,
@@ -782,7 +781,7 @@ def run_analysis(args):
         "num_frames": len(ext_frames),
         "num_image_tokens": num_image_tokens,
         "layers": args.layers,
-        "per_layer_summary": per_layer_summary,
+        "avg_layer_summary": avg_summary,
         "per_frame_results": all_step_results,
     }
 
@@ -796,7 +795,7 @@ def run_analysis(args):
         _write_attention_video(avg_video_buf, out_dir / "attention_avg.mp4", video_fps)
 
     # ── Summary plot ───────────────────────────────────────────────────────
-    if all_step_results and len(args.layers) > 0:
+    if all_step_results:
         _save_summary_plot(all_step_results, args.layers, prompt, out_dir)
 
 
@@ -820,28 +819,24 @@ def _write_attention_video(frames: List[np.ndarray], path: pathlib.Path, fps: fl
 
 
 def _save_summary_plot(step_results, layers, prompt, out_dir):
-    fig, axes = plt.subplots(1, len(layers), figsize=(6 * len(layers), 4), squeeze=False)
-    for col, layer_idx in enumerate(layers):
-        ax = axes[0][col]
-        lr = [r for r in step_results if r.get("layer") == layer_idx]
-        if not lr:
-            continue
-        xs = [r["frame_idx"] for r in lr]
-        ratios = [r["visual_linguistic_ratio"] for r in lr]
-        ax.plot(xs, ratios, "o-", linewidth=2)
-        ax.axhline(1.0, color="red", linestyle="--", alpha=0.5)
-        ax.set_title(f"Layer {layer_idx} V/L Ratio", fontweight="bold")
-        ax.set_xlabel("Frame index")
-        ax.set_ylabel("Visual / Linguistic Ratio")
-        ax.grid(alpha=0.3)
+    fig, ax = plt.subplots(1, 1, figsize=(6, 4))
+    xs = [r["frame_idx"] for r in step_results]
+    ratios = [r["visual_linguistic_ratio"] for r in step_results]
+    ax.plot(xs, ratios, "o-", linewidth=2)
+    ax.axhline(1.0, color="red", linestyle="--", alpha=0.5)
+    layer_label = f"layers {', '.join(str(l) for l in layers)} (avg)"
+    ax.set_title(f"V/L Ratio ({layer_label})", fontweight="bold")
+    ax.set_xlabel("Frame index")
+    ax.set_ylabel("Visual / Linguistic Ratio")
+    ax.grid(alpha=0.3)
 
-        iou_vals = [r.get("iou") for r in lr if r.get("iou") is not None]
-        if iou_vals:
-            ax2 = ax.twinx()
-            iou_xs = [r["frame_idx"] for r in lr if r.get("iou") is not None]
-            ax2.plot(iou_xs, iou_vals, "s--", color="green", alpha=0.7, linewidth=1.5)
-            ax2.set_ylabel("IoU (green)")
-            ax2.set_ylim(0, 1)
+    iou_vals = [r.get("iou") for r in step_results if r.get("iou") is not None]
+    if iou_vals:
+        ax2 = ax.twinx()
+        iou_xs = [r["frame_idx"] for r in step_results if r.get("iou") is not None]
+        ax2.plot(iou_xs, iou_vals, "s--", color="green", alpha=0.7, linewidth=1.5)
+        ax2.set_ylabel("IoU (green)")
+        ax2.set_ylim(0, 1)
 
     fig.suptitle(f"pi0.5-DROID Attention: {prompt[:60]}", fontweight="bold")
     plt.tight_layout()

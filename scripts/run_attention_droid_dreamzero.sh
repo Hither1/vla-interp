@@ -94,12 +94,7 @@ export NUMBA_CACHE_DIR="${NUMBA_CACHE_DIR:-${TMPDIR:-/tmp}/numba_cache}"
 mkdir -p "${WORKDIR}/logs" "${NUMBA_CACHE_DIR}"
 
 # ── Required: checkpoint ───────────────────────────────────────────────────────
-CKPT="${CKPT:-}"
-if [[ -z "${CKPT}" ]]; then
-    echo "ERROR: CKPT is required."
-    echo "  CKPT=/path/to/dreamzero_droid_ckpt sbatch $0"
-    exit 1
-fi
+CKPT="${CKPT:-/n/netscratch/sham_lab/Lab/chloe00/libero/checkpoints/DreamZero-DROID}"
 
 # ── Google Drive / rclone (optional) ──────────────────────────────────────────
 # Set PERTURBATION to download directly from Google Drive via rclone.
@@ -205,7 +200,7 @@ NUM_CONTEXT_FRAMES="${NUM_CONTEXT_FRAMES:-4}"   # frames of video history per in
 ENABLE_DIT_CACHE="${ENABLE_DIT_CACHE:-true}"
 
 # ── Attention layers ───────────────────────────────────────────────────────────
-LAYERS="${LAYERS:-10 20 30}"
+LAYERS="${LAYERS:-37 38 39}"
 
 # ── Frame sampling ─────────────────────────────────────────────────────────────
 FRAME_STEP="${FRAME_STEP:-1}"

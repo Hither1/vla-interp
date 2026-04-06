@@ -149,20 +149,26 @@ class FASTTokenizer:
         return np.asarray(tokens), np.asarray(token_mask), np.asarray(ar_mask), np.asarray(loss_mask)
 
     def extract_actions(self, tokens: np.ndarray, action_horizon: int, action_dim: int) -> np.ndarray:
-        # Decode predicted output tokens
-        decoded_tokens = self._paligemma_tokenizer.decode(tokens.tolist())
+        # FAST action tokens occupy a contiguous band at the top of the PaliGemma vocabulary:
+        #   pg_id = vocab_size - 1 - fast_skip_tokens - fast_bpe_id
+        # for fast_bpe_id in [0, vocab_size_fast), where vocab_size_fast comes from the FAST
+        # processor config (default 2048).  Directly filtering by this range avoids the
+        # decode→text→re-encode round-trip, which is lossy (the PaliGemma tokenizer may split
+        # high-codepoint characters differently on the way back) and also avoids the previous
+        # .strip() call that silently dropped leading/trailing action bytes whose ordinal
+        # happened to match ASCII whitespace (e.g. DCT coefficient ≈ -322 maps to chr(32)).
+        vocab_size = self._paligemma_tokenizer.vocab_size()
+        fast_vocab_size = self._fast_tokenizer.vocab_size
+        pg_fast_min = vocab_size - 1 - self._fast_skip_tokens - (fast_vocab_size - 1)
+        pg_fast_max = vocab_size - 1 - self._fast_skip_tokens
 
-        # Extract actions from FAST model outputs
-        if "Action: " not in decoded_tokens:
+        fast_pg_tokens = tokens[(tokens >= pg_fast_min) & (tokens <= pg_fast_max)]
+        if len(fast_pg_tokens) == 0:
             return np.zeros((action_horizon, action_dim), dtype=np.float32)
 
-        # Extract actions from decoded tokens
-        raw_action_tokens = np.array(
-            self._paligemma_tokenizer.encode(decoded_tokens.split("Action: ")[1].split("|")[0].strip())
-        )
-        action_tokens = self._act_tokens_to_paligemma_tokens(raw_action_tokens)
+        fast_bpe_ids = self._act_tokens_to_paligemma_tokens(fast_pg_tokens)
         return self._fast_tokenizer.decode(
-            [action_tokens.tolist()], time_horizon=action_horizon, action_dim=action_dim
+            [fast_bpe_ids.tolist()], time_horizon=action_horizon, action_dim=action_dim
         )[0]
 
     def _act_tokens_to_paligemma_tokens(self, tokens: np.ndarray | list[int]) -> np.ndarray:
