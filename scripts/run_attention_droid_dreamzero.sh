@@ -213,7 +213,17 @@ FRAME_STEP="${FRAME_STEP:-1}"
 # ── Segmentation / IoU ────────────────────────────────────────────────────────
 MASK_DIR="${MASK_DIR:-}"
 USE_SAM3="${USE_SAM3:-1}"
-OBJECT_DESC="${OBJECT_DESC:-green cup}"
+# OBJECT_DESCS: comma-separated list of object descriptions for SAM3.
+# IoU is computed against the union of all listed objects; per-object metrics are also saved.
+# Examples:
+#   OBJECT_DESCS="green cup"
+#   OBJECT_DESCS="green cup,blue bowl"
+# Backward-compat: if OBJECT_DESCS is unset, falls back to OBJECT_DESC (single string).
+if [[ -z "${OBJECT_DESCS:-}" && -n "${OBJECT_DESC:-}" ]]; then
+    OBJECT_DESCS="${OBJECT_DESC}"
+fi
+OBJECT_DESCS="${OBJECT_DESCS:-green cup,pink bowl}"
+IFS=',' read -r -a OBJECT_DESC_ARR <<< "${OBJECT_DESCS}"
 SAM3_CHECKPOINT="${SAM3_CHECKPOINT:-/n/netscratch/sham_lab/Lab/chloe00/models--facebook--sam3/snapshots/3c879f39826c281e95690f02c7821c4de09afae7}"
 SAM3_CONFIDENCE="${SAM3_CONFIDENCE:-0.5}"
 THRESHOLD_METHOD="${THRESHOLD_METHOD:-percentile}"
@@ -221,6 +231,7 @@ THRESHOLD_VALUE="${THRESHOLD_VALUE:-90.0}"
 
 # ── Output ─────────────────────────────────────────────────────────────────────
 SAVE_HEATMAPS="${SAVE_HEATMAPS:-0}"
+SAVE_VIDEO="${SAVE_VIDEO:-1}"
 
 if [[ -n "${DATA_DIR}" ]]; then
     DATA_SLUG="$(basename "${DATA_DIR}")"
@@ -249,7 +260,7 @@ if [[ -n "${MASK_DIR}" ]]; then
     SEG_ARGS+=(--mask-dir "${MASK_DIR}")
 elif [[ "${USE_SAM3}" == "1" || "${USE_SAM3}" == "true" ]]; then
     SEG_ARGS+=(--use-sam3)
-    [[ -n "${OBJECT_DESC}" ]]     && SEG_ARGS+=(--object-desc "${OBJECT_DESC}")
+    [[ ${#OBJECT_DESC_ARR[@]} -gt 0 ]] && SEG_ARGS+=(--object-desc "${OBJECT_DESC_ARR[@]}")
     [[ -n "${SAM3_CHECKPOINT}" ]] && SEG_ARGS+=(--sam3-checkpoint "${SAM3_CHECKPOINT}")
     SEG_ARGS+=(--sam3-confidence "${SAM3_CONFIDENCE}")
 fi
@@ -259,6 +270,7 @@ DIT_CACHE_ARG=()
 
 SAVE_HEATMAPS_ARG=()
 [[ "${SAVE_HEATMAPS}" == "1" || "${SAVE_HEATMAPS}" == "true" ]] && SAVE_HEATMAPS_ARG+=(--save-heatmaps)
+[[ "${SAVE_VIDEO}"    == "1" || "${SAVE_VIDEO}"    == "true" ]] && SAVE_HEATMAPS_ARG+=(--save-video)
 
 # ── Print config ───────────────────────────────────────────────────────────────
 echo "============================================================"
@@ -281,11 +293,12 @@ echo "Frame step:        ${FRAME_STEP}"
 if [[ -n "${MASK_DIR}" ]]; then
     echo "Segmentation:      pre-computed masks from ${MASK_DIR}"
 elif [[ "${USE_SAM3}" == "1" ]]; then
-    echo "Segmentation:      SAM3 tracking (object: '${OBJECT_DESC}')"
+    echo "Segmentation:      SAM3 tracking (objects: $(IFS=','; echo "${OBJECT_DESC_ARR[*]}"))"
 else
     echo "Segmentation:      none (ratio only)"
 fi
 echo "Output:            ${OUTPUT_DIR}"
+echo "Save video:        ${SAVE_VIDEO}"
 echo "============================================================"
 
 # ── Run ────────────────────────────────────────────────────────────────────────

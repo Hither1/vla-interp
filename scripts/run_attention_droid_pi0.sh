@@ -166,7 +166,7 @@ fi
 PROMPT="${PROMPT:-pick up the green cup and place it in the blue bowl}"
 
 # ── Attention layers ───────────────────────────────────────────────────────────
-LAYERS="${LAYERS:-0 8 17}"
+LAYERS="${LAYERS:-15 16 17}"
 
 # ── Image token count override (0 = auto: 512 for DROID pi0/pi0.5) ────────────
 NUM_IMAGE_TOKENS="${NUM_IMAGE_TOKENS:-0}"
@@ -177,7 +177,17 @@ FRAME_STEP="${FRAME_STEP:-1}"
 # ── Segmentation / IoU ────────────────────────────────────────────────────────
 MASK_DIR="${MASK_DIR:-}"           # pre-computed .npy masks
 USE_SAM3="${USE_SAM3:-1}"          # 1 = use SAM3 text-prompted segmentation
-OBJECT_DESC="${OBJECT_DESC:-green cup}"     # text description for SAM3
+# OBJECT_DESCS: comma-separated list of object descriptions for SAM3.
+# IoU is computed against the union of all listed objects; per-object metrics are also saved.
+# Examples:
+#   OBJECT_DESCS="green cup"
+#   OBJECT_DESCS="green cup,blue bowl"
+# Backward-compat: if OBJECT_DESCS is unset, falls back to OBJECT_DESC (single string).
+if [[ -z "${OBJECT_DESCS:-}" && -n "${OBJECT_DESC:-}" ]]; then
+    OBJECT_DESCS="${OBJECT_DESC}"
+fi
+OBJECT_DESCS="${OBJECT_DESCS:-green cup,blue bowl}"
+IFS=',' read -r -a OBJECT_DESC_ARR <<< "${OBJECT_DESCS}"
 SAM3_CHECKPOINT="${SAM3_CHECKPOINT:-/n/netscratch/sham_lab/Lab/chloe00/models--facebook--sam3/snapshots/3c879f39826c281e95690f02c7821c4de09afae7}"
 SAM3_CONFIDENCE="${SAM3_CONFIDENCE:-0.5}"
 THRESHOLD_METHOD="${THRESHOLD_METHOD:-percentile}"
@@ -215,7 +225,7 @@ if [[ -n "${MASK_DIR}" ]]; then
     SEG_ARGS+=(--mask-dir "${MASK_DIR}")
 elif [[ "${USE_SAM3}" == "1" || "${USE_SAM3}" == "true" ]]; then
     SEG_ARGS+=(--use-sam3)
-    [[ -n "${OBJECT_DESC}" ]]      && SEG_ARGS+=(--object-desc "${OBJECT_DESC}")
+    [[ ${#OBJECT_DESC_ARR[@]} -gt 0 ]] && SEG_ARGS+=(--object-desc "${OBJECT_DESC_ARR[@]}")
     [[ -n "${SAM3_CHECKPOINT}" ]]  && SEG_ARGS+=(--sam3-checkpoint "${SAM3_CHECKPOINT}")
     SEG_ARGS+=(--sam3-confidence "${SAM3_CONFIDENCE}")
 fi
@@ -244,7 +254,7 @@ echo "Frame step:   ${FRAME_STEP}"
 if [[ -n "${MASK_DIR}" ]]; then
     echo "Segmentation: pre-computed masks from ${MASK_DIR}"
 elif [[ "${USE_SAM3}" == "1" ]]; then
-    echo "Segmentation: SAM3 tracking (object: '${OBJECT_DESC}')"
+    echo "Segmentation: SAM3 tracking (objects: $(IFS=','; echo "${OBJECT_DESC_ARR[*]}"))"
 else
     echo "Segmentation: none (ratio only)"
 fi

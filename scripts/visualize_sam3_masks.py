@@ -90,12 +90,18 @@ def segment_text(image_rgb: np.ndarray, object_desc: str, processor, model,
 def segment_mask_guided(image_rgb: np.ndarray, prev_mask: np.ndarray,
                         processor, model, device: str,
                         confidence_threshold: float) -> np.ndarray | None:
-    """Mask-guided propagation: use previous frame's mask as spatial prompt."""
+    """Mask-guided propagation: derive centroid of previous mask as a foreground
+    point prompt.  SAM3FastImageProcessor does not accept 'input_masks', so we
+    use the supported input_points / input_labels interface instead."""
     h, w = image_rgb.shape[:2]
-    # SAM3/SAM2 accepts input_masks as (1, 1, H, W) bool tensor
-    mask_tensor = torch.from_numpy(prev_mask > 0.5).unsqueeze(0).unsqueeze(0)  # (1,1,H,W)
+    ys, xs = np.where(prev_mask > 0.5)
+    if len(xs) == 0:
+        return None  # previous mask is empty — caller will fall back to text init
+    cx, cy = int(xs.mean()), int(ys.mean())
+    # processor expects lists: [[[x, y]]] → (batch=1, point_batch=1, n_points=1, 2)
     inputs = processor(images=Image.fromarray(image_rgb),
-                       input_masks=mask_tensor,
+                       input_points=[[[cx, cy]]],
+                       input_labels=[[1]],   # 1 = foreground point
                        return_tensors="pt")
     return _run_model(inputs, processor, model, device, h, w, confidence_threshold)
 

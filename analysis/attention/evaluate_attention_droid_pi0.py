@@ -19,8 +19,10 @@ OR supply --video for an exterior-camera MP4 and --video-wrist for the wrist-cam
 
 For IoU you also need segmentation masks:
   Option A: provide --mask-dir with <data_dir>/frame_XXXX_mask.npy binary masks (H×W float32)
-  Option B: use --use-sam3 with --object-desc "red cup" to auto-segment via SAM3
+  Option B: use --use-sam3 with --object-desc to auto-segment via SAM3
             (requires: pip install -e /path/to/sam3)
+            Pass multiple descriptions to compute IoU against both objects simultaneously:
+              --object-desc "red cup" "blue bowl"
 
 Usage examples:
   # Attention ratio only (no segmentation)
@@ -30,12 +32,20 @@ Usage examples:
     --prompt "pick up the red cup" \\
     --layers 0 8 17 --output-dir results/droid_pi0_ratio
 
-  # With SAM3 for IoU (auto-downloads checkpoint from HuggingFace)
+  # With SAM3 for IoU — single object (auto-downloads checkpoint from HuggingFace)
   python evaluate_attention_droid_pi0.py \\
     --checkpoint /path/to/pi05_droid \\
     --data-dir /path/to/zed_frames \\
     --prompt "pick up the red cup" \\
     --use-sam3 --object-desc "red cup" \\
+    --output-dir results/droid_pi0_iou
+
+  # With SAM3 for IoU — two objects (IoU computed against union, per-object metrics also saved)
+  python evaluate_attention_droid_pi0.py \\
+    --checkpoint /path/to/pi05_droid \\
+    --data-dir /path/to/zed_frames \\
+    --prompt "pick up the green cup and place it in the blue bowl" \\
+    --use-sam3 --object-desc "green cup" "blue bowl" \\
     --output-dir results/droid_pi0_iou
 
   # With SAM3 using a local checkpoint
@@ -104,6 +114,13 @@ log = logging.getLogger(__name__)
 MODEL_INPUT_RESOLUTION = 224
 NUM_PATCHES_PER_IMAGE = 256   # SigLIP 224×224 / 14px → 16×16 = 256
 PATCH_GRID = 16               # 16×16 spatial grid
+
+# DROID pi0/pi0.5 token-layout constants
+NUM_IMAGE_SLOTS_DROID = 3    # base_0_rgb + left_wrist_0_rgb + right_wrist_0_rgb
+# right_wrist is masked (image_mask=False) but its 256 tokens still occupy positions
+# 512..767 in the prefix sequence.  Language tokens therefore start at 768.
+NUM_IMAGE_TOKENS_TOTAL = NUM_IMAGE_SLOTS_DROID * NUM_PATCHES_PER_IMAGE  # 768
+NUM_MODEL_LAYERS = 18        # Pi0 / Pi0.5 gemma_2b depth=18
 
 
 # ==============================================================================
@@ -257,27 +274,36 @@ def _segment_text_sam3(image_rgb, object_desc, processor, model, device, confide
 
 def compute_tracking_masks(
     frames_rgb: List[np.ndarray],
-    object_desc: str,
+    object_descs: List[str],
     processor,
     model,
     device: str = "cuda",
     confidence_threshold: float = 0.5,
-) -> List[Optional[np.ndarray]]:
-    """Segment object in each frame using SAM3 text prompts.
+) -> List[Optional[Dict[str, np.ndarray]]]:
+    """Segment one or more objects in each frame using SAM3 text prompts.
 
     SAM3 requires text conditioning on every call, so each frame is
     independently prompted (no mask-guided propagation).
-    Returns one mask (or None) per frame.
+
+    Returns a list (one entry per frame) of dicts mapping object description
+    to its binary mask.  Entries are None when no object was found in the frame.
     """
-    masks: List[Optional[np.ndarray]] = []
+    all_masks: List[Optional[Dict[str, np.ndarray]]] = []
     for i, frame_rgb in enumerate(frames_rgb):
-        mask = _segment_text_sam3(frame_rgb, object_desc, processor, model,
-                                  device, confidence_threshold)
-        log.info("  SAM3 frame %d: %s", i, "found" if mask is not None else "not found")
-        masks.append(mask)
-    n_found = sum(1 for m in masks if m is not None)
-    log.info("SAM3 tracking: %d / %d frames with mask", n_found, len(masks))
-    return masks
+        frame_obj_masks: Dict[str, np.ndarray] = {}
+        for desc in object_descs:
+            mask = _segment_text_sam3(frame_rgb, desc, processor, model,
+                                      device, confidence_threshold)
+            log.info("  SAM3 frame %d '%s': %s", i, desc,
+                     "found" if mask is not None else "not found")
+            if mask is not None:
+                frame_obj_masks[desc] = mask
+        all_masks.append(frame_obj_masks if frame_obj_masks else None)
+    for desc in object_descs:
+        n_found = sum(1 for m in all_masks if m is not None and desc in m)
+        log.info("SAM3 tracking '%s': %d / %d frames with mask",
+                 desc, n_found, len(all_masks))
+    return all_masks
 
 
 # ==============================================================================
@@ -347,29 +373,37 @@ def compute_attention_ratio(
     attention_weights: np.ndarray,
     num_image_tokens: int,
     num_text_tokens: int,
+    num_image_tokens_total: int = 0,
 ) -> Dict:
     """Compute visual/linguistic ratio from recorded attention tensor.
 
     attention_weights shape: (B, K, G, T, S)
       K = num kv-head groups, G = heads per group, T = query len, S = key len.
-    We use the first batch, average over all heads, and look at the first action
-    query token (index = num_image_tokens + num_text_tokens).
+    We average over all heads and all query tokens (action tokens in the
+    denoising-step recording).
+
+    num_image_tokens:       number of *active* image tokens (e.g. 512 for DROID
+                            base+left_wrist).
+    num_image_tokens_total: total image tokens including masked slots (e.g. 768
+                            for DROID which has a 3rd masked right_wrist slot).
+                            Determines where language tokens begin in the key
+                            sequence.  Defaults to num_image_tokens if 0.
     """
+    if num_image_tokens_total == 0:
+        num_image_tokens_total = num_image_tokens
+
     b = 0
     # Average over K×G heads → (T, S)
     attn = attention_weights[b].reshape(-1, attention_weights.shape[3], attention_weights.shape[4])
     attn_mean = attn.mean(axis=0)  # (T, S)
 
-    query_idx = num_image_tokens + num_text_tokens  # first action token
-    if query_idx >= attn_mean.shape[0]:
-        # Causal masking may truncate — fall back to last token
-        query_idx = -1
+    # Average over all query (action) tokens for a stable signal
+    a = attn_mean.mean(axis=0)  # (S,)
 
-    a = attn_mean[query_idx]  # (S,)
-
+    lang_start = num_image_tokens_total
     visual_mass = float(a[:num_image_tokens].sum())
-    linguistic_mass = float(a[num_image_tokens : num_image_tokens + num_text_tokens].sum())
-    action_mass = float(a[num_image_tokens + num_text_tokens :].sum())
+    linguistic_mass = float(a[lang_start : lang_start + num_text_tokens].sum())
+    action_mass = float(a[lang_start + num_text_tokens :].sum())
     total = max(visual_mass + linguistic_mass + action_mass, 1e-8)
 
     ratio = visual_mass / linguistic_mass if linguistic_mass > 1e-8 else float("inf")
@@ -394,19 +428,14 @@ def build_spatial_heatmap(
 ) -> Optional[np.ndarray]:
     """Build a (image_resolution, image_resolution) spatial attention heatmap.
 
-    Extracts the base-camera spatial attention from the first action token,
-    reshapes from PATCH_GRID×PATCH_GRID → upsample to image_resolution.
+    With the denoising-step recording, T = action_horizon (10) and S = prefix_len
+    + action_horizon.  We average over all action query tokens and all heads to
+    get a clean (S,) attention vector, then extract the image-slot patches.
     """
     b = 0
     attn = attention_weights[b].reshape(-1, attention_weights.shape[3], attention_weights.shape[4])
-    attn_mean = attn.mean(axis=0)  # (T, S)
-
-    num_text_tokens = int(attention_weights.shape[-1]) - num_image_tokens
-    query_idx = num_image_tokens + num_text_tokens
-    if query_idx >= attn_mean.shape[0]:
-        query_idx = -1
-
-    a = attn_mean[query_idx]  # (S,)
+    # attn: (num_heads, T, S) — average over both heads AND query tokens
+    a = attn.mean(axis=(0, 1))  # (S,)
 
     slot_start = image_slot * NUM_PATCHES_PER_IMAGE
     slot_end = slot_start + NUM_PATCHES_PER_IMAGE
@@ -527,9 +556,9 @@ def run_analysis(args):
         log.info("Loaded %d pre-computed masks", sum(1 for m in provided_masks if m is not None))
 
     # Pre-compute SAM3 tracking masks (sequential — must run before main loop)
-    tracking_masks: Optional[List[Optional[np.ndarray]]] = None
+    tracking_masks: Optional[List[Optional[Dict[str, np.ndarray]]]] = None
     if sam3_processor is not None and args.object_desc:
-        log.info("Pre-computing SAM3 tracking masks for '%s' over %d frames …",
+        log.info("Pre-computing SAM3 tracking masks for %s over %d frames …",
                  args.object_desc, len(ext_frames))
         frames_for_tracking = [
             np.array(Image.fromarray(f).resize(
@@ -538,7 +567,7 @@ def run_analysis(args):
         ]
         tracking_masks = compute_tracking_masks(
             frames_for_tracking,
-            args.object_desc,
+            args.object_desc,  # now a list
             sam3_processor,
             sam3_model,
             device="cuda",
@@ -547,7 +576,7 @@ def run_analysis(args):
 
     # ── Analysis loop ──────────────────────────────────────────────────────
     all_step_results: List[Dict] = []
-    video_frame_buf: Dict[int, List[np.ndarray]] = {l: [] for l in args.layers}
+    avg_video_buf: List[np.ndarray] = []
 
     for i, (ext_img, wrist_img, frame_idx) in enumerate(zip(ext_frames, wrist_frames, frame_indices)):
         log.info("Frame %d/%d (idx=%d)", i + 1, len(ext_frames), frame_idx)
@@ -566,26 +595,52 @@ def run_analysis(args):
 
         num_text_tokens = int(observation.tokenized_prompt.shape[1])
 
-        # Run forward pass with attention recording
+        # Run forward pass with attention recording.
+        # sample_actions(num_steps=1) does two sub-passes:
+        #   - prefix pass:         records layers  0 .. NUM_MODEL_LAYERS-1
+        #                          (query = image+language tokens, NOT useful for us)
+        #   - one denoising step:  records layers  NUM_MODEL_LAYERS .. 2*NUM_MODEL_LAYERS-1
+        #                          (query = action tokens attending to prefix+action keys)
+        # We keep only the denoising step and remap back to layer indices 0..17.
         enable_attention_recording()
         rng = jax.random.PRNGKey(i)
-        _ = model.sample_actions(rng, observation, num_steps=10)
-        attention_dict = get_recorded_attention_weights()
+        _ = model.sample_actions(rng, observation, num_steps=1)
+        attention_dict_raw = get_recorded_attention_weights()
         disable_attention_recording()
+
+        attention_dict = {}
+        for key, val in attention_dict_raw.items():
+            layer_num = int(key.split("_")[1])
+            if NUM_MODEL_LAYERS <= layer_num < 2 * NUM_MODEL_LAYERS:
+                attention_dict[f"layer_{layer_num - NUM_MODEL_LAYERS}"] = val
 
         if not attention_dict:
             log.warning("No attention weights recorded at frame %d", frame_idx)
             continue
 
-        # Determine segmentation mask for IoU
+        # Determine segmentation mask and object ids for IoU.
+        # For pre-computed masks: binary (0/1), object id = 1.
+        # For SAM3 multi-object: labeled int mask, one id per object description.
         seg_mask = None
+        seg_object_ids: Dict[str, int] = {"object": 1}
         if provided_masks is not None:
             seg_mask = provided_masks[i]
-        elif tracking_masks is not None:
-            seg_mask = tracking_masks[i]
+        elif tracking_masks is not None and tracking_masks[i] is not None:
+            frame_obj_masks = tracking_masks[i]  # Dict[str, np.ndarray]
+            first_mask = next(iter(frame_obj_masks.values()))
+            labeled = np.zeros(first_mask.shape, dtype=np.int32)
+            seg_object_ids = {}
+            for obj_id, (desc, bin_mask) in enumerate(frame_obj_masks.items(), start=1):
+                labeled[bin_mask > 0] = obj_id
+                seg_object_ids[desc] = obj_id
+            seg_mask = labeled.astype(np.float32)
 
         # Process per layer
         frame_results = {"frame_idx": frame_idx, "layers": {}}
+        frame_heatmaps: List[np.ndarray] = []  # collected for avg video
+        seg_resized = None
+        viz_img = None
+
         for layer_idx in args.layers:
             layer_key = f"layer_{layer_idx}"
             if layer_key not in attention_dict:
@@ -598,6 +653,7 @@ def run_analysis(args):
                 attention_weights=attn,
                 num_image_tokens=num_image_tokens,
                 num_text_tokens=num_text_tokens,
+                num_image_tokens_total=NUM_IMAGE_TOKENS_TOTAL,
             )
 
             # Spatial heatmap (from exterior/base camera, slot 0)
@@ -607,6 +663,8 @@ def run_analysis(args):
                 image_resolution=MODEL_INPUT_RESOLUTION,
                 image_slot=0,
             )
+            if heatmap is not None:
+                frame_heatmaps.append(heatmap)
 
             layer_result = dict(ratio_result)
             layer_result["layer"] = layer_idx
@@ -615,17 +673,18 @@ def run_analysis(args):
 
             # IoU vs segmentation mask
             if heatmap is not None and seg_mask is not None:
-                seg_resized = cv2.resize(
-                    seg_mask.astype(np.float32),
-                    (MODEL_INPUT_RESOLUTION, MODEL_INPUT_RESOLUTION),
-                    interpolation=cv2.INTER_NEAREST,
-                )
+                if seg_resized is None:
+                    seg_resized = cv2.resize(
+                        seg_mask.astype(np.float32),
+                        (MODEL_INPUT_RESOLUTION, MODEL_INPUT_RESOLUTION),
+                        interpolation=cv2.INTER_NEAREST,
+                    )
                 _thresh_val = args.threshold_value
                 _thresh_key = f"{args.threshold_method}_{int(_thresh_val) if _thresh_val == int(_thresh_val) else _thresh_val}"
                 iou_result = compute_attention_object_iou(
                     attention_heatmap=heatmap,
                     segmentation_mask=seg_resized.astype(np.int32),
-                    object_ids={"object": 1},
+                    object_ids=seg_object_ids,
                     threshold_methods=[(args.threshold_method, _thresh_val)],
                 )
                 layer_result.update({
@@ -633,12 +692,25 @@ def run_analysis(args):
                     "dice": iou_result["combined"].get(_thresh_key, {}).get("dice", None),
                     "attention_mass_on_object": iou_result["attention_mass"].get("_all_objects", None),
                     "pointing_hit": iou_result.get("pointing_hit", None),
+                    "iou_per_object": {
+                        obj: iou_result["per_object"].get(obj, {}).get(_thresh_key, {}).get("iou", None)
+                        for obj in seg_object_ids
+                    },
+                    "attention_mass_per_object": {
+                        obj: iou_result["attention_mass"].get(obj, None)
+                        for obj in seg_object_ids
+                    },
                 })
+                per_obj_iou_str = " | ".join(
+                    f"{obj}={layer_result['iou_per_object'].get(obj, 0.0) or 0.0:.3f}"
+                    for obj in seg_object_ids
+                )
                 log.info(
-                    "  layer=%d ratio=%.3f iou=%.3f mass=%.3f",
+                    "  layer=%d ratio=%.3f iou(combined)=%.3f [%s] mass=%.3f",
                     layer_idx,
                     ratio_result["visual_linguistic_ratio"],
                     layer_result.get("iou", 0.0) or 0.0,
+                    per_obj_iou_str,
                     layer_result.get("attention_mass_on_object", 0.0) or 0.0,
                 )
             else:
@@ -653,26 +725,45 @@ def run_analysis(args):
             frame_results["layers"][layer_key] = layer_result
             all_step_results.append(layer_result)
 
-            # Build overlay frame (used for both --save-heatmaps and --save-video)
-            if (args.save_heatmaps or args.save_video) and heatmap is not None:
-                viz_img = np.array(Image.fromarray(ext_img).resize(
-                    (MODEL_INPUT_RESOLUTION, MODEL_INPUT_RESOLUTION), Image.LANCZOS
-                ))
+            if args.save_heatmaps and heatmap is not None:
+                if viz_img is None:
+                    viz_img = np.array(Image.fromarray(ext_img).resize(
+                        (MODEL_INPUT_RESOLUTION, MODEL_INPUT_RESOLUTION), Image.LANCZOS
+                    ))
                 overlay = overlay_heatmap(viz_img, heatmap)
                 panels = [
                     _label_panel(viz_img, "Original"),
                     _label_panel(overlay, f"Attention (layer {layer_idx})"),
                 ]
-                if seg_mask is not None:
+                if seg_resized is not None:
                     seg_disp = (seg_resized[:, :, None] * np.array([0, 0, 255], dtype=np.uint8))
                     seg_panel = np.clip(viz_img.astype(np.int32) + seg_disp.astype(np.int32) // 2, 0, 255).astype(np.uint8)
                     panels.append(_label_panel(seg_panel, "Segmentation mask"))
                 combined = np.concatenate(panels, axis=1)
-                if args.save_heatmaps:
-                    save_path = out_dir / f"frame{frame_idx:04d}_layer{layer_idx}_heatmap.png"
-                    Image.fromarray(combined).save(str(save_path))
-                if args.save_video:
-                    video_frame_buf[layer_idx].append(combined)
+                save_path = out_dir / f"frame{frame_idx:04d}_layer{layer_idx}_heatmap.png"
+                Image.fromarray(combined).save(str(save_path))
+
+        # Build averaged heatmap video frame
+        if args.save_video and frame_heatmaps:
+            if viz_img is None:
+                viz_img = np.array(Image.fromarray(ext_img).resize(
+                    (MODEL_INPUT_RESOLUTION, MODEL_INPUT_RESOLUTION), Image.LANCZOS
+                ))
+            avg_heatmap = np.mean(frame_heatmaps, axis=0)
+            mn, mx = avg_heatmap.min(), avg_heatmap.max()
+            if mx > mn:
+                avg_heatmap = (avg_heatmap - mn) / (mx - mn)
+            layer_label = f"Avg attention (layers {', '.join(str(l) for l in args.layers)})"
+            overlay = overlay_heatmap(viz_img, avg_heatmap)
+            panels = [
+                _label_panel(viz_img, "Original"),
+                _label_panel(overlay, layer_label),
+            ]
+            if seg_resized is not None:
+                seg_disp = (seg_resized[:, :, None] * np.array([0, 0, 255], dtype=np.uint8))
+                seg_panel = np.clip(viz_img.astype(np.int32) + seg_disp.astype(np.int32) // 2, 0, 255).astype(np.uint8)
+                panels.append(_label_panel(seg_panel, "Segmentation mask"))
+            avg_video_buf.append(np.concatenate(panels, axis=1))
 
     # ── Save results ───────────────────────────────────────────────────────
     per_layer_summary = {}
@@ -701,10 +792,8 @@ def run_analysis(args):
     log.info("Results saved to %s", results_path)
 
     # ── Attention video ────────────────────────────────────────────────────
-    if args.save_video:
-        for layer_idx, frames in video_frame_buf.items():
-            if frames:
-                _write_attention_video(frames, out_dir / f"attention_layer_{layer_idx}.mp4", video_fps)
+    if args.save_video and avg_video_buf:
+        _write_attention_video(avg_video_buf, out_dir / "attention_avg.mp4", video_fps)
 
     # ── Summary plot ───────────────────────────────────────────────────────
     if all_step_results and len(args.layers) > 0:
@@ -803,8 +892,10 @@ def main():
                          help="Directory containing pre-computed binary masks (frame_XXXX_mask.npy)")
     seg_grp.add_argument("--use-sam3", action="store_true",
                          help="Use SAM3 text-prompted segmentation to auto-generate masks")
-    parser.add_argument("--object-desc", type=str, default="",
-                        help="Text description of target object for SAM3 (e.g. 'red cup')")
+    parser.add_argument("--object-desc", type=str, nargs="+", default=[],
+                        help="Text description(s) of target object(s) for SAM3. "
+                             "Pass one or more quoted strings, e.g. --object-desc 'green cup' 'blue bowl'. "
+                             "IoU is computed against the union; per-object metrics are also reported.")
     parser.add_argument("--sam3-checkpoint", type=str, default="",
                         help="Path to HuggingFace SAM3 checkpoint directory; "
                              "defaults to /n/netscratch/sham_lab/Lab/chloe00/models--facebook--sam3/snapshots/3c879f39826c281e95690f02c7821c4de09afae7")

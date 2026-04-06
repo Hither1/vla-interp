@@ -69,12 +69,13 @@ mkdir -p "${WORKDIR}/logs"
 #   GDRIVE_REMOTE=gdrive  GDRIVE_ROOT="MyDrive/videos"
 GDRIVE_VIDEO="${GDRIVE_VIDEO:-}"
 GDRIVE_REMOTE="${GDRIVE_REMOTE:-gdrive}"
-GDRIVE_ROOT="${GDRIVE_ROOT:-DROID/pi05/pi05_image_logs}"
+GDRIVE_ROOT="${GDRIVE_ROOT:-}"   # e.g. "DROID/pi05/pi05_image_logs"; only used when GDRIVE_VIDEO is also set
 GDRIVE_TMPDIR=""
 
 VIDEO="${VIDEO:-}"
 
-if [[ -n "${GDRIVE_ROOT}" || -n "${GDRIVE_VIDEO}" ]]; then
+# Only enter Drive mode if GDRIVE_VIDEO is explicitly set
+if [[ -n "${GDRIVE_VIDEO}" ]]; then
     GDRIVE_TMPDIR="$(mktemp -d)"
     if [[ -n "${GDRIVE_VIDEO}" ]]; then
         # Specific file requested

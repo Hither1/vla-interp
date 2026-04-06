@@ -33,6 +33,9 @@ OR supply --video (exterior cam 1), --video-ext2, --video-wrist for video files.
 For IoU:
   Option A: --mask-dir with frame_XXXX_mask.npy binary masks
   Option B: --use-sam3 --object-desc "red cup" (SAM3, auto-downloads from HuggingFace)
+            Pass multiple descriptions to compute IoU against both objects simultaneously:
+              --object-desc "green cup" "blue bowl"
+            Combined IoU is computed against the union mask; per-object metrics are also saved.
 """
 
 from __future__ import annotations
@@ -239,47 +242,67 @@ def _segment_text_sam3(image_rgb, object_desc, processor, model, device, confide
 
 
 def _segment_mask_guided_sam3(image_rgb, prev_mask, processor, model, device, confidence_threshold):
+    """Mask-guided propagation via centroid point prompt.
+    Sam3FastImageProcessor does not accept 'input_masks'; use input_points/input_labels instead."""
     h, w = image_rgb.shape[:2]
-    mask_tensor = torch.from_numpy(prev_mask > 0.5).unsqueeze(0).unsqueeze(0)
-    inputs = processor(images=Image.fromarray(image_rgb), input_masks=mask_tensor, return_tensors="pt")
+    ys, xs = np.where(prev_mask > 0.5)
+    if len(xs) == 0:
+        return None  # caller will fall back to text re-init
+    cx, cy = int(xs.mean()), int(ys.mean())
+    inputs = processor(images=Image.fromarray(image_rgb),
+                       input_points=[[[cx, cy]]],
+                       input_labels=[[1]],
+                       return_tensors="pt")
     return _run_sam3_inference(inputs, processor, model, device, h, w, confidence_threshold)
 
 
 def compute_tracking_masks(
     frames_rgb: List[np.ndarray],
-    object_desc: str,
+    object_descs: List[str],
     processor,
     model,
     device: str = "cuda",
     confidence_threshold: float = 0.5,
-) -> List[Optional[np.ndarray]]:
-    """Track object through frames using SAM3.
+) -> List[Optional[Dict[str, np.ndarray]]]:
+    """Track one or more objects through frames using SAM3.
 
-    Frame 0 (and any frame where tracking is lost): text-prompted init.
-    Subsequent frames: mask-guided propagation from previous frame.
-    Returns one mask (or None) per frame.
+    Each object is tracked independently: frame 0 (and any frame where tracking
+    is lost) uses a text-prompted init; subsequent frames use mask-guided
+    propagation from the previous frame's mask for that object.
+
+    Returns a list (one entry per frame) of dicts mapping object description to
+    its binary mask.  Entries are None when no object was found in the frame.
     """
-    masks: List[Optional[np.ndarray]] = []
-    prev_mask: Optional[np.ndarray] = None
+    # Per-object state: last known mask for propagation
+    prev_masks: Dict[str, Optional[np.ndarray]] = {desc: None for desc in object_descs}
+
+    all_masks: List[Optional[Dict[str, np.ndarray]]] = []
     for i, frame_rgb in enumerate(frames_rgb):
-        if prev_mask is None:
-            mask = _segment_text_sam3(frame_rgb, object_desc, processor, model,
-                                      device, confidence_threshold)
-            log.info("  SAM3 frame %d: text init → %s", i,
-                     "found" if mask is not None else "not found")
-        else:
-            mask = _segment_mask_guided_sam3(frame_rgb, prev_mask, processor, model,
-                                             device, confidence_threshold)
-            if mask is None:
-                log.info("  SAM3 frame %d: tracking lost, re-init with text", i)
-                mask = _segment_text_sam3(frame_rgb, object_desc, processor, model,
+        frame_obj_masks: Dict[str, np.ndarray] = {}
+        for desc in object_descs:
+            prev = prev_masks[desc]
+            if prev is None:
+                mask = _segment_text_sam3(frame_rgb, desc, processor, model,
                                           device, confidence_threshold)
-        masks.append(mask)
-        if mask is not None:
-            prev_mask = mask
-    n_found = sum(1 for m in masks if m is not None)
-    log.info("SAM3 tracking: %d / %d frames with mask", n_found, len(masks))
-    return masks
+                log.info("  SAM3 frame %d '%s': text init → %s", i, desc,
+                         "found" if mask is not None else "not found")
+            else:
+                mask = _segment_mask_guided_sam3(frame_rgb, prev, processor, model,
+                                                 device, confidence_threshold)
+                if mask is None:
+                    log.info("  SAM3 frame %d '%s': tracking lost, re-init with text", i, desc)
+                    mask = _segment_text_sam3(frame_rgb, desc, processor, model,
+                                              device, confidence_threshold)
+            if mask is not None:
+                frame_obj_masks[desc] = mask
+                prev_masks[desc] = mask
+        all_masks.append(frame_obj_masks if frame_obj_masks else None)
+
+    for desc in object_descs:
+        n_found = sum(1 for m in all_masks if m is not None and desc in m)
+        log.info("SAM3 tracking '%s': %d / %d frames with mask",
+                 desc, n_found, len(all_masks))
+    return all_masks
 
 
 # ==============================================================================
@@ -528,15 +551,44 @@ def build_heatmap_from_self_attn(
     return heatmap_up
 
 
-def compute_iou_from_heatmap(heatmap, seg_mask, threshold_method="percentile", threshold_value=90.0):
+def compute_iou_from_heatmap(
+    heatmap: np.ndarray,
+    seg_mask: np.ndarray,
+    threshold_method: str = "percentile",
+    threshold_value: float = 90.0,
+    obj_masks: Optional[Dict[str, np.ndarray]] = None,
+) -> Dict:
+    """Compute IoU metrics for a (union) seg mask plus optional per-object breakdown.
+
+    Args:
+        heatmap:          (H, W) float in [0, 1].
+        seg_mask:         (H, W) float/int union mask (> 0 = any object).
+        threshold_method: thresholding method.
+        threshold_value:  threshold parameter.
+        obj_masks:        optional dict of {object_desc: binary (H, W) mask} for
+                          per-object IoU.  Masks are assumed to already be resized
+                          to match heatmap resolution.
+    Returns:
+        dict with keys: iou, dice, attention_mass (combined),
+        and iou_per_object / attention_mass_per_object when obj_masks is given.
+    """
     from attention_iou import threshold_attention, compute_iou, compute_dice
     binary = threshold_attention(heatmap, threshold_method, threshold_value)
+    total_attn = max(float(heatmap.sum()), 1e-8)
     seg_bool = (seg_mask > 0)
-    return {
+    result = {
         "iou": compute_iou(binary, seg_bool),
         "dice": compute_dice(binary, seg_bool),
-        "attention_mass": float(heatmap[seg_bool].sum() / max(heatmap.sum(), 1e-8)),
+        "attention_mass": float(heatmap[seg_bool].sum() / total_attn),
     }
+    if obj_masks:
+        result["iou_per_object"] = {
+            desc: compute_iou(binary, (m > 0.5)) for desc, m in obj_masks.items()
+        }
+        result["attention_mass_per_object"] = {
+            desc: float(heatmap[m > 0.5].sum() / total_attn) for desc, m in obj_masks.items()
+        }
+    return result
 
 
 def _json_default(o):
@@ -545,6 +597,24 @@ def _json_default(o):
     if isinstance(o, np.ndarray):
         return o.tolist()
     raise TypeError(type(o).__name__)
+
+
+def _label_panel(img: np.ndarray, text: str) -> np.ndarray:
+    """Add a black header bar with white label text above an image panel."""
+    h, w = img.shape[:2]
+    bar = np.zeros((28, w, 3), dtype=np.uint8)
+    cv2.putText(bar, text, (6, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1, cv2.LINE_AA)
+    return np.concatenate([bar, img], axis=0)
+
+
+def _write_attention_video(frames: List[np.ndarray], path: pathlib.Path, fps: float):
+    h, w = frames[0].shape[:2]
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    writer = cv2.VideoWriter(str(path), fourcc, fps, (w, h))
+    for frame in frames:
+        writer.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+    writer.release()
+    log.info("Attention video saved: %s (%d frames @ %.1f fps)", path.name, len(frames), fps)
 
 
 def summarize_ratios(step_results: List[Dict]) -> Dict:
@@ -660,13 +730,13 @@ def run_analysis_rank0(args, policy, signal_group):
         provided_masks = load_masks_from_dir(pathlib.Path(args.mask_dir), frame_indices)
 
     # Pre-compute SAM3 tracking masks (sequential — must run before main loop)
-    tracking_masks: Optional[List[Optional[np.ndarray]]] = None
+    tracking_masks: Optional[List[Optional[Dict[str, np.ndarray]]]] = None
     if sam3_processor is not None and args.object_desc:
-        log.info("Pre-computing SAM3 tracking masks for '%s' over %d frames …",
+        log.info("Pre-computing SAM3 tracking masks for %s over %d frames …",
                  args.object_desc, len(ext1_frames))
         tracking_masks = compute_tracking_masks(
             ext1_frames,
-            args.object_desc,
+            args.object_desc,  # now a list
             sam3_processor,
             sam3_model,
             device="cuda",
@@ -680,6 +750,8 @@ def run_analysis_rank0(args, policy, signal_group):
 
     signal = torch.zeros(1, dtype=torch.int32, device="cpu")
     all_step_results: List[Dict] = []
+    avg_video_buf: List[np.ndarray] = []
+    video_fps = 10.0
 
     # Frame buffer for DreamZero (accumulates T frames to simulate temporal context)
     frame_buffer_ext1: List[np.ndarray] = []
@@ -733,12 +805,21 @@ def run_analysis_rank0(args, policy, signal_group):
         remove_attention_hooks(hooks)
         recorded = get_recorded_attention()
 
-        # Get segmentation mask
+        # Get segmentation mask (union of all objects) and per-object masks.
+        # For pre-computed masks: single binary mask, no per-object breakdown.
+        # For SAM3 multi-object: union binary mask + per-object dict.
         seg_mask = None
+        seg_obj_masks: Optional[Dict[str, np.ndarray]] = None
         if provided_masks is not None:
             seg_mask = provided_masks[i]
-        elif tracking_masks is not None:
-            seg_mask = tracking_masks[i]
+        elif tracking_masks is not None and tracking_masks[i] is not None:
+            frame_obj_masks = tracking_masks[i]  # Dict[str, np.ndarray]
+            # Union mask for combined IoU / visualization
+            union = np.zeros_like(next(iter(frame_obj_masks.values())), dtype=np.float32)
+            for m in frame_obj_masks.values():
+                union = np.maximum(union, m.astype(np.float32))
+            seg_mask = union
+            seg_obj_masks = frame_obj_masks
 
         # Process per layer
         for layer_idx in args.layers:
@@ -764,17 +845,34 @@ def run_analysis_rank0(args, policy, signal_group):
                     (IMAGE_WIDTH, IMAGE_HEIGHT),
                     interpolation=cv2.INTER_NEAREST,
                 )
+                # Resize per-object masks to match heatmap resolution
+                obj_masks_resized: Optional[Dict[str, np.ndarray]] = None
+                if seg_obj_masks is not None:
+                    obj_masks_resized = {
+                        desc: cv2.resize(
+                            m.astype(np.float32), (IMAGE_WIDTH, IMAGE_HEIGHT),
+                            interpolation=cv2.INTER_NEAREST,
+                        )
+                        for desc, m in seg_obj_masks.items()
+                    }
                 iou_metrics = compute_iou_from_heatmap(
                     heatmap, seg_resized,
                     threshold_method=args.threshold_method,
                     threshold_value=args.threshold_value,
+                    obj_masks=obj_masks_resized,
                 )
                 frame_result.update(iou_metrics)
+                per_obj_iou_str = ""
+                if "iou_per_object" in iou_metrics:
+                    per_obj_iou_str = " [" + " | ".join(
+                        f"{obj}={v:.3f}" for obj, v in iou_metrics["iou_per_object"].items()
+                    ) + "]"
                 log.info(
-                    "  layer=%d ratio=%.3f iou=%.3f mass=%.3f",
+                    "  layer=%d ratio=%.3f iou(combined)=%.3f%s mass=%.3f",
                     layer_idx,
                     ratio_result["visual_linguistic_ratio"],
                     iou_metrics["iou"],
+                    per_obj_iou_str,
                     iou_metrics["attention_mass"],
                 )
             else:
@@ -793,6 +891,39 @@ def run_analysis_rank0(args, policy, signal_group):
                 viz = overlay_heatmap(ext1, heatmap)
                 save_p = out_dir / "heatmaps" / f"frame{frame_idx:04d}_layer{layer_idx}_heatmap.png"
                 Image.fromarray(viz).save(str(save_p))
+
+        # Build averaged-heatmap video frame (across all requested layers)
+        if args.save_video:
+            frame_heatmaps = []
+            for layer_idx in args.layers:
+                if layer_idx not in recorded:
+                    continue
+                h = build_heatmap_from_self_attn(recorded[layer_idx].get("self_attn", []), IMAGE_HEIGHT)
+                if h is not None:
+                    frame_heatmaps.append(h)
+            if frame_heatmaps:
+                from attention_iou import overlay_heatmap
+                avg_heatmap = np.mean(frame_heatmaps, axis=0)
+                mn, mx = avg_heatmap.min(), avg_heatmap.max()
+                if mx > mn:
+                    avg_heatmap = (avg_heatmap - mn) / (mx - mn)
+                layer_label = f"Avg attention (layers {', '.join(str(l) for l in args.layers)})"
+                overlay = overlay_heatmap(ext1, avg_heatmap)
+                panels = [
+                    _label_panel(ext1, "Original"),
+                    _label_panel(overlay, layer_label),
+                ]
+                if seg_mask is not None:
+                    seg_resized = cv2.resize(
+                        seg_mask.astype(np.float32), (IMAGE_WIDTH, IMAGE_HEIGHT),
+                        interpolation=cv2.INTER_NEAREST,
+                    )
+                    seg_disp = (seg_resized[:, :, None] * np.array([0, 0, 255], dtype=np.uint8))
+                    seg_panel = np.clip(
+                        ext1.astype(np.int32) + seg_disp.astype(np.int32) // 2, 0, 255
+                    ).astype(np.uint8)
+                    panels.append(_label_panel(seg_panel, "Segmentation mask"))
+                avg_video_buf.append(np.concatenate(panels, axis=1))
 
     # Shutdown workers
     signal.fill_(1)
@@ -823,6 +954,9 @@ def run_analysis_rank0(args, policy, signal_group):
     with open(results_path, "w") as f:
         json.dump(output, f, indent=2, default=_json_default)
     log.info("Results saved to %s", results_path)
+
+    if args.save_video and avg_video_buf:
+        _write_attention_video(avg_video_buf, out_dir / "attention_avg.mp4", video_fps)
 
     if all_step_results:
         _save_summary_plot(all_step_results, args.layers, prompt, out_dir)
@@ -901,8 +1035,10 @@ def main():
                          help="Directory with frame_XXXX_mask.npy binary masks")
     seg_grp.add_argument("--use-sam3", action="store_true",
                          help="Auto-segment using SAM3 text-prompted segmentation")
-    parser.add_argument("--object-desc", default="",
-                        help="Text description of target object for SAM3 (e.g. 'red cup')")
+    parser.add_argument("--object-desc", nargs="+", default=[],
+                        help="Text description(s) of target object(s) for SAM3. "
+                             "Pass one or more quoted strings, e.g. --object-desc 'green cup' 'blue bowl'. "
+                             "IoU is computed against the union; per-object metrics are also reported.")
     parser.add_argument("--sam3-checkpoint", default="",
                         help="Path to local SAM3 HuggingFace checkpoint directory")
     parser.add_argument("--sam3-confidence", type=float, default=0.5,
@@ -913,7 +1049,10 @@ def main():
 
     # Output
     parser.add_argument("--output-dir", default="results/attention_droid_dreamzero")
-    parser.add_argument("--save-heatmaps", action="store_true")
+    parser.add_argument("--save-heatmaps", action="store_true",
+                        help="Save per-frame per-layer attention heatmap PNGs")
+    parser.add_argument("--save-video", action="store_true",
+                        help="Save averaged attention heatmap as attention_avg.mp4")
 
     # DIT cache
     parser.add_argument("--no-dit-cache", action="store_true")
