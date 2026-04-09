@@ -66,6 +66,7 @@ CARD_EDGE = "#ddd8cf"
 TEXT_MAIN = "#202020"
 TEXT_MID = "#626262"
 TEXT_SOFT = "#7a7a7a"
+EXPORT_TRANSPARENT = True
 
 
 def add_rounded_panel(ax, facecolor, edgecolor, linewidth=1.3, radius=18):
@@ -91,7 +92,11 @@ def add_rounded_panel(ax, facecolor, edgecolor, linewidth=1.3, radius=18):
 def add_image_card(subfig, bounds, image_path, eyebrow, title, accent):
     """Add an example image card with a small caption header."""
     ax = subfig.add_axes(bounds)
-    add_rounded_panel(ax, facecolor=CARD_BG, edgecolor=CARD_EDGE, linewidth=1.0, radius=16)
+    ax.set_facecolor("none")
+    ax.set_xticks([])
+    ax.set_yticks([])
+    for sp in ax.spines.values():
+        sp.set_visible(False)
 
     ax.text(0.05, 0.90, eyebrow.upper(), fontsize=9.5, fontweight="bold", color=accent, va="center")
     ax.text(0.05, 0.82, title, fontsize=13.2, fontweight="bold", color=TEXT_MAIN, va="center")
@@ -135,10 +140,11 @@ def main():
         }
     )
 
-    fig = plt.figure(figsize=(21, 8.6), facecolor=FIG_BG)
+    canvas_bg = "none" if EXPORT_TRANSPARENT else FIG_BG
+    fig = plt.figure(figsize=(21, 8.6), facecolor=canvas_bg)
     sf_left, sf_right = fig.subfigures(1, 2, width_ratios=[1.08, 1.62], wspace=0.03)
-    sf_left.set_facecolor(FIG_BG)
-    sf_right.set_facecolor(FIG_BG)
+    sf_left.set_facecolor(canvas_bg)
+    sf_right.set_facecolor(canvas_bg)
 
     # ══════════════════════════════════════════════════════════════════════════
     # LEFT — examples + donut
@@ -163,22 +169,7 @@ def main():
         color=TEXT_MID,
     )
 
-    add_image_card(
-        sf_left,
-        [0.05, 0.56, 0.42, 0.30],
-        SIM_IMAGE,
-        "Simulation",
-        "LIBERO benchmark scene",
-        "#4f8a73",
-    )
-    add_image_card(
-        sf_left,
-        [0.53, 0.56, 0.42, 0.30],
-        REAL_IMAGE,
-        "Real Robot",
-        "DROID kitchen trajectory",
-        "#b46a52",
-    )
+
 
     donut_panel = sf_left.add_axes([0.05, 0.08, 0.90, 0.40])
     add_rounded_panel(donut_panel, facecolor=CARD_BG, edgecolor=CARD_EDGE, linewidth=1.0, radius=16)
@@ -393,10 +384,22 @@ def main():
     )
 
     # ── Save ──────────────────────────────────────────────────────────────────
-    plt.savefig("analysis/combined.pdf", bbox_inches="tight", dpi=200)
-    plt.savefig("analysis/combined.png", bbox_inches="tight", dpi=200)
+    plt.savefig(
+        "analysis/combined.pdf",
+        bbox_inches="tight",
+        dpi=200,
+        transparent=EXPORT_TRANSPARENT,
+        facecolor=canvas_bg,
+    )
+    plt.savefig(
+        "analysis/combined.png",
+        bbox_inches="tight",
+        dpi=200,
+        transparent=EXPORT_TRANSPARENT,
+        facecolor=canvas_bg,
+    )
     print("Saved -> analysis/combined.{pdf,png}")
-    plt.show()
+    plt.close(fig)
 
 
 if __name__ == "__main__":
