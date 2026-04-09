@@ -1,7 +1,7 @@
 """
 Plot generalization experiment results from generalization.md.
 
-Bar charts (per section):
+Radar plots (per section):
   1a–c  Language perturbation  – success rate / attention IoU / attention ratio
   2a–c  Visual perturbation    – success rate / attention IoU / attention ratio
   3a–c  Policy perturbation    – success rate / attention IoU / attention ratio
@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
+from matplotlib.lines import Line2D
 from scipy import stats
 
 # ─── style ────────────────────────────────────────────────────────────────────
@@ -78,6 +79,14 @@ MODELS_ATTN = ["pi0.5", "OpenVLA", "Cosmos", "DreamZero", "DP"]
 ALL_SUITES  = ["LIBERO-In domain", "LIBERO-90-Object", "LIBERO-90-Spatial",
                "LIBERO-90-Act",    "LIBERO-90-Com"]
 
+SUITE_SHORT_TITLES = {
+    "LIBERO-In domain": "In domain",
+    "LIBERO-90-Object": "90-Object",
+    "LIBERO-90-Spatial": "90-Spatial",
+    "LIBERO-90-Act": "90-Act",
+    "LIBERO-90-Com": "90-Com",
+}
+
 plt.rcParams.update({
     "font.size": 8, "axes.titlesize": 9, "axes.labelsize": 8,
     "legend.fontsize": 7, "xtick.labelsize": 7, "ytick.labelsize": 7,
@@ -114,24 +123,58 @@ def save_fig(fig, name):
     plt.close(fig)
 
 
-def grouped_bar_ax(ax, data, conditions, models, colors, ylabel, title,
-                   ylim=None, pct_fmt=False):
-    n_cond, n_mod = len(conditions), len(models)
-    width, x = 0.8 / n_mod, np.arange(n_cond)
-    for i, m in enumerate(models):
-        vals = [v if v is not None else NaN for v in data.get(m, [NaN]*n_cond)]
-        ax.bar(x + (i - n_mod/2 + 0.5)*width, vals,
-               width=width*0.9, color=colors[m], label=m, zorder=3)
-    ax.set_title(title, pad=4)
-    ax.set_ylabel(ylabel)
-    ax.set_xticks(x)
-    ax.set_xticklabels(conditions, rotation=25, ha="right")
-    ax.yaxis.grid(True, linestyle="--", alpha=0.5, zorder=0)
-    ax.set_axisbelow(True)
+def radar_ax(ax, data, conditions, models, colors, ylabel, title,
+             ylim=None, pct_fmt=False, custom_angle_labels=None):
+    n_cond = len(conditions)
+    angles = np.linspace(0, 2 * np.pi, n_cond, endpoint=False)
+    closed_angles = np.concatenate([angles, [angles[0]]])
+
+    for m in models:
+        vals = [v if v is not None else NaN for v in data.get(m, [NaN] * n_cond)]
+        closed_vals = np.concatenate([vals, [vals[0]]])
+        ax.plot(closed_angles, closed_vals, color=colors[m], lw=2.2, label=m, zorder=3)
+        ax.fill(closed_angles, closed_vals, color=colors[m], alpha=0.08, zorder=2)
+
+    ax.set_title(title, pad=18)
+    ax.set_theta_offset(np.pi / 2)
+    ax.set_theta_direction(-1)
+    ax.set_xticks(angles)
+    if custom_angle_labels:
+        ax.set_xticklabels([])
+    else:
+        ax.set_xticklabels(conditions)
+    ax.tick_params(axis="x", pad=10)
+    ax.grid(True, linestyle="--", alpha=0.5)
     if ylim:
         ax.set_ylim(ylim)
-    if pct_fmt:
-        ax.yaxis.set_major_formatter(mticker.PercentFormatter(decimals=0))
+        lo, hi = ylim
+        if pct_fmt:
+            ticks = np.linspace(lo, hi, 5)
+            ax.set_yticks(ticks)
+            ax.set_yticklabels([f"{int(round(t))}%" for t in ticks])
+        else:
+            ticks = np.linspace(lo, hi, 5)
+            decimals = 2 if hi <= 1.1 else 1
+            ax.set_yticks(ticks)
+            ax.set_yticklabels([f"{t:.{decimals}f}" for t in ticks])
+        for label in ax.get_yticklabels():
+            label.set_rotation(32)
+            label.set_rotation_mode("anchor")
+        if custom_angle_labels:
+            base_radius = hi * 0.84
+            for theta, label in zip(angles, conditions):
+                theta_delta, radius_delta = custom_angle_labels.get(label, (0.0, 0.0))
+                ax.text(
+                    theta + theta_delta,
+                    base_radius + radius_delta,
+                    label,
+                    ha="center",
+                    va="center",
+                )
+    ax.set_rlabel_position(0)
+    if ylabel:
+        ax.text(-0.12, 0.5, ylabel, transform=ax.transAxes, rotation=90,
+                va="center", ha="center")
 
 
 def add_regline(ax, xs, ys, color, lw=1.5):
@@ -165,11 +208,21 @@ def annotate_quadrants(ax, x_thresh, y_thresh, xlim, ylim, quad_labels,
 
 
 def shared_legend_beside_title(fig, models, colors, ncol=5):
-    handles = [plt.Rectangle((0, 0), 1, 1, color=colors[m]) for m in models]
+    handles = [Line2D([0], [0], color=colors[m], lw=3) for m in models]
     fig.legend(handles, models, loc="upper right", ncol=ncol,
                bbox_to_anchor=(0.99, 1.0), frameon=False,
                columnspacing=0.5, handlelength=0.8, handletextpad=0.4)
     fig.tight_layout(rect=[0, 0, 1, 0.93], w_pad=0.3, h_pad=0.3)
+
+
+def shared_legend_top(fig, models, colors, ncol=5, y=0.93):
+    handles = [Line2D([0], [0], color=colors[m], lw=3) for m in models]
+    fig.legend(
+        handles, models, loc="upper center", ncol=ncol,
+        bbox_to_anchor=(0.5, y), frameon=False,
+        columnspacing=1.0, handlelength=1.5, handletextpad=0.5,
+        fontsize=30,
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -545,56 +598,81 @@ df["ratio_dev"] = np.abs(df["ratio"] - 0.5)   # deviation from balanced 0.5
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# BAR CHARTS
+# RADAR PLOTS
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # ── 1. Language perturbation ──────────────────────────────────────────────────
 def _bar_section(prefix, suites, conds, sr_d, iou_d, ratio_d,
                  ratio_suites=None, section_title=""):
-    """Emit three bar-chart figures for one perturbation section."""
+    """Emit three radar-plot figures for one perturbation section."""
     n = len(suites)
-    # scale width by number of conditions so each bar group has consistent visual size
-    w_per_panel = 0.65 * len(conds) + 1.5
-    # success rate always uses the same panel width (anchored to language's 6 conditions)
-    w_per_panel_sr = 1.5 * 6 + 3.5
+    w_per_panel = 4.4
+    w_per_panel_sr = 4.8
 
     # (a) success rate
     with plt.rc_context(SR_RC):
-        fig, axes = plt.subplots(1, n, figsize=(w_per_panel_sr * n, 10.5), sharey=True)
-        fig.suptitle(f"{section_title} – Success Rate", fontsize=56, fontweight="bold")
+        x_label_pad = -30 if len(conds) >= 5 else -16
+        custom_angle_labels = None
+        if prefix == "2":
+            custom_angle_labels = {
+                "original": (0.00, 6.0),
+                "rotate 30°": (-0.12, -2.0),
+                "translate 20%": (0.10, 4.0),
+                "rotate+translate": (0.18, -4.0),
+            }
+        elif prefix == "3":
+            custom_angle_labels = {
+                "original": (0.00, 8.0),
+                "random action 25%": (-0.22, -8.0),
+                "object shift x": (0.22, 5.0),
+            }
+        fig, axes = plt.subplots(
+            1, n, figsize=(5.3 * n, 10.6),
+            subplot_kw={"projection": "polar"}
+        )
+        fig.suptitle(f"LIBERO {section_title} – Success Rate", fontsize=46, fontweight="bold", y=0.985)
         for ax, suite in zip(np.atleast_1d(axes), suites):
-            grouped_bar_ax(ax, sr_d.get(suite, {}), conds, MODELS_ALL,
-                           MODEL_COLORS, "Success rate (%)", suite,
-                           ylim=(0, 105), pct_fmt=True)
-        for ax in np.atleast_1d(axes)[1:]:
-            ax.set_ylabel("")
-        shared_legend_beside_title(fig, MODELS_ALL, MODEL_COLORS, ncol=5)
+            radar_ax(ax, sr_d.get(suite, {}), conds, MODELS_ALL,
+                     MODEL_COLORS, "", SUITE_SHORT_TITLES.get(suite, suite),
+                     ylim=(0, 100), pct_fmt=True,
+                     custom_angle_labels=custom_angle_labels)
+            ax.title.set_fontsize(36)
+            if custom_angle_labels:
+                for text in ax.texts[-len(conds):]:
+                    text.set_fontsize(30)
+            else:
+                ax.tick_params(axis="x", labelsize=30, pad=x_label_pad)
+            ax.tick_params(axis="y", labelsize=24)
+        shared_legend_top(fig, MODELS_ALL, MODEL_COLORS, ncol=5, y=0.89)
+        fig.subplots_adjust(left=0.03, right=0.995, bottom=0.06, top=0.87, wspace=0.32)
         save_fig(fig, f"{prefix}_success_rate.png")
 
     # (b) attention IoU
-    fig, axes = plt.subplots(1, n, figsize=(w_per_panel * n, 4.3), sharey=True)
+    fig, axes = plt.subplots(
+        1, n, figsize=(w_per_panel * n, 4.6),
+        subplot_kw={"projection": "polar"}
+    )
     fig.suptitle(f"{section_title} – Attention IoU", fontsize=28, fontweight="bold")
     for ax, suite in zip(np.atleast_1d(axes), suites):
-        grouped_bar_ax(ax, iou_d.get(suite, {}), conds, MODELS_ATTN,
-                       MODEL_COLORS, "Attention IoU", suite)
-    for ax in np.atleast_1d(axes)[1:]:
-        ax.set_ylabel("")
+        radar_ax(ax, iou_d.get(suite, {}), conds, MODELS_ATTN,
+                 MODEL_COLORS, "Attention IoU", suite, ylim=(0, 0.35))
     shared_legend_beside_title(fig, MODELS_ATTN, MODEL_COLORS, ncol=len(MODELS_ATTN))
     save_fig(fig, f"{prefix}_attention_iou.png")
 
     # (c) attention ratio
     rs = ratio_suites if ratio_suites else suites
     n_r = len(rs)
-    fig, axes = plt.subplots(1, n_r, figsize=(w_per_panel * n_r, 4.3), sharey=True)
+    fig, axes = plt.subplots(
+        1, n_r, figsize=(w_per_panel * n_r, 4.6),
+        subplot_kw={"projection": "polar"}
+    )
     fig.suptitle(f"{section_title} – Attention Ratio",
                  fontsize=28, fontweight="bold")
     ratio_models = [m for m in MODELS_ATTN
                     if any(ratio_d.get(s, {}).get(m) for s in rs)]
     for ax, suite in zip(np.atleast_1d(axes), rs):
-        grouped_bar_ax(ax, ratio_d.get(suite, {}), conds, ratio_models,
-                       MODEL_COLORS, "Attention ratio", suite, ylim=(0, 1.05))
-    for ax in np.atleast_1d(axes)[1:]:
-        ax.set_ylabel("")
+        radar_ax(ax, ratio_d.get(suite, {}), conds, ratio_models,
+                 MODEL_COLORS, "Attention ratio", suite, ylim=(0, 1.0))
     shared_legend_beside_title(fig, ratio_models, MODEL_COLORS, ncol=len(ratio_models))
     save_fig(fig, f"{prefix}_attention_ratio.png")
 
@@ -616,9 +694,9 @@ with plt.rc_context(SR_RC):
     import matplotlib.gridspec as gridspec
     import matplotlib.image as mpimg
 
-    _w = 1.5 * 6 + 3.5
+    _w = 5.0
     _n = len(ALL_SUITES)
-    _bar_h = 10.5
+    _bar_h = 5.8
     _img_h = 7.0   # height of the example-image header row (inches)
 
     fig_comb = plt.figure(figsize=(_w * _n, _img_h + 3 * _bar_h))
@@ -641,12 +719,9 @@ with plt.rc_context(SR_RC):
                           fontweight="bold", pad=18, color="#111111")
         _ax_img.axis("off")
 
-    # ── Bar chart rows ────────────────────────────────────────────────────────
-    axes_comb = np.array([[fig_comb.add_subplot(gs[_ri + 1, _ci])
+    # ── Radar plot rows ───────────────────────────────────────────────────────
+    axes_comb = np.array([[fig_comb.add_subplot(gs[_ri + 1, _ci], projection="polar")
                            for _ci in range(_n)] for _ri in range(3)])
-    for _ri in range(3):
-        for _ci in range(1, _n):
-            axes_comb[_ri, _ci].sharey(axes_comb[_ri, 0])
 
     _rows = [
         ("Language Perturbation", LANG_CONDS, LANG_SR),
@@ -656,19 +731,17 @@ with plt.rc_context(SR_RC):
     for _ri, (_rtitle, _conds, _sr_d) in enumerate(_rows):
         for _ci, _suite in enumerate(ALL_SUITES):
             _ax = axes_comb[_ri, _ci]
-            grouped_bar_ax(_ax, _sr_d.get(_suite, {}), _conds, MODELS_ALL,
-                           MODEL_COLORS, "Success rate (%)",
-                           _suite if _ri == 0 else "",
-                           ylim=(0, 105), pct_fmt=True)
-            if _ci > 0:
-                _ax.set_ylabel("")
-                _ax.tick_params(labelleft=False)
-                _ax.spines["left"].set_visible(False)
-            _ax.spines["top"].set_visible(False)
-            _ax.spines["right"].set_visible(False)
-        axes_comb[_ri, 0].set_ylabel(f"{_rtitle}\nSuccess rate (%)")
+            radar_ax(_ax, _sr_d.get(_suite, {}), _conds, MODELS_ALL,
+                     MODEL_COLORS, "",
+                     _suite if _ri == 0 else "",
+                     ylim=(0, 100), pct_fmt=True)
+        axes_comb[_ri, 0].text(
+            -0.45, 0.5, f"{_rtitle}\nSuccess rate (%)",
+            transform=axes_comb[_ri, 0].transAxes,
+            rotation=90, va="center", ha="center"
+        )
 
-    _handles = [plt.Rectangle((0, 0), 1, 1, color=MODEL_COLORS[m]) for m in MODELS_ALL]
+    _handles = [Line2D([0], [0], color=MODEL_COLORS[m], lw=4) for m in MODELS_ALL]
     fig_comb.legend(
         _handles, MODELS_ALL,
         loc="upper right", ncol=5,
