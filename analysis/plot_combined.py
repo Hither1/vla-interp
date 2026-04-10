@@ -141,44 +141,27 @@ def main():
     )
 
     canvas_bg = "none" if EXPORT_TRANSPARENT else FIG_BG
-    fig = plt.figure(figsize=(21, 8.6), facecolor=canvas_bg)
-    sf_left, sf_right = fig.subfigures(1, 2, width_ratios=[1.08, 1.62], wspace=0.03)
-    sf_left.set_facecolor(canvas_bg)
-    sf_right.set_facecolor(canvas_bg)
+    fig = plt.figure(figsize=(12.5, 12.2), facecolor=canvas_bg)
+    sf_top, sf_bottom = fig.subfigures(2, 1, height_ratios=[0.95, 1.45], hspace=0.02)
+    sf_top.set_facecolor(canvas_bg)
+    sf_bottom.set_facecolor(canvas_bg)
 
     # ══════════════════════════════════════════════════════════════════════════
     # LEFT — examples + donut
     # ══════════════════════════════════════════════════════════════════════════
-    sf_left.text(
-        0.50,
-        0.965,
-        "Experiment Settings",
-        ha="center",
-        va="top",
-        fontsize=18,
-        fontweight="bold",
-        color=TEXT_MAIN,
-    )
-    sf_left.text(
-        0.50,
-        0.925,
-        "Representative scenes from simulation and real-robot evaluation.",
-        ha="center",
-        va="top",
-        fontsize=10.8,
-        color=TEXT_MID,
-    )
 
-
-
-    donut_panel = sf_left.add_axes([0.05, 0.08, 0.90, 0.40])
-    add_rounded_panel(donut_panel, facecolor=CARD_BG, edgecolor=CARD_EDGE, linewidth=1.0, radius=16)
+    donut_panel = sf_top.add_axes([0.17, 0.06, 0.66, 0.86])
+    donut_panel.set_facecolor("none")
+    donut_panel.set_xticks([])
+    donut_panel.set_yticks([])
+    for sp in donut_panel.spines.values():
+        sp.set_visible(False)
     donut_panel.text(
         0.05,
         0.93,
         "Four Generalisation Types",
         transform=donut_panel.transAxes,
-        ha="left",
+        ha="center",
         va="center",
         fontsize=14.5,
         fontweight="bold",
@@ -187,7 +170,7 @@ def main():
     donut_panel.text(
         0.05,
         0.84,
-        "Task families shared between the simulation benchmark and the matched DROID subset.",
+        '',
         transform=donut_panel.transAxes,
         ha="left",
         va="center",
@@ -195,7 +178,7 @@ def main():
         color=TEXT_MID,
     )
 
-    ax_pie = donut_panel.inset_axes([0.05, 0.08, 0.48, 0.72])
+    ax_pie = donut_panel.inset_axes([0.06, 0.10, 0.40, 0.70])
     wedges, _ = ax_pie.pie(
         [1] * 4,
         colors=[s["color"] for s in SUBSETS],
@@ -207,7 +190,7 @@ def main():
     ax_pie.text(
         0,
         0.08,
-        "Simulation",
+        "Real Robot",
         ha="center",
         va="center",
         fontsize=11.5,
@@ -217,7 +200,7 @@ def main():
     ax_pie.text(
         0,
         -0.10,
-        "Real Robot",
+        "Simulation",
         ha="center",
         va="center",
         fontsize=11.5,
@@ -226,7 +209,7 @@ def main():
     )
     ax_pie.axis("equal")
 
-    legend_ax = donut_panel.inset_axes([0.57, 0.16, 0.35, 0.56])
+    legend_ax = donut_panel.inset_axes([0.52, 0.18, 0.34, 0.50])
     legend_ax.set_axis_off()
     legend_ax.text(0.0, 1.02, "Task Families", fontsize=12.5, fontweight="bold", color=TEXT_MAIN)
     for idx, subset in enumerate(SUBSETS):
@@ -244,39 +227,39 @@ def main():
     legend_ax.set_ylim(0, 1.08)
 
     # ══════════════════════════════════════════════════════════════════════════
-    # RIGHT — perturbation taxonomy
+    # BOTTOM — perturbation taxonomy
     # ══════════════════════════════════════════════════════════════════════════
-    sf_right.text(
+    sf_bottom.text(
         0.5,
         0.98,
         "Perturbation Taxonomy",
         ha="center",
         va="top",
-        fontsize=18,
+        fontsize=22,
         fontweight="bold",
         color=TEXT_MAIN,
     )
-    sf_right.text(
+    sf_bottom.text(
         0.5,
         0.94,
         "Three controlled shift types used to stress language, vision, and policy robustness.",
         ha="center",
         va="top",
-        fontsize=10.8,
+        fontsize=13.5,
         color=TEXT_MID,
     )
 
-    left_margin = 0.015
-    right_margin = 0.015
-    top_margin = 0.13
-    bottom_margin = 0.04
-    band_gap = 0.03
-    label_width = 0.175
-    label_pad = 0.008
+    left_margin = 0.008
+    right_margin = 0.008
+    top_margin = 0.12
+    bottom_margin = 0.03
+    band_gap = 0.018
+    label_width = 0.225
+    label_pad = 0.005
     bar_width = 0.004
-    item_margin = 0.018
+    item_margin = 0.016
     item_gap = 0.012
-    item_vertical_margin = 0.17
+    item_vertical_margin = 0.13
 
     band_count = len(PERTURBATIONS)
     available_height = 1.0 - top_margin - bottom_margin
@@ -285,16 +268,7 @@ def main():
     for i, perturbation in enumerate(PERTURBATIONS):
         y_bottom = 1.0 - top_margin - (i + 1) * band_height - i * band_gap
 
-        band_bg = sf_right.add_axes([left_margin, y_bottom, 1.0 - left_margin - right_margin, band_height])
-        add_rounded_panel(
-            band_bg,
-            facecolor=perturbation["light"],
-            edgecolor=CARD_EDGE,
-            linewidth=0.9,
-            radius=16,
-        )
-
-        band_bar = sf_right.add_axes([left_margin, y_bottom, bar_width, band_height])
+        band_bar = sf_bottom.add_axes([left_margin, y_bottom, bar_width, band_height])
         band_bar.set_facecolor(perturbation["color"])
         band_bar.set_xticks([])
         band_bar.set_yticks([])
@@ -302,7 +276,7 @@ def main():
             sp.set_visible(False)
 
         label_left = left_margin + bar_width + label_pad
-        label_ax = sf_right.add_axes([label_left, y_bottom, label_width, band_height])
+        label_ax = sf_bottom.add_axes([label_left, y_bottom, label_width, band_height])
         label_ax.set_facecolor("none")
         label_ax.set_xticks([])
         label_ax.set_yticks([])
@@ -313,7 +287,7 @@ def main():
             0.63,
             perturbation["title"],
             transform=label_ax.transAxes,
-            fontsize=15,
+            fontsize=19,
             fontweight="bold",
             color=perturbation["color"],
             va="center",
@@ -323,7 +297,7 @@ def main():
             0.32,
             perturbation["subtitle"],
             transform=label_ax.transAxes,
-            fontsize=10.5,
+            fontsize=13.2,
             color=TEXT_SOFT,
             va="center",
             style="italic",
@@ -337,11 +311,11 @@ def main():
         item_y = y_bottom + band_height * item_vertical_margin
 
         for j, (name, description) in enumerate(perturbation["items"]):
-            card = sf_right.add_axes([item_start + j * (item_width + item_gap), item_y, item_width, item_height])
+            card = sf_bottom.add_axes([item_start + j * (item_width + item_gap), item_y, item_width, item_height])
             add_rounded_panel(
                 card,
-                facecolor=CARD_BG,
-                edgecolor="#e5e1d8",
+                facecolor=perturbation["light"],
+                edgecolor=perturbation["color"],
                 linewidth=0.9,
                 radius=12,
             )
@@ -351,7 +325,7 @@ def main():
                 0.63,
                 name,
                 transform=card.transAxes,
-                fontsize=13.8,
+                fontsize=18.5,
                 fontweight="bold",
                 color=TEXT_MAIN,
                 ha="center",
@@ -363,25 +337,12 @@ def main():
                 0.24,
                 description,
                 transform=card.transAxes,
-                fontsize=11.6,
+                fontsize=14.6,
                 color=TEXT_MID,
                 ha="center",
                 va="center",
                 multialignment="center",
             )
-
-    # ── Divider ───────────────────────────────────────────────────────────────
-    divider_x = 1.08 / (1.08 + 1.62)
-    fig.add_artist(
-        plt.Line2D(
-            [divider_x, divider_x],
-            [0.05, 0.95],
-            transform=fig.transFigure,
-            color="#dfdbd2",
-            linewidth=0.9,
-            linestyle=(0, (2, 4)),
-        )
-    )
 
     # ── Save ──────────────────────────────────────────────────────────────────
     plt.savefig(
