@@ -194,20 +194,21 @@ fi
 PROMPT="${PROMPT:-pick up the green cup and put it in the pink bowl}"
 
 # ── Model / inference settings ────────────────────────────────────────────────
-NUM_GPUS="${NUM_GPUS:-4}"
+NUM_GPUS="${NUM_GPUS:-1}"
 EMBODIMENT_TAG="${EMBODIMENT_TAG:-OXE_DROID}"
 NUM_CONTEXT_FRAMES="${NUM_CONTEXT_FRAMES:-4}"   # frames of video history per inference call
 ENABLE_DIT_CACHE="${ENABLE_DIT_CACHE:-true}"
 
 # ── Attention layers ───────────────────────────────────────────────────────────
-LAYERS="${LAYERS:-37 38 39}"
+LAYERS="${LAYERS:-37 38}"
 
 # ── Frame sampling ─────────────────────────────────────────────────────────────
-FRAME_STEP="${FRAME_STEP:-1}"
+FRAME_STEP="${FRAME_STEP:-3}"
+MAX_FRAMES="${MAX_FRAMES:-600}"
 
 # ── Segmentation / IoU ────────────────────────────────────────────────────────
 MASK_DIR="${MASK_DIR:-}"
-USE_SAM3="${USE_SAM3:-1}"
+USE_SAM3="${USE_SAM3:-0}"
 # OBJECT_DESCS: comma-separated list of object descriptions for SAM3.
 # IoU is computed against the union of all listed objects; per-object metrics are also saved.
 # Examples:
@@ -285,6 +286,7 @@ fi
 echo "Prompt:            ${PROMPT}"
 echo "Layers:            ${LAYERS}"
 echo "Frame step:        ${FRAME_STEP}"
+echo "Max frames:        ${MAX_FRAMES}"
 if [[ -n "${MASK_DIR}" ]]; then
     echo "Segmentation:      pre-computed masks from ${MASK_DIR}"
 elif [[ "${USE_SAM3}" == "1" ]]; then
@@ -307,6 +309,7 @@ torchrun \
         --num-context-frames "${NUM_CONTEXT_FRAMES}" \
         "${DATA_ARGS[@]}" \
         --frame-step "${FRAME_STEP}" \
+        --max-frames "${MAX_FRAMES}" \
         --prompt "${PROMPT}" \
         --layers "${LAYERS_ARR[@]}" \
         --threshold-method "${THRESHOLD_METHOD}" \

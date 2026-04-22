@@ -473,8 +473,9 @@ def eval_libero(args: Args) -> None:
                         t += 1
                         continue
 
-                    # Record frame for video
-                    replay_images.append(obs["agentview_image"][::-1, ::-1].copy())
+                    # Record frame for video (show what the policy sees)
+                    raw_frame = obs["agentview_image"][::-1, ::-1].copy()
+                    replay_images.append(perturb_image(raw_frame, vis_cfg) if vis_cfg.mode != "none" else raw_frame)
 
                     is_new_chunk = not action_plan
                     if is_new_chunk:

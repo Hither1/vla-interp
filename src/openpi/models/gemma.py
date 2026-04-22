@@ -412,9 +412,18 @@ def _record_attention_weights(layer_idx_hint, attn_probs):
         layer_idx = _attention_layer_counter
         _attention_layer_counter += 1
 
-        # Store attention weights for this layer
-        # We store the full attention matrix for later visualization
-        ATTENTION_WEIGHTS.setdefault(f'layer_{layer_idx}', []).append(attn_np)
+        # Store attention weights for this layer (direct assignment since each
+        # layer key is visited exactly once via the incrementing counter).
+        # Cast to float32 explicitly: JAX/ml_dtypes bfloat16 tensors produce
+        # numpy object arrays whose scalars fail float formatting.
+        # Two-step cast (via float64 intermediary) reliably converts bfloat16
+        # ml_dtypes scalars even when a direct np.array(..., dtype=float32) fails.
+        arr = np.array(attn_np)
+        if arr.dtype == object:
+            arr = np.array(arr.tolist(), dtype=np.float64)
+        elif not np.issubdtype(arr.dtype, np.floating):
+            arr = arr.astype(np.float64)
+        ATTENTION_WEIGHTS[f'layer_{layer_idx}'] = arr.astype(np.float32)
 
     if SAVE_ATTENTION_WEIGHTS:
         jax_debug.callback(_cb, attn_probs)

@@ -81,10 +81,12 @@ import matplotlib.pyplot as plt
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
-# DROID images: the server/client uses 180×320 but the policy internally resizes.
-# We pass 224×224 to match the policy server config.
-IMAGE_HEIGHT = 224
-IMAGE_WIDTH = 224
+# DROID dataset native resolution. GrootSimPolicy.lazy_joint_forward_causal runs the
+# full transform pipeline (VideoResize/VideoCrop) internally, and VideoToTensor checks
+# that the input resolution matches the original dataset resolution from metadata.
+# Pass images at the native 320×180 so the check passes; the policy resizes internally.
+IMAGE_HEIGHT = 180
+IMAGE_WIDTH = 320
 
 
 # ==============================================================================
@@ -221,9 +223,10 @@ def load_sam3_hf(checkpoint: str, device: str = "cuda"):
 
 def _run_sam3_inference(inputs, processor, model, device, h, w, confidence_threshold):
     """Shared SAM3 forward pass. Returns union mask (H, W) float32, or None."""
-    inputs = {k: v.to(device) if hasattr(v, "to") else v for k, v in inputs.items()}
-    if "pixel_values" in inputs:
-        inputs["pixel_values"] = inputs["pixel_values"].to(torch.float16)
+    inputs = {
+        k: v.to(device=device, dtype=torch.float16) if isinstance(v, torch.Tensor) and v.is_floating_point() else (v.to(device) if hasattr(v, "to") else v)
+        for k, v in inputs.items()
+    }
     with torch.no_grad():
         outputs = model(**inputs)
     results = processor.post_process_instance_segmentation(
@@ -242,16 +245,17 @@ def _segment_text_sam3(image_rgb, object_desc, processor, model, device, confide
 
 
 def _segment_mask_guided_sam3(image_rgb, prev_mask, processor, model, device, confidence_threshold):
-    """Mask-guided propagation via centroid point prompt.
-    Sam3FastImageProcessor does not accept 'input_masks'; use input_points/input_labels instead."""
+    """Mask-guided propagation via bounding-box prompt derived from previous mask.
+    Sam3Processor only accepts input_boxes/input_boxes_labels (not input_points/input_labels)."""
     h, w = image_rgb.shape[:2]
     ys, xs = np.where(prev_mask > 0.5)
     if len(xs) == 0:
         return None  # caller will fall back to text re-init
-    cx, cy = int(xs.mean()), int(ys.mean())
+    x_min, x_max = int(xs.min()), int(xs.max())
+    y_min, y_max = int(ys.min()), int(ys.max())
     inputs = processor(images=Image.fromarray(image_rgb),
-                       input_points=[[[cx, cy]]],
-                       input_labels=[[1]],
+                       input_boxes=[[[x_min, y_min, x_max, y_max]]],
+                       input_boxes_labels=[[1]],
                        return_tensors="pt")
     return _run_sam3_inference(inputs, processor, model, device, h, w, confidence_threshold)
 
@@ -358,8 +362,9 @@ def install_attention_hooks(policy: GrootSimPolicy, layers: List[int]) -> List:
 
         def _make_pre_hook(idx):
             def pre_hook(module, args):
+                rec = _RECORDED.setdefault(idx, {"self_attn": [], "cross_attn": [], "action_register_length": None})
                 if len(args) >= 5 and args[4] is not None:
-                    _RECORDED[idx]["action_register_length"] = args[4]
+                    rec["action_register_length"] = args[4]
             return pre_hook
 
         handles.append(self_attn.register_forward_pre_hook(_make_pre_hook(layer_idx)))
@@ -370,6 +375,7 @@ def install_attention_hooks(policy: GrootSimPolicy, layers: List[int]) -> List:
             frame_seqlen = parent.frame_seqlen
 
             def hook(module, args, output):
+                rec = _RECORDED.setdefault(idx, {"self_attn": [], "cross_attn": [], "action_register_length": None})
                 if len(args) < 3:
                     return
                 q, k, v = args[0], args[1], args[2]
@@ -389,7 +395,7 @@ def install_attention_hooks(policy: GrootSimPolicy, layers: List[int]) -> List:
                     )  # (B, H, n_act, Lk)
                     attn_np = attn[0].mean(0).cpu().float().numpy()  # (n_act, Lk)
 
-                _RECORDED[idx]["self_attn"].append({
+                rec["self_attn"].append({
                     "attn": attn_np,
                     "Lk": Lk,
                     "visual_end": visual_end,
@@ -406,12 +412,13 @@ def install_attention_hooks(policy: GrootSimPolicy, layers: List[int]) -> List:
             n_state = parent.num_state_per_block
 
             def hook(module, args, output):
+                rec = _RECORDED.setdefault(idx, {"self_attn": [], "cross_attn": [], "action_register_length": None})
                 if len(args) < 2:
                     return
                 normed_x = args[0]   # (B, S, C)
                 context = args[1]    # (B, T, C) text embeddings
 
-                action_register_length = _RECORDED[idx].get("action_register_length")
+                action_register_length = rec.get("action_register_length")
                 if action_register_length is None or action_register_length == 0:
                     return
 
@@ -446,7 +453,7 @@ def install_attention_hooks(policy: GrootSimPolicy, layers: List[int]) -> List:
                     )  # (B, H, AH, T)
                     attn_np = attn[0].mean(0).cpu().float().numpy()  # (AH, T)
 
-                _RECORDED[idx]["cross_attn"].append({
+                rec["cross_attn"].append({
                     "attn": attn_np,
                     "action_horizon": action_horizon,
                     "T": text_context.shape[1],
@@ -522,7 +529,8 @@ def _infer_grid(frame_seqlen: int) -> Tuple[int, int]:
 
 def build_heatmap_from_self_attn(
     calls: List[Dict],
-    image_resolution: int,
+    image_h: int,
+    image_w: int,
 ) -> Optional[np.ndarray]:
     """Build spatial heatmap from the first action-block self-attention call (→ first image frame)."""
     if not calls:
@@ -540,7 +548,7 @@ def build_heatmap_from_self_attn(
     heatmap = spatial_attn.reshape(h_feat, w_feat).astype(np.float32)
     heatmap_t = torch.from_numpy(heatmap).unsqueeze(0).unsqueeze(0)
     heatmap_up = F.interpolate(
-        heatmap_t, size=(image_resolution, image_resolution), mode="bilinear", align_corners=False,
+        heatmap_t, size=(image_h, image_w), mode="bilinear", align_corners=False,
     ).squeeze().numpy()
 
     mn, mx = heatmap_up.min(), heatmap_up.max()
@@ -706,6 +714,14 @@ def run_analysis_rank0(args, policy, signal_group):
         log.error("No frames found.")
         return
 
+    if args.max_frames > 0:
+        cap = min(args.max_frames, len(ext1_frames))
+        ext1_frames = ext1_frames[:cap]
+        ext2_frames = ext2_frames[:cap]
+        wrist_frames = wrist_frames[:cap]
+        frame_indices = frame_indices[:cap]
+        log.info("Applying --max-frames=%d -> using %d frames", args.max_frames, cap)
+
     log.info("Loaded %d frames", len(ext1_frames))
 
     meta = load_metadata(data_dir, len(ext1_frames))
@@ -753,6 +769,8 @@ def run_analysis_rank0(args, policy, signal_group):
     avg_video_buf: List[np.ndarray] = []
     video_fps = 10.0
 
+    hooks = install_attention_hooks(policy, args.layers)
+
     # Frame buffer for DreamZero (accumulates T frames to simulate temporal context)
     frame_buffer_ext1: List[np.ndarray] = []
     frame_buffer_ext2: List[np.ndarray] = []
@@ -791,8 +809,8 @@ def run_analysis_rank0(args, policy, signal_group):
             "annotation.language.action_text": prompt,
         }
 
+        frame_t0 = datetime.datetime.now()
         clear_recorded_attention()
-        hooks = install_attention_hooks(policy, args.layers)
 
         signal.fill_(0)
         dist.broadcast(signal, src=0, group=signal_group)
@@ -801,8 +819,6 @@ def run_analysis_rank0(args, policy, signal_group):
         with torch.no_grad():
             result_batch, _ = policy.lazy_joint_forward_causal(Batch(obs=dz_obs))
         dist.barrier()
-
-        remove_attention_hooks(hooks)
         recorded = get_recorded_attention()
 
         # Get segmentation mask (union of all objects) and per-object masks.
@@ -843,7 +859,7 @@ def run_analysis_rank0(args, policy, signal_group):
 
         # Heatmap: average spatial attention across layers
         layer_heatmaps = [
-            build_heatmap_from_self_attn(recorded[l].get("self_attn", []), IMAGE_HEIGHT)
+            build_heatmap_from_self_attn(recorded[l].get("self_attn", []), IMAGE_HEIGHT, IMAGE_WIDTH)
             for l in valid_layers
         ]
         layer_heatmaps = [h for h in layer_heatmaps if h is not None]
@@ -896,6 +912,14 @@ def run_analysis_rank0(args, policy, signal_group):
 
         all_step_results.append(frame_result)
 
+        frame_dt = (datetime.datetime.now() - frame_t0).total_seconds()
+        if (i + 1) % 20 == 0 or i == n - 1:
+            elapsed = sum(r.get("_runtime_sec", 0.0) for r in all_step_results) + frame_dt
+            done = i + 1
+            eta = (elapsed / max(done, 1)) * max(n - done, 0)
+            log.info("Progress: %d/%d frames | last=%.2fs | ETA=%.1f min", done, n, frame_dt, eta / 60.0)
+        frame_result["_runtime_sec"] = frame_dt
+
         if args.save_heatmaps and heatmap is not None:
             from attention_iou import overlay_heatmap
             mn, mx = heatmap.min(), heatmap.max()
@@ -927,6 +951,8 @@ def run_analysis_rank0(args, policy, signal_group):
             avg_video_buf.append(np.concatenate(panels, axis=1))
 
     # Shutdown workers
+    remove_attention_hooks(hooks)
+
     signal.fill_(1)
     dist.broadcast(signal, src=0, group=signal_group)
 
@@ -1014,6 +1040,8 @@ def main():
                         help="Path to wrist-camera MP4 (used with --video)")
     parser.add_argument("--frame-step", type=int, default=1,
                         help="Use every Nth frame")
+    parser.add_argument("--max-frames", type=int, default=0,
+                        help="If >0, analyze only the first N sampled frames")
 
     # Prompt
     parser.add_argument("--prompt", default="",

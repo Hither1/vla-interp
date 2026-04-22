@@ -10,34 +10,34 @@ import numpy as np
 
 # ── Data ──────────────────────────────────────────────────────────────────────
 SUBSETS = [
-    {"label": "LIBERO-90\nObject",    "color": "#ff7f0e"},
-    {"label": "LIBERO-90\nSpatial",   "color": "#2ca02c"},
-    {"label": "LIBERO-90\nAction",    "color": "#d62728"},
-    {"label": "LIBERO-90\nComposite", "color": "#9467bd"},
+    {"label": "Object",    "color": "#ff7f0e"},
+    {"label": "Spatial",   "color": "#2ca02c"},
+    {"label": "Action",    "color": "#d62728"},
+    {"label": "Composite", "color": "#9467bd"},
 ]
 
 PERTURBATIONS = [
     {
         "title":    "Language-level",
-        "subtitle": "Same task, different text",
+        "subtitle": "Same task,\ndifferent text",
         "color":    "#4C72B0",
         "light":    "#e8eef8",
         "items": [
-            ("Empty\nPrompt",         "Instruction\nremoved"),
-            ("Synonym\nSwap",         "Content words\nreplaced"),
-            ("Random\nPrompt",        "Replaced with\nunrelated text"),
-            ("Shuffled\nWords",       "Words randomly\npermuted"),
+            ("Empty Prompt",         "Instruction\nremoved"),
+            ("Synonym Swap",         "Content words\nreplaced"),
+            ("Random Prompt",        "Replaced with\nunrelated text"),
+            ("Shuffled Words",       "Words randomly\npermuted"),
         ],
     },
     {
         "title":    "Vision-level",
-        "subtitle": "Same task, different pose",
+        "subtitle": "Same task,\ndifferent pose",
         "color":    "#2ca02c",
         "light":    "#e8f5e8",
         "items": [
             ("Orientation",           "Scene rotated\nby 30°"),
             ("Position",              "Scene translated\n20% rightward"),
-            ("Rotate +\nTranslate",   "15° rotation +\n10% translation"),
+            ("Rotate + Translate",   "15° rotation +\n10% translation"),
         ],
     },
     {
@@ -46,23 +46,21 @@ PERTURBATIONS = [
         "color":    "#d62728",
         "light":    "#f8e8e8",
         "items": [
-            ("Random\nAction",        "Replace action w/\nrandom (p=0.25)"),
-            ("Object\nShift",         "Random x-axis\nshift, σ=5 cm"),
+            ("Random Action",        "Replace action w/\nrandom (p=0.25)"),
+            ("Object Shift",         "Random x-axis\nshift, σ=5 cm"),
         ],
     },
 ]
 
 # ── Figure ────────────────────────────────────────────────────────────────────
 fig = plt.figure(figsize=(20, 6.8))
-sf_left, sf_right = fig.subfigures(1, 2, width_ratios=[1, 1.72], wspace=0.01)
+sf_left, sf_right = fig.subfigures(1, 2, width_ratios=[1, 1.35], wspace=-0.15)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # LEFT — donut
 # ══════════════════════════════════════════════════════════════════════════════
-sf_left.text(0.5, 0.98, "LIBERO-90 (Simulation) & DROID (Real Robot)",
-             ha="center", va="top", fontsize=13, color="#444444")
 
-ax_pie = sf_left.add_axes([0.05, 0.08, 0.90, 0.84])
+ax_pie = sf_left.add_axes([-0.05, 0.08, 1.05, 0.84])
 
 wedges, _ = ax_pie.pie(
     [1] * 4,
@@ -78,20 +76,21 @@ for wedge, subset in zip(wedges, SUBSETS):
     r     = 0.78
     ax_pie.text(r * np.cos(rad), r * np.sin(rad), subset["label"],
                 ha="center", va="center",
-                fontsize=12, fontweight="bold", color="white",
+                fontsize=17, fontweight="bold", color="white",
                 multialignment="center")
 
 ax_pie.text(0,  0.12, "Sim: LIBERO-90",
             ha="center", va="center",
-            fontsize=12, fontweight="bold", color="#333333")
-ax_pie.text(0, -0.12, "Real: DROID\n(3 tasks each)",
+            fontsize=17, fontweight="bold", color="#333333")
+ax_pie.text(0, -0.12, "Real: DROID",
             ha="center", va="center",
-            fontsize=12, fontweight="bold", color="#555555",
+            fontsize=17, fontweight="bold", color="#555555",
             multialignment="center")
 
-ax_pie.set_title("Four Generalisation Types",
-                 fontsize=16, fontweight="bold", pad=2, y=0.97)
 ax_pie.axis("equal")
+sf_left.text(0.475, 0.98, "Four Generalisation Types",
+             ha="center", va="top",
+             fontsize=17, fontweight="bold", color="#111111")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # RIGHT — perturbation bands
@@ -99,12 +98,12 @@ ax_pie.axis("equal")
 sf_right.text(0.5, 0.98,
               "Perturbation Types — Language, Vision, and Policy Levels",
               ha="center", va="top",
-              fontsize=15, fontweight="bold", color="#222222")
+              fontsize=17, fontweight="bold", color="#222222")
 
 LM, RM        = 0.015, 0.015
 TM, BM        = 0.10,  0.04
 BAND_GAP      = 0.025
-LABEL_W       = 0.155
+LABEL_W       = 0.195
 LABEL_PAD     = 0.006
 BAR_W         = 0.004
 ITEM_MARGIN   = 0.016
@@ -136,12 +135,12 @@ for i, ptype in enumerate(PERTURBATIONS):
     lbl.set_xticks([]); lbl.set_yticks([])
     for sp in lbl.spines.values():
         sp.set_visible(False)
-    lbl.text(0.06, 0.66, ptype["title"],
+    lbl.text(0.06, 0.72, ptype["title"],
              transform=lbl.transAxes,
-             fontsize=15, fontweight="bold", color=ptype["color"], va="center")
-    lbl.text(0.06, 0.30, ptype["subtitle"],
+             fontsize=17, fontweight="bold", color=ptype["color"], va="center")
+    lbl.text(0.06, 0.28, ptype["subtitle"],
              transform=lbl.transAxes,
-             fontsize=11, color="#666666", va="center", style="italic")
+             fontsize=15, color="#666666", va="center", style="italic")
 
     n_items      = len(ptype["items"])
     ix_start     = lx + LABEL_W + ITEM_MARGIN
@@ -157,13 +156,13 @@ for i, ptype in enumerate(PERTURBATIONS):
         for sp in card.spines.values():
             sp.set_linewidth(1.4)
             sp.set_edgecolor(ptype["color"])
-        card.text(0.5, 0.72, name,
+        card.text(0.5, 0.64, name,
                   transform=card.transAxes,
                   fontsize=14.5, fontweight="bold", color=ptype["color"],
                   ha="center", va="center", multialignment="center")
-        card.text(0.5, 0.26, desc,
+        card.text(0.5, 0.34, desc,
                   transform=card.transAxes,
-                  fontsize=13, color="#444444",
+                  fontsize=15, color="#444444",
                   ha="center", va="center", multialignment="center")
 
 # ── Divider ───────────────────────────────────────────────────────────────────

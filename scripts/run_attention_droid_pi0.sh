@@ -166,7 +166,7 @@ fi
 PROMPT="${PROMPT:-pick up the green cup and place it in the blue bowl}"
 
 # ── Attention layers ───────────────────────────────────────────────────────────
-LAYERS="${LAYERS:-15 16 17}"
+LAYERS="${LAYERS:-15 16}"
 
 # ── Image token count override (0 = auto: 512 for DROID pi0/pi0.5) ────────────
 NUM_IMAGE_TOKENS="${NUM_IMAGE_TOKENS:-0}"
