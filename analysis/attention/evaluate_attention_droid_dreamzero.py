@@ -381,24 +381,24 @@ def install_attention_hooks(policy: GrootSimPolicy, layers: List[int]) -> List:
                 q, k, v = args[0], args[1], args[2]
                 # q: (B, Lq, H, d)
                 # Training blockwise path: q.shape[1] == n_act  (action tokens only)
-                # Inference path:          q.shape[1] == frame_seqlen + n_act + n_state (combined)
-                n_combined = frame_seqlen + n_act + n_state
+                # Inference path: q.shape[1] == num_frame_per_block*frame_seqlen + n_act + n_state
+                #   (e.g. 2*880 + 24 + 1 = 1785 for DROID)
                 if q.shape[1] == n_act:
                     q_act = q
-                    n_hist = max(0, k.shape[1] - n_act - n_state)
-                elif q.shape[1] == n_combined:
-                    # Extract just the action queries from the combined inference Q
-                    q_act = q[:, frame_seqlen:frame_seqlen + n_act]
-                    # K layout: [historical_visual (n_hist) | current_visual (frame_seqlen) | action+state]
-                    n_hist = k.shape[1] - frame_seqlen - n_act - n_state
-                    n_hist = max(0, n_hist)
+                    visual_q_len = max(0, k.shape[1] - n_act - n_state)
+                elif q.shape[1] > n_act + n_state:
+                    # Extract action queries: they are the n_act tokens just before final n_state tokens
+                    visual_q_len = q.shape[1] - n_act - n_state
+                    q_act = q[:, visual_q_len:visual_q_len + n_act]
                 else:
                     return  # unexpected shape
 
                 Lk = k.shape[1]
                 visual_end = Lk - n_act - n_state
-                # Offset into K where the current visual frame starts (skip cached history)
-                current_frame_start = n_hist
+                # n_hist: historical visual tokens in K before the current visual block
+                n_hist = max(0, visual_end - visual_q_len)
+                # current_frame_start: offset in K of the last frame_seqlen tokens in current visual
+                current_frame_start = n_hist + max(0, visual_q_len - frame_seqlen)
 
                 with torch.no_grad():
                     q_f = q_act.float().permute(0, 2, 1, 3)
@@ -555,9 +555,12 @@ def build_heatmap_from_self_attn(
     c = calls[0]
     frame_seqlen = c["frame_seqlen"]
     attn = c["attn"]  # (n_act, Lk)
-    # Use current_frame_start to point at the current visual frame in K (not oldest cached frame)
+    # Use current_frame_start to point at the last visual frame in K
     start = c.get("current_frame_start", 0)
-    spatial_attn = attn[:, start:start + frame_seqlen].mean(axis=0)  # (frame_seqlen,)
+    slice_ = attn[:, start:start + frame_seqlen]
+    if slice_.shape[1] == 0:
+        return None
+    spatial_attn = slice_.mean(axis=0)  # (frame_seqlen,)
 
     try:
         h_feat, w_feat = _infer_grid(frame_seqlen)

@@ -252,9 +252,8 @@ def _compute_attn_map() -> np.ndarray | None:
         n_vis = attn.shape[1]
         if n_vis < fsl:
             continue
-        n_frames = n_vis // fsl
-        a = attn[0, : n_frames * fsl]
-        a = a.reshape(n_frames, fsl).mean(0)
+        # Use only the most recent frame's tokens for a sharp, current-step map.
+        a = attn[0, -fsl:]
         maps.append(a)
 
     if not maps:
@@ -732,7 +731,7 @@ def eval_rank0(args, policy, signal_group, local_rank: int):
 
                             frame_vis = img[::-1, ::-1].copy()
                             if args.visualize_attention and action_plan and current_attn_map is not None:
-                                frame_vis = _overlay_attn(frame_vis, current_attn_map, alpha=args.attn_alpha)
+                                frame_vis = _overlay_attn(frame_vis, current_attn_map[::-1, ::-1], alpha=args.attn_alpha)
                             replay_imgs.append(frame_vis)
 
                             is_new_chunk = not action_plan
@@ -785,7 +784,7 @@ def eval_rank0(args, policy, signal_group, local_rank: int):
                                     current_attn_map = _compute_attn_map()
                                     if args.visualize_attention and current_attn_map is not None:
                                         replay_imgs[-1] = _overlay_attn(
-                                            replay_imgs[-1], current_attn_map, alpha=args.attn_alpha
+                                            replay_imgs[-1], current_attn_map[::-1, ::-1], alpha=args.attn_alpha
                                         )
 
                                 if (args.compute_attention_ratio or args.compute_attention_iou) and current_attn_map is not None:

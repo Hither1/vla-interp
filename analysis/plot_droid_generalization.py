@@ -1,6 +1,6 @@
 """Plot DROID generalization experiment success rates from generalization_droid.md.
 
-Produces three grouped bar chart figures:
+Produces three radar plot figures:
   fig1_droid_language.png  -- Language perturbation success rates
   fig2_droid_visual.png    -- Visual perturbation success rates
   fig3_droid_policy.png    -- Policy perturbation success rates
@@ -16,6 +16,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.lines import Line2D
 
 # ── Color / style constants (consistent with plot_generalization.py) ──────────
 
@@ -34,12 +35,12 @@ SUITE_DISPLAY = {
 SUITES = [s for s in SUITE_DISPLAY if s != "DROID-Com"]  # DROID-Com commented out for now
 
 plt.rcParams.update({
-    "font.size": 13,
-    "axes.titlesize": 14,
-    "axes.labelsize": 13,
-    "legend.fontsize": 12,
-    "xtick.labelsize": 12,
-    "ytick.labelsize": 12,
+    "font.size": 17,
+    "axes.titlesize": 18,
+    "axes.labelsize": 17,
+    "legend.fontsize": 16,
+    "xtick.labelsize": 16,
+    "ytick.labelsize": 16,
 })
 
 # ── Hard-coded success rate data from generalization_droid.md ─────────────────
@@ -132,53 +133,45 @@ POLICY_CONDITIONS = ["original", "random action 25%", "object shift x"]
 
 # ── Plot helper ───────────────────────────────────────────────────────────────
 
-def _plot_section(data, conditions, title, out_path):
-    """Grouped bar chart: one subplot per suite, conditions on x-axis, models as bar groups."""
-    n_suites = len(SUITES)
-    fig, axes = plt.subplots(1, n_suites, figsize=(4.5 * n_suites, 4.5), sharey=True)
-    fig.suptitle(title, fontsize=15, fontweight="bold", y=1.01)
+def _plot_radar(ax, suite_data, conditions, title):
+    angles = np.linspace(0, 2 * np.pi, len(conditions), endpoint=False)
+    closed_angles = np.concatenate([angles, [angles[0]]])
 
-    n_models = len(MODELS)
-    bar_width = 0.75 / n_models
-    x = np.arange(len(conditions))
+    for model in MODELS:
+        values = [suite_data[cond][model] for cond in conditions]
+        closed_values = np.concatenate([values, [values[0]]])
+        ax.plot(closed_angles, closed_values, color=MODEL_COLORS[model], lw=2.4, label=model)
+        ax.fill(closed_angles, closed_values, color=MODEL_COLORS[model], alpha=0.10)
+
+    ax.set_title(title, fontsize=18, pad=18)
+    ax.set_theta_offset(np.pi / 2)
+    ax.set_theta_direction(-1)
+    ax.set_xticks(angles)
+    ax.set_xticklabels(conditions, fontsize=16)
+    ax.tick_params(axis="x", pad=8)
+    ax.set_ylim(0, 100)
+    ax.set_yticks([20, 40, 60, 80, 100])
+    ax.set_yticklabels([f"{v}%" for v in [20, 40, 60, 80, 100]], fontsize=15)
+    ax.set_rlabel_position(0)
+    ax.grid(True, ls="--", alpha=0.4)
+
+
+def _plot_section(data, conditions, title, out_path):
+    """Radar plots: one subplot per suite, conditions around the circle, models as traces."""
+    n_suites = len(SUITES)
+    fig, axes = plt.subplots(
+        1, n_suites, figsize=(5.0 * n_suites, 5.0),
+        subplot_kw={"projection": "polar"}
+    )
+    fig.suptitle(title, fontsize=19, fontweight="bold", y=1.01)
 
     for ax, suite in zip(axes, SUITES):
-        suite_data = data[suite]
-        for i, model in enumerate(MODELS):
-            heights = [suite_data[cond][model] for cond in conditions]
-            offset = (i - n_models / 2.0 + 0.5) * bar_width
-            bars = ax.bar(
-                x + offset, heights, width=bar_width * 0.92,
-                color=MODEL_COLORS[model], label=model, zorder=3,
-            )
-            # Label bars with non-zero values
-            for bar, h in zip(bars, heights):
-                if h > 0:
-                    ax.text(
-                        bar.get_x() + bar.get_width() / 2,
-                        bar.get_height() + 1,
-                        f"{h}%",
-                        ha="center", va="bottom", fontsize=12, color="black",
-                    )
+        _plot_radar(ax, data[suite], conditions, SUITE_DISPLAY[suite])
 
-        ax.set_title(SUITE_DISPLAY[suite], fontsize=14)
-        ax.set_xticks(x)
-        ax.set_xticklabels(conditions, rotation=25, ha="right", fontsize=12)
-        ax.yaxis.grid(True, ls="--", alpha=0.4, zorder=0)
-        ax.set_axisbelow(True)
-        ax.set_ylim(0, 105)
-
-    axes[0].set_ylabel("Success Rate (%)", fontsize=13)
-
-    # Single legend on the first axis
-    handles = [
-        plt.Rectangle((0, 0), 1, 1, color=MODEL_COLORS[m], label=m)
-        for m in MODELS
-    ]
-    axes[-1].legend(handles=handles, loc="upper right", fontsize=12, framealpha=0.9)
+    handles = [Line2D([0], [0], color=MODEL_COLORS[m], lw=3, label=m) for m in MODELS]
+    fig.legend(handles=handles, loc="upper right", fontsize=16, frameon=False)
 
     fig.tight_layout()
-    # fig.subplots_adjust(wspace=0.08)
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     fig.savefig(out_path, dpi=150, bbox_inches="tight")
     pdf_path = os.path.splitext(out_path)[0] + ".pdf"
@@ -188,7 +181,7 @@ def _plot_section(data, conditions, title, out_path):
 
 
 def _plot_combined(out_dir):
-    """Single figure with 3 rows (one per perturbation type), 4 cols (one per suite)."""
+    """Single figure with 3 rows (one per perturbation type), 4 radar plots per suite."""
     sections = [
         (LANGUAGE_DATA, LANGUAGE_CONDITIONS, "Language Perturbation"),
         (VISUAL_DATA,   VISUAL_CONDITIONS,   "Visual Perturbation"),
@@ -199,52 +192,22 @@ def _plot_combined(out_dir):
     n_cols = len(SUITES)
     fig, axes = plt.subplots(
         n_rows, n_cols,
-        figsize=(4.2 * n_cols, 3.8 * n_rows),
-        sharey="row",
+        figsize=(4.7 * n_cols, 4.7 * n_rows),
+        subplot_kw={"projection": "polar"},
     )
-    fig.suptitle("DROID Generalization – Success Rates", fontsize=17, fontweight="bold", y=1.01)
-
-    n_models = len(MODELS)
-    bar_width = 0.75 / n_models
+    fig.suptitle("DROID Generalization – Success Rates", fontsize=21, fontweight="bold", y=1.01)
 
     for row, (data, conditions, section_title) in enumerate(sections):
-        x = np.arange(len(conditions))
         for col, suite in enumerate(SUITES):
             ax = axes[row][col]
-            suite_data = data[suite]
-            for i, model in enumerate(MODELS):
-                heights = [suite_data[cond][model] for cond in conditions]
-                offset = (i - n_models / 2.0 + 0.5) * bar_width
-                bars = ax.bar(
-                    x + offset, heights, width=bar_width * 0.92,
-                    color=MODEL_COLORS[model], label=model, zorder=3,
-                )
-                for bar, h in zip(bars, heights):
-                    if h > 0:
-                        ax.text(
-                            bar.get_x() + bar.get_width() / 2,
-                            bar.get_height() + 1,
-                            f"{h}%",
-                            ha="center", va="bottom", fontsize=11, color="black",
-                        )
-
-            ax.set_xticks(x)
-            ax.set_xticklabels(conditions, rotation=25, ha="right", fontsize=11)
-            ax.yaxis.grid(True, ls="--", alpha=0.4, zorder=0)
-            ax.set_axisbelow(True)
-            ax.set_ylim(0, 108)
-
+            _plot_radar(ax, data[suite], conditions, SUITE_DISPLAY[suite] if row == 0 else "")
             if col == 0:
-                ax.set_ylabel(f"{section_title}\nSuccess Rate (%)", fontsize=12)
-            if row == 0:
-                ax.set_title(SUITE_DISPLAY[suite], fontsize=14, fontweight="bold")
+                ax.text(-0.22, 0.5, f"{section_title}\nSuccess Rate (%)",
+                        transform=ax.transAxes, rotation=90,
+                        va="center", ha="center", fontsize=16)
 
-    # Shared legend (bottom right panel)
-    handles = [
-        plt.Rectangle((0, 0), 1, 1, color=MODEL_COLORS[m], label=m)
-        for m in MODELS
-    ]
-    axes[-1][-1].legend(handles=handles, loc="upper right", fontsize=12, framealpha=0.9)
+    handles = [Line2D([0], [0], color=MODEL_COLORS[m], lw=3, label=m) for m in MODELS]
+    fig.legend(handles=handles, loc="upper right", fontsize=16, frameon=False)
 
     fig.tight_layout()
     os.makedirs(out_dir, exist_ok=True)
