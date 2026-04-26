@@ -3,11 +3,11 @@
 #SBATCH --output=/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/logs/attn_droid_dreamzero_%j.log
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --gpus-per-node=4
 #SBATCH --cpus-per-task=32
 #SBATCH --mem=500G
-#SBATCH --account=kempner_grads
-#SBATCH --partition=kempner_h100
+#SBATCH -p gpu_h200,seas_gpu,gpu
+#SBATCH --gres=gpu:nvidia_h200:2
+#SBATCH --account=gil_lab
 #SBATCH --time=6:00:00
 #SBATCH --exclusive
 #SBATCH --mail-user=csu@g.harvard.edu

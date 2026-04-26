@@ -334,8 +334,9 @@ class DiffusionPolicy(nn.Module):
 
     def _init_text_encoder(self, task_descs: List[str], task_embed_dim: int):
         """Encode task descriptions with T5, precompute and cache."""
-        tokenizer = T5Tokenizer.from_pretrained("t5-small")
-        t5 = T5EncoderModel.from_pretrained("t5-small")
+        _t5_path = "/n/netscratch/sham_lab/Lab/chloe00/huggingface/models--t5-small/snapshots/df1b051c49625cf57a3d0d8d3863ed4d13564fe4"
+        tokenizer = T5Tokenizer.from_pretrained(_t5_path)
+        t5 = T5EncoderModel.from_pretrained(_t5_path)
         t5.eval()
         embs = []
         with torch.no_grad():

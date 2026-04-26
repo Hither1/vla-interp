@@ -2,12 +2,15 @@
 #SBATCH --job-name=dp-perturb
 #SBATCH --output=/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/logs/dp_perturb_%j.log
 #SBATCH --nodes=1
+# SBATCH --ntasks-per-node=1
+# SBATCH --gpus-per-node=1
+# SBATCH --mem=128G
 #SBATCH --ntasks-per-node=1
-#SBATCH --gpus-per-node=1
-#SBATCH --cpus-per-task=16
-#SBATCH --mem=128G
-#SBATCH --account=kempner_grads
-#SBATCH --partition=kempner
+#SBATCH -t 1-00:00
+#SBATCH -p gpu_h200,seas_gpu,gpu
+#SBATCH --gres=gpu:nvidia_h200:1
+#SBATCH --mem=128GB
+#SBATCH --account=gil_lab
 #SBATCH --time=12:00:00
 #SBATCH --mail-user=csu@g.harvard.edu
 #SBATCH --mail-type=END
@@ -114,6 +117,7 @@ OBJECT_SHIFT_Y_STD="${OBJECT_SHIFT_Y_STD:-0.0}"
 TASK_SUITE="${TASK_SUITE:-libero_10}"
 NUM_TRIALS="${NUM_TRIALS:-20}"
 SEED="${SEED:-0}"
+VISUALIZE_ATTENTION="${VISUALIZE_ATTENTION:-false}"
 
 # ── Prompt sweep: re-submit one job per mode then exit ────────────────────────
 if [[ "${PROMPT_MODE}" == "all" ]]; then
@@ -227,6 +231,9 @@ for SUITE in "${SUITES[@]}"; do
     VIDEO_OUT="${WORKDIR}/data/libero/dp/perturb/${PERTURB_TAG}/${SUITE}"
     mkdir -p "${VIDEO_OUT}"
 
+    VIS_ATTN_FLAG=""
+    [[ "${VISUALIZE_ATTENTION}" == "true" ]] && VIS_ATTN_FLAG="--visualize-attention"
+
     python "${WORKDIR}/examples/libero/dp_eval.py" \
         --ckpt "${CKPT}" \
         --task-suite-name "${SUITE}" \
@@ -245,7 +252,8 @@ for SUITE in "${SUITES[@]}"; do
         --random-action-scale "${RANDOM_ACTION_SCALE}" \
         --object-shift-x-std "${OBJECT_SHIFT_X_STD}" \
         --object-shift-y-std "${OBJECT_SHIFT_Y_STD}" \
-        --video-out-path "${VIDEO_OUT}"
+        --video-out-path "${VIDEO_OUT}" \
+        ${VIS_ATTN_FLAG}
 
     echo "Finished: ${SUITE}"
 done

@@ -379,17 +379,31 @@ def install_attention_hooks(policy: GrootSimPolicy, layers: List[int]) -> List:
                 if len(args) < 3:
                     return
                 q, k, v = args[0], args[1], args[2]
-                # q: (B, Lq, H, d);  action block identified by q.shape[1] == n_act
-                if q.shape[1] != n_act:
-                    return
+                # q: (B, Lq, H, d)
+                # Training blockwise path: q.shape[1] == n_act  (action tokens only)
+                # Inference path:          q.shape[1] == frame_seqlen + n_act + n_state (combined)
+                n_combined = frame_seqlen + n_act + n_state
+                if q.shape[1] == n_act:
+                    q_act = q
+                    n_hist = max(0, k.shape[1] - n_act - n_state)
+                elif q.shape[1] == n_combined:
+                    # Extract just the action queries from the combined inference Q
+                    q_act = q[:, frame_seqlen:frame_seqlen + n_act]
+                    # K layout: [historical_visual (n_hist) | current_visual (frame_seqlen) | action+state]
+                    n_hist = k.shape[1] - frame_seqlen - n_act - n_state
+                    n_hist = max(0, n_hist)
+                else:
+                    return  # unexpected shape
 
                 Lk = k.shape[1]
                 visual_end = Lk - n_act - n_state
+                # Offset into K where the current visual frame starts (skip cached history)
+                current_frame_start = n_hist
 
                 with torch.no_grad():
-                    q_f = q.float().permute(0, 2, 1, 3)
+                    q_f = q_act.float().permute(0, 2, 1, 3)
                     k_f = k.float().permute(0, 2, 1, 3)
-                    scale = q.shape[-1] ** -0.5
+                    scale = q_act.shape[-1] ** -0.5
                     attn = torch.softmax(
                         torch.matmul(q_f * scale, k_f.transpose(-2, -1)), dim=-1
                     )  # (B, H, n_act, Lk)
@@ -402,6 +416,7 @@ def install_attention_hooks(policy: GrootSimPolicy, layers: List[int]) -> List:
                     "n_act": n_act,
                     "n_state": n_state,
                     "frame_seqlen": frame_seqlen,
+                    "current_frame_start": current_frame_start,
                 })
             return hook
 
@@ -519,12 +534,14 @@ def _infer_grid(frame_seqlen: int) -> Tuple[int, int]:
     side = int(round(frame_seqlen ** 0.5))
     if side * side == frame_seqlen:
         return side, side
-    for h in range(1, frame_seqlen + 1):
+    # Find the most square-ish factorization (largest h ≤ sqrt)
+    best: Optional[Tuple[int, int]] = None
+    for h in range(1, int(frame_seqlen ** 0.5) + 1):
         if frame_seqlen % h == 0:
-            w = frame_seqlen // h
-            if abs(h - w) <= 4:
-                return h, w
-    raise ValueError(f"Cannot infer grid from frame_seqlen={frame_seqlen}")
+            best = (h, frame_seqlen // h)
+    if best is None or best[1] / best[0] > 10:
+        raise ValueError(f"Cannot infer grid from frame_seqlen={frame_seqlen}")
+    return best
 
 
 def build_heatmap_from_self_attn(
@@ -532,13 +549,15 @@ def build_heatmap_from_self_attn(
     image_h: int,
     image_w: int,
 ) -> Optional[np.ndarray]:
-    """Build spatial heatmap from the first action-block self-attention call (→ first image frame)."""
+    """Build spatial heatmap from the first action-block self-attention call (→ current image frame)."""
     if not calls:
         return None
     c = calls[0]
     frame_seqlen = c["frame_seqlen"]
     attn = c["attn"]  # (n_act, Lk)
-    spatial_attn = attn[:, :frame_seqlen].mean(axis=0)  # (frame_seqlen,)
+    # Use current_frame_start to point at the current visual frame in K (not oldest cached frame)
+    start = c.get("current_frame_start", 0)
+    spatial_attn = attn[:, start:start + frame_seqlen].mean(axis=0)  # (frame_seqlen,)
 
     try:
         h_feat, w_feat = _infer_grid(frame_seqlen)

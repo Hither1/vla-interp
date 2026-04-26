@@ -103,6 +103,8 @@ class Args:
     compute_attention_iou: bool = False
     iou_threshold_percentile: float = 90.0
 
+    task_id: int = -1  # -1 = run all tasks; otherwise run only this task index
+
 
 SYNONYM_MAP = {
     "pick": ["grab", "grasp", "take", "lift"],
@@ -602,7 +604,7 @@ def get_libero_env(task, resolution, seed, compute_attention_iou=False):
                 camera_heights=resolution,
                 camera_widths=resolution,
             )
-            env.seed(seed)
+            np.random.seed(seed)
             return env, task.language
         except Exception as e:
             logging.warning("SegmentationRenderEnv unavailable (%s). Falling back to OffScreenRenderEnv.", e)
@@ -613,7 +615,7 @@ def get_libero_env(task, resolution, seed, compute_attention_iou=False):
         camera_heights=resolution,
         camera_widths=resolution,
     )
-    env.seed(seed)
+    np.random.seed(seed)
     return env, task.language
 
 
@@ -663,6 +665,8 @@ def eval_rank0(args, policy, signal_group, local_rank: int):
 
     try:
         for task_id in tqdm.tqdm(range(n_tasks), desc="Tasks"):
+            if args.task_id >= 0 and task_id != args.task_id:
+                continue
             task = suite.get_task(task_id)
             init_states = suite.get_task_init_states(task_id)
             desc = task.language

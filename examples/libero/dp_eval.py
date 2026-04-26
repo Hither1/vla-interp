@@ -33,18 +33,76 @@ import json
 import logging
 import pathlib
 
+import cv2
 import imageio
 import numpy as np
 from scipy.spatial.transform import Rotation
 from scipy.stats import gaussian_kde
 import torch
+import torch.nn.functional as F
 import tqdm
 import tyro
 
-from dp_scratch.model import DiffusionPolicy
+from dp_scratch.model import DiffusionPolicy, IMAGENET_MEAN, IMAGENET_STD, _to_tensor_img
 from policy_perturbations import PolicyPerturbConfig, apply_object_shift, maybe_perturb_action
 from visual_perturbations import VisualPerturbConfig, perturb_image
 
+
+# ── GradCAM for ResNet vision encoder ────────────────────────────────────────
+
+class GradCAMExtractor:
+    """GradCAM on ResNet layer4, used as an attention proxy for the DP encoder."""
+
+    def __init__(self, model: DiffusionPolicy):
+        self.model = model
+        self._acts: torch.Tensor | None = None
+        self._grads: torch.Tensor | None = None
+        target = model.vision_enc.net.layer4
+        self._fwd = target.register_forward_hook(
+            lambda m, i, o: setattr(self, "_acts", o)
+        )
+        self._bwd = target.register_full_backward_hook(
+            lambda m, gi, go: setattr(self, "_grads", go[0])
+        )
+
+    def compute(self, img_hwc: np.ndarray) -> np.ndarray:
+        """
+        img_hwc: (H, W, 3) uint8 — the image seen by the policy (may be perturbed).
+        Returns: (H, W) GradCAM heatmap in [0, 1].
+        """
+        H, W = img_hwc.shape[:2]
+        device = next(self.model.parameters()).device
+        x = _to_tensor_img(img_hwc).to(device)  # (3, 224, 224), [0,1]
+        x_norm = (x.unsqueeze(0) - IMAGENET_MEAN.to(device)) / IMAGENET_STD.to(device)
+        self.model.vision_enc.zero_grad()
+        with torch.enable_grad():
+            feats = self.model.vision_enc(x_norm)  # (1, feat_dim)
+            feats.norm().backward()
+        acts = self._acts.detach()   # (1, C, h, w)
+        grads = self._grads.detach() # (1, C, h, w)
+        weights = grads.mean(dim=(-2, -1), keepdim=True)
+        cam = F.relu((weights * acts).sum(dim=1, keepdim=True))  # (1, 1, h, w)
+        cam = F.interpolate(cam, size=(H, W), mode="bilinear", align_corners=False)
+        cam = cam.squeeze().cpu().numpy()
+        lo, hi = cam.min(), cam.max()
+        return (cam - lo) / (hi - lo + 1e-8)
+
+    def remove(self):
+        self._fwd.remove()
+        self._bwd.remove()
+
+
+def _overlay_heatmap(img: np.ndarray, heatmap: np.ndarray, alpha: float = 0.45) -> np.ndarray:
+    """img: (H, W, 3) uint8; heatmap: (H, W) [0,1] → overlaid (H, W, 3) uint8."""
+    heat_u8 = (heatmap * 255).astype(np.uint8)
+    heat_bgr = cv2.applyColorMap(heat_u8, cv2.COLORMAP_JET)
+    heat_rgb = cv2.cvtColor(heat_bgr, cv2.COLOR_BGR2RGB)
+    if heat_rgb.shape[:2] != img.shape[:2]:
+        heat_rgb = cv2.resize(heat_rgb, (img.shape[1], img.shape[0]))
+    return (img.astype(np.float32) * (1 - alpha) + heat_rgb.astype(np.float32) * alpha).clip(0, 255).astype(np.uint8)
+
+
+# ── Constants ─────────────────────────────────────────────────────────────────
 
 LIBERO_DUMMY_ACTION = [0.0] * 6 + [-1.0]
 LIBERO_ENV_RESOLUTION = 256
@@ -258,6 +316,8 @@ class Args:
 
     # ── Output ───────────────────────────────────────────────────────────
     video_out_path: str = "data/libero/dp/videos"
+    visualize_attention: bool = False
+    """Save GradCAM heatmap overlays at each replan step (agentview + wrist side-by-side)."""
 
     # ── Prompt perturbation ──────────────────────────────────────────────
     prompt_mode: str = "original"
@@ -365,7 +425,7 @@ def _get_libero_env(task, resolution, seed):
         camera_heights=resolution,
         camera_widths=resolution,
     )
-    env.seed(seed)
+    np.random.seed(seed)
     return env, task.language
 
 
@@ -417,6 +477,8 @@ def eval_libero(args: Args) -> None:
     model.eval()
     logging.info("Model loaded.")
 
+    gradcam = GradCAMExtractor(model) if args.visualize_attention else None
+
     # ── LIBERO benchmark setup ───────────────────────────────────────────
     benchmark_dict = benchmark.get_benchmark_dict()
     task_suite = benchmark_dict[args.task_suite_name]()
@@ -463,6 +525,7 @@ def eval_libero(args: Args) -> None:
             action_plan = collections.deque()
             action_log = []
             replay_images = []
+            gradcam_frames = []
             t = 0
             done = False
 
@@ -483,6 +546,19 @@ def eval_libero(args: Args) -> None:
                         result = model.infer(obs_dict)
                         action_chunk = result["actions"]  # (horizon, 7)
                         action_plan.extend(action_chunk[:args.replan_steps])
+
+                        if gradcam is not None:
+                            img_agent = obs_dict["observation/image"]   # (H, W, 3) uint8
+                            img_wrist = obs_dict["observation/wrist_image"]
+                            heat_agent = gradcam.compute(img_agent)
+                            heat_wrist = gradcam.compute(img_wrist)
+                            ov_agent = _overlay_heatmap(img_agent, heat_agent)
+                            ov_wrist = _overlay_heatmap(img_wrist, heat_wrist)
+                            # composite: [raw_agent | gradcam_agent | raw_wrist | gradcam_wrist]
+                            H = img_agent.shape[0]
+                            pad = np.full((H, 4, 3), 128, dtype=np.uint8)
+                            composite = np.concatenate([img_agent, pad, ov_agent, pad, img_wrist, pad, ov_wrist], axis=1)
+                            gradcam_frames.append(composite)
 
                     policy_action = action_plan.popleft()
                     action, action_was_perturbed = maybe_perturb_action(policy_action, policy_cfg, policy_rng)
@@ -526,6 +602,16 @@ def eval_libero(args: Args) -> None:
                     out_path / f"rollout_{task_segment}_trial{episode_idx}_{suffix}.mp4",
                     [np.asarray(x) for x in replay_images],
                     fps=10,
+                )
+
+            # ── Save GradCAM attention video ─────────────────────────────
+            if gradcam_frames:
+                attn_dir = out_path / "attention"
+                attn_dir.mkdir(parents=True, exist_ok=True)
+                imageio.mimwrite(
+                    attn_dir / f"gradcam_{task_segment}_trial{episode_idx}_{suffix}.mp4",
+                    gradcam_frames,
+                    fps=max(1, 10 // args.replan_steps),
                 )
 
             # ── Compute metrics ──────────────────────────────────────────

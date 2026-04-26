@@ -2,12 +2,13 @@
 #SBATCH --job-name=dreamzero-libero
 #SBATCH --output=/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/logs/dreamzero_libero_%j.log
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=1
-#SBATCH --gpus-per-node=2
 #SBATCH --cpus-per-task=32
 #SBATCH --mem=500G
-#SBATCH --account=kempner_grads
-#SBATCH --partition=kempner_h100
+#SBATCH --ntasks-per-node=1
+#SBATCH -t 1-00:00
+#SBATCH -p gpu_h200,seas_gpu,gpu
+#SBATCH --gres=gpu:nvidia_h200:2
+#SBATCH --account=gil_lab
 #SBATCH --time=24:00:00
 #SBATCH --mail-user=csu@g.harvard.edu
 #SBATCH --mail-type=END
@@ -34,6 +35,9 @@ export TORCH_SHOW_CPP_STACKTRACES=1
 # Avoid compile / dynamo overhead and odd recompilation behavior
 export DISABLE_TORCH_COMPILE=true
 export TORCHDYNAMO_DISABLE=1
+
+# Avoid CUDA allocator fragmentation when loading large models
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 # Gloo control-plane comms on loopback for single-node torchrun
 export GLOO_SOCKET_IFNAME=lo
@@ -62,7 +66,9 @@ if [[ -z "${CKPT}" ]]; then
     exit 1
 fi
 
-NUM_GPUS="${NUM_GPUS:-2}"
+# Model parallelism supports ip_size=1 or ip_size=2 only; cap auto-detection at 2.
+_detected_gpus=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | wc -l)
+NUM_GPUS="${NUM_GPUS:-$(( _detected_gpus > 2 ? 2 : _detected_gpus ))}"
 ENABLE_DIT_CACHE="${ENABLE_DIT_CACHE:-true}"
 
 # ── Attention visualisation ────────────────────────────────────────────────────
@@ -89,8 +95,9 @@ OBJECT_SHIFT_X_STD="${OBJECT_SHIFT_X_STD:-0.0}"
 OBJECT_SHIFT_Y_STD="${OBJECT_SHIFT_Y_STD:-0.0}"
 
 # ── LIBERO settings ────────────────────────────────────────────────────────────
-TASK_SUITE="${TASK_SUITE:-libero_goal}"
+TASK_SUITE="${TASK_SUITE:-libero_10}"
 NUM_TRIALS="${NUM_TRIALS:-20}"
+TASK_ID="${TASK_ID:--1}"  # -1 = all tasks; set to 0,1,2,... to run one task
 SEED="${SEED:-7}"
 REPLAN_STEPS="${REPLAN_STEPS:-4}"
 
@@ -162,6 +169,7 @@ echo "Seed:                ${SEED}"
 echo "Attn visualize:      ${VISUALIZE_ATTENTION} (alpha=${ATTN_ALPHA})"
 echo "Attn ratio:          ${COMPUTE_ATTENTION_RATIO}"
 echo "Attn IoU:            ${COMPUTE_ATTENTION_IOU}"
+echo "Task ID filter:      ${TASK_ID} (-1 = all)"
 echo "============================================================"
 
 for SUITE in "${SUITES[@]}"; do
@@ -214,6 +222,7 @@ for SUITE in "${SUITES[@]}"; do
             --object-shift-y-std "${OBJECT_SHIFT_Y_STD}" \
             --video-out-path "${VIDEO_OUT}" \
             --attn-alpha "${ATTN_ALPHA}" \
+            --task-id "${TASK_ID}" \
             ${ENABLE_DIT_CACHE_ARG} \
             ${VISUALIZE_ATTN_ARG} \
             ${COMPUTE_ATTN_RATIO_ARG} \
