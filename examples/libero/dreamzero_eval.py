@@ -247,6 +247,8 @@ def _compute_attn_map() -> np.ndarray | None:
 
     maps = []
     for entry in buf:
+        if not (24 <= entry.get("block_idx", -1) <= 28):
+            continue
         attn = entry["attn"]
         fsl = entry["frame_seqlen"]
         n_vis = attn.shape[1]

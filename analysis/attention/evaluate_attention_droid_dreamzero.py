@@ -433,17 +433,15 @@ def install_attention_hooks(policy: GrootSimPolicy, layers: List[int]) -> List:
                 normed_x = args[0]   # (B, S, C)
                 context = args[1]    # (B, T, C) text embeddings
 
-                action_register_length = rec.get("action_register_length")
-                if action_register_length is None or action_register_length == 0:
-                    return
-
+                # action_register_length from pre_hook is unreliable (call uses kwargs, so
+                # args is empty in the pre_hook). For inference there is always exactly one
+                # chunk, so derive it directly from n_act + n_state.
                 B, S, C = normed_x.shape
                 n = module.num_heads
                 d = module.head_dim
 
-                chunk_size = action_register_length // (n_act + n_state)
-                action_horizon = chunk_size * n_act
-                state_horizon = chunk_size * n_state
+                action_horizon = n_act
+                state_horizon = n_state
                 action_start = S - action_horizon - state_horizon
                 action_end = S - state_horizon
                 if action_start < 0 or action_end > S:

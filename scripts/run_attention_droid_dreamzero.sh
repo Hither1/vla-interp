@@ -109,13 +109,50 @@ CKPT="${CKPT:-/n/netscratch/sham_lab/Lab/chloe00/libero/checkpoints/DreamZero-DR
 #
 # Override the remote or root path if needed:
 #   GDRIVE_REMOTE=gdrive  GDRIVE_DREAMZERO_ROOT="DROID/dreamzero"
-PERTURBATION="${PERTURBATION:-original/pick up the green cup and put it in the pink bowl}"
+PERTURBATION="${PERTURBATION:-}"
 GDRIVE_REMOTE="${GDRIVE_REMOTE:-gdrive}"
 GDRIVE_DREAMZERO_ROOT="${GDRIVE_DREAMZERO_ROOT:-DROID/dreamzero}"
 GDRIVE_SPLIT_COMBINED="${GDRIVE_SPLIT_COMBINED:-1}"
 GDRIVE_TMPDIR=""
 
-if [[ -n "${PERTURBATION}" ]]; then
+# ── Local combined video (2x2 grid) ────────────────────────────────────────────
+# If set, split it the same way as Google Drive videos (top=wrist, bottom-L=ext1, bottom-R=ext2).
+# Takes priority over PERTURBATION when VIDEO is not already set.
+LOCAL_COMBINED_VIDEO="${LOCAL_COMBINED_VIDEO:-/n/holylfs06/LABS/sham_lab/Users/chloe00/vla-interp/1.mp4}"
+
+if [[ -z "${VIDEO:-}" && -n "${LOCAL_COMBINED_VIDEO}" && -f "${LOCAL_COMBINED_VIDEO}" ]]; then
+    GDRIVE_TMPDIR="$(mktemp -d)"
+    echo "Splitting local 2x2 grid video: ${LOCAL_COMBINED_VIDEO}"
+    export _COMBINED_VIDEO="${LOCAL_COMBINED_VIDEO}" _GDRIVE_TMPDIR="${GDRIVE_TMPDIR}"
+    python - <<'PYEOF'
+import cv2, os
+src = os.environ["_COMBINED_VIDEO"]
+tmpdir = os.environ["_GDRIVE_TMPDIR"]
+cap = cv2.VideoCapture(src)
+fps = cap.get(cv2.CAP_PROP_FPS) or 10.0
+w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+half_w, half_h = w // 2, h // 2
+fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+wst_w = cv2.VideoWriter(f"{tmpdir}/wrist.mp4",     fourcc, fps, (w,      half_h))
+ext_w = cv2.VideoWriter(f"{tmpdir}/exterior.mp4",  fourcc, fps, (half_w, half_h))
+ex2_w = cv2.VideoWriter(f"{tmpdir}/exterior2.mp4", fourcc, fps, (half_w, half_h))
+while True:
+    ok, frame = cap.read()
+    if not ok:
+        break
+    wst_w.write(frame[:half_h, :])
+    ext_w.write(frame[half_h:, :half_w])
+    ex2_w.write(frame[half_h:, half_w:])
+cap.release(); wst_w.release(); ext_w.release(); ex2_w.release()
+print(f"Split into wrist ({w}x{half_h}), exterior/exterior2 ({half_w}x{half_h})")
+PYEOF
+    VIDEO="${GDRIVE_TMPDIR}/exterior.mp4"
+    VIDEO_EXT2="${GDRIVE_TMPDIR}/exterior2.mp4"
+    VIDEO_WRIST="${GDRIVE_TMPDIR}/wrist.mp4"
+fi
+
+if [[ -n "${PERTURBATION}" && -z "${VIDEO:-}" ]]; then
     GDRIVE_TMPDIR="$(mktemp -d)"
     GDRIVE_SRC="${GDRIVE_REMOTE}:${GDRIVE_DREAMZERO_ROOT}/${PERTURBATION}"
     echo "Downloading from Drive: ${GDRIVE_SRC}"
@@ -200,7 +237,7 @@ NUM_CONTEXT_FRAMES="${NUM_CONTEXT_FRAMES:-4}"   # frames of video history per in
 ENABLE_DIT_CACHE="${ENABLE_DIT_CACHE:-true}"
 
 # ── Attention layers ───────────────────────────────────────────────────────────
-LAYERS="${LAYERS:-37 38}"
+LAYERS="${LAYERS:-24 25 26 27 28}"
 
 # ── Frame sampling ─────────────────────────────────────────────────────────────
 FRAME_STEP="${FRAME_STEP:-3}"
@@ -280,6 +317,8 @@ echo "DIT cache:         ${ENABLE_DIT_CACHE}"
 if [[ -n "${PERTURBATION}" ]]; then
     echo "Perturbation:      ${PERTURBATION} (Drive: ${GDRIVE_REMOTE}:${GDRIVE_DREAMZERO_ROOT}/${PERTURBATION})"
     echo "Data source:       ${VIDEO}${VIDEO_WRIST:+ + ${VIDEO_WRIST}} (from Drive)"
+elif [[ -n "${LOCAL_COMBINED_VIDEO:-}" ]]; then
+    echo "Data source:       ${LOCAL_COMBINED_VIDEO} (local, split)"
 else
     echo "Data source:       ${DATA_DIR:-${VIDEO}}"
 fi
