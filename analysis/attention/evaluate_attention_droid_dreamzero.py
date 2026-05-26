@@ -87,6 +87,12 @@ log = logging.getLogger(__name__)
 # Pass images at the native 320×180 so the check passes; the policy resizes internally.
 IMAGE_HEIGHT = 180
 IMAGE_WIDTH = 320
+# Composite frame layout (DROID 2×2 grid fed to the DiT):
+#   top half  (full width):  wrist (pixel-doubled horizontally)
+#   bottom-left quadrant:    exterior-1 (left)
+#   bottom-right quadrant:   exterior-2 (right)
+COMPOSITE_HEIGHT = 2 * IMAGE_HEIGHT   # 360
+COMPOSITE_WIDTH  = 2 * IMAGE_WIDTH    # 640
 
 
 # ==============================================================================
@@ -99,6 +105,17 @@ def _load_img(path: pathlib.Path) -> np.ndarray:
 
 def _zeros_frame() -> np.ndarray:
     return np.zeros((IMAGE_HEIGHT, IMAGE_WIDTH, 3), dtype=np.uint8)
+
+
+def build_composite_frame(
+    wrist: np.ndarray,
+    ext1: np.ndarray,
+    ext2: np.ndarray,
+) -> np.ndarray:
+    """Build DROID 2×2 composite: [wrist|wrist] top row, [ext1|ext2] bottom row."""
+    top = np.concatenate([wrist, wrist], axis=1)
+    bottom = np.concatenate([ext1, ext2], axis=1)
+    return np.concatenate([top, bottom], axis=0)
 
 
 def _resize(img: np.ndarray) -> np.ndarray:
@@ -143,7 +160,7 @@ def load_frames_from_videos(
     video_wrist: Optional[str],
     frame_step: int = 1,
 ) -> Tuple[List[np.ndarray], List[np.ndarray], List[np.ndarray], List[int]]:
-    def _read(path: Optional[str]) -> List[np.ndarray]:
+    def _read(path: Optional[str], crop_left_half: bool = False) -> List[np.ndarray]:
         if path is None:
             return []
         cap = cv2.VideoCapture(path)
@@ -154,14 +171,22 @@ def load_frames_from_videos(
             if not ret:
                 break
             if i % frame_step == 0:
-                frames.append(_resize(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)))
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                if crop_left_half:
+                    h, w = rgb.shape[:2]
+                    if w > IMAGE_WIDTH:
+                        rgb = rgb[:, :w // 2, :]
+                frames.append(_resize(rgb))
             i += 1
         cap.release()
         return frames
 
     ext1 = _read(video_ext1)
     ext2 = _read(video_ext2)
-    wrist = _read(video_wrist)
+    # Wrist video is the full top row [wrist|wrist] (640-wide); crop to left half
+    # to get a single-camera view before resize, so build_composite_frame can
+    # correctly reconstruct [wrist|wrist] by duplication.
+    wrist = _read(video_wrist, crop_left_half=True)
     n = len(ext1)
     indices = list(range(0, n * frame_step, frame_step))
 
@@ -547,7 +572,11 @@ def build_heatmap_from_self_attn(
     image_h: int,
     image_w: int,
 ) -> Optional[np.ndarray]:
-    """Build spatial heatmap from the first action-block self-attention call (→ current image frame)."""
+    """Build normalized spatial heatmap upsampled to (image_h, image_w).
+
+    For DROID the composite frame is 2×2, so pass COMPOSITE_HEIGHT/WIDTH to get
+    the full grid, then slice per-camera regions with slice_composite_heatmap().
+    """
     if not calls:
         return None
     c = calls[0]
@@ -577,6 +606,34 @@ def build_heatmap_from_self_attn(
     else:
         heatmap_up = np.zeros_like(heatmap_up)
     return heatmap_up
+
+
+def slice_composite_heatmap(
+    composite: np.ndarray,
+    cam_h: int = IMAGE_HEIGHT,
+    cam_w: int = IMAGE_WIDTH,
+) -> Dict[str, np.ndarray]:
+    """Slice a DROID 2×2 composite heatmap into per-camera heatmaps.
+
+    Composite layout (2*cam_h × 2*cam_w):
+      top half  (full width): wrist (pixel-doubled horizontally)
+      bottom-left  quadrant:  exterior-1 (left)
+      bottom-right quadrant:  exterior-2 (right)
+
+    Returns a dict with keys 'ext1', 'ext2', 'wrist', each (cam_h, cam_w) in [0,1].
+    """
+    def _norm(x: np.ndarray) -> np.ndarray:
+        mn, mx = x.min(), x.max()
+        return (x - mn) / (mx - mn) if mx > mn else np.zeros_like(x)
+
+    wrist = composite[:cam_h, :cam_w]          # left half of doubled wrist row
+    ext1  = composite[cam_h:, :cam_w]          # bottom-left
+    ext2  = composite[cam_h:, cam_w:]          # bottom-right
+    return {
+        "wrist": _norm(wrist),
+        "ext1":  _norm(ext1),
+        "ext2":  _norm(ext2),
+    }
 
 
 def compute_iou_from_heatmap(
@@ -877,13 +934,22 @@ def run_analysis_rank0(args, policy, signal_group):
         frame_result["layer"] = "avg"
         frame_result["frame_idx"] = frame_idx
 
-        # Heatmap: average spatial attention across layers
-        layer_heatmaps = [
-            build_heatmap_from_self_attn(recorded[l].get("self_attn", []), IMAGE_HEIGHT, IMAGE_WIDTH)
+        # Heatmap: average spatial attention across layers at composite resolution.
+        # The DiT sees a single 2×2 composite (wrist top, ext1 bottom-left, ext2 bottom-right),
+        # so we build the heatmap at the composite size and slice per-camera regions from it.
+        layer_heatmaps_composite = [
+            build_heatmap_from_self_attn(recorded[l].get("self_attn", []), COMPOSITE_HEIGHT, COMPOSITE_WIDTH)
             for l in valid_layers
         ]
-        layer_heatmaps = [h for h in layer_heatmaps if h is not None]
-        heatmap = np.mean(layer_heatmaps, axis=0) if layer_heatmaps else None
+        layer_heatmaps_composite = [h for h in layer_heatmaps_composite if h is not None]
+        heatmap_composite = np.mean(layer_heatmaps_composite, axis=0) if layer_heatmaps_composite else None
+
+        # Per-camera heatmaps sliced from the composite (each normalized to [0,1])
+        cam_heatmaps: Optional[Dict[str, np.ndarray]] = (
+            slice_composite_heatmap(heatmap_composite) if heatmap_composite is not None else None
+        )
+        # IoU is computed against ext1 (left exterior), which occupies the bottom-left quadrant
+        heatmap = cam_heatmaps["ext1"] if cam_heatmaps is not None else None
 
         if heatmap is not None and seg_mask is not None:
             seg_resized = cv2.resize(
@@ -940,35 +1006,44 @@ def run_analysis_rank0(args, policy, signal_group):
             log.info("Progress: %d/%d frames | last=%.2fs | ETA=%.1f min", done, n, frame_dt, eta / 60.0)
         frame_result["_runtime_sec"] = frame_dt
 
-        if args.save_heatmaps and heatmap is not None:
+        # Build composite image for visualization: [wrist|wrist] / [ext1|ext2]
+        if (args.save_heatmaps or args.save_video) and heatmap_composite is not None:
             from attention_iou import overlay_heatmap
-            mn, mx = heatmap.min(), heatmap.max()
-            heatmap_norm = (heatmap - mn) / (mx - mn) if mx > mn else heatmap
-            viz = overlay_heatmap(ext1, heatmap_norm)
-            save_p = out_dir / "heatmaps" / f"frame{frame_idx:04d}_avg_heatmap.png"
-            Image.fromarray(viz).save(str(save_p))
+            composite_img = build_composite_frame(wrist, ext1, ext2)
+            composite_overlay = overlay_heatmap(composite_img, heatmap_composite)
 
-        # Build video frame
-        if args.save_video and heatmap is not None:
-            from attention_iou import overlay_heatmap
-            mn, mx = heatmap.min(), heatmap.max()
-            heatmap_norm = (heatmap - mn) / (mx - mn) if mx > mn else heatmap
-            overlay = overlay_heatmap(ext1, heatmap_norm)
-            panels = [
-                _label_panel(ext1, "Original"),
-                _label_panel(overlay, f"Avg attention ({layer_label_str})"),
-            ]
-            if seg_mask is not None:
-                seg_resized = cv2.resize(
-                    seg_mask.astype(np.float32), (IMAGE_WIDTH, IMAGE_HEIGHT),
-                    interpolation=cv2.INTER_NEAREST,
+            if args.save_heatmaps:
+                Image.fromarray(composite_overlay).save(
+                    str(out_dir / "heatmaps" / f"frame{frame_idx:04d}_composite_heatmap.png")
                 )
-                seg_disp = (seg_resized[:, :, None] * np.array([0, 0, 255], dtype=np.uint8))
-                seg_panel = np.clip(
-                    ext1.astype(np.int32) + seg_disp.astype(np.int32) // 2, 0, 255
-                ).astype(np.uint8)
-                panels.append(_label_panel(seg_panel, "Segmentation mask"))
-            avg_video_buf.append(np.concatenate(panels, axis=1))
+                if cam_heatmaps is not None:
+                    for cam_name, cam_img in [("ext1", ext1), ("ext2", ext2), ("wrist", wrist)]:
+                        viz = overlay_heatmap(cam_img, cam_heatmaps[cam_name])
+                        Image.fromarray(viz).save(
+                            str(out_dir / "heatmaps" / f"frame{frame_idx:04d}_{cam_name}_heatmap.png")
+                        )
+
+            # Build video frame: composite original and composite with attention overlay.
+            if args.save_video:
+                attn_label = f"Attn ({layer_label_str})"
+                row_panels = [
+                    _label_panel(composite_img, "Combined [wrist|wrist] / [left|right]"),
+                    _label_panel(composite_overlay, attn_label),
+                ]
+                if seg_mask is not None:
+                    seg_resized_ext1 = cv2.resize(
+                        seg_mask.astype(np.float32), (IMAGE_WIDTH, IMAGE_HEIGHT),
+                        interpolation=cv2.INTER_NEAREST,
+                    )
+                    # Embed seg mask at the ext1 (bottom-left) region of the composite
+                    seg_in_composite = np.zeros((COMPOSITE_HEIGHT, COMPOSITE_WIDTH), dtype=np.float32)
+                    seg_in_composite[IMAGE_HEIGHT:, :IMAGE_WIDTH] = seg_resized_ext1
+                    seg_disp = (seg_in_composite[:, :, None] * np.array([0, 0, 255], dtype=np.uint8)).astype(np.uint8)
+                    seg_panel = np.clip(
+                        composite_img.astype(np.int32) + seg_disp.astype(np.int32) // 2, 0, 255
+                    ).astype(np.uint8)
+                    row_panels.append(_label_panel(seg_panel, "Seg mask (ext1 region)"))
+                avg_video_buf.append(np.concatenate(row_panels, axis=0))
 
     # Shutdown workers
     remove_attention_hooks(hooks)

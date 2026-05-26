@@ -228,7 +228,8 @@ if [[ -z "${DATA_DIR}" && -z "${VIDEO}" ]]; then
 fi
 
 # ── Language prompt ────────────────────────────────────────────────────────────
-PROMPT="${PROMPT:-pick up the green cup and put it in the pink bowl}"
+# PROMPT="${PROMPT:-pick up the green cup and put it in the pink bowl}"
+PROMPT="${PROMPT:-pick up the banana and put it on the plate}"
 
 # ── Model / inference settings ────────────────────────────────────────────────
 NUM_GPUS="${NUM_GPUS:-1}"
@@ -255,7 +256,8 @@ USE_SAM3="${USE_SAM3:-0}"
 if [[ -z "${OBJECT_DESCS:-}" && -n "${OBJECT_DESC:-}" ]]; then
     OBJECT_DESCS="${OBJECT_DESC}"
 fi
-OBJECT_DESCS="${OBJECT_DESCS:-green cup,pink bowl}"
+# OBJECT_DESCS="${OBJECT_DESCS:-green cup,pink bowl}"
+OBJECT_DESCS="${OBJECT_DESCS:-banana,plate}"
 IFS=',' read -r -a OBJECT_DESC_ARR <<< "${OBJECT_DESCS}"
 SAM3_CHECKPOINT="${SAM3_CHECKPOINT:-/n/netscratch/sham_lab/Lab/chloe00/models--facebook--sam3/snapshots/3c879f39826c281e95690f02c7821c4de09afae7}"
 SAM3_CONFIDENCE="${SAM3_CONFIDENCE:-0.5}"

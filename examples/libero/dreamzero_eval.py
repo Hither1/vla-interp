@@ -162,7 +162,6 @@ def _configure_rank0_render_env(local_rank: int) -> None:
     """Best-effort EGL-related configuration before any LIBERO/MuJoCo env import."""
     os.environ.setdefault("MUJOCO_GL", "egl")
     os.environ.setdefault("PYOPENGL_PLATFORM", "egl")
-    # Some systems honor this for EGL device selection.
     os.environ.setdefault("EGL_DEVICE_ID", str(local_rank))
 
 
@@ -230,39 +229,221 @@ def perturb_prompt(original: str, mode: str, all_tasks=None, custom: str = "") -
     return original
 
 
+def _factor_grid(n: int) -> tuple[int, int]:
+    best_h, best_w = 1, n
+    for h in range(1, int(math.isqrt(n)) + 1):
+        if n % h == 0:
+            w = n // h
+            if abs(h - w) < abs(best_h - best_w):
+                best_h, best_w = h, w
+    return best_h, best_w
+
+
+def _parse_slice_like(value: Any) -> tuple[int, int] | None:
+    if isinstance(value, slice):
+        if value.start is None or value.stop is None:
+            return None
+        return int(value.start), int(value.stop)
+    if isinstance(value, (tuple, list)) and len(value) == 2:
+        return int(value[0]), int(value[1])
+    return None
+
+
+def _coerce_attn_tensor(attn: Any) -> torch.Tensor:
+    t = torch.as_tensor(attn).detach().float().cpu()
+    if t.ndim == 4:
+        if t.shape[0] == 1:
+            t = t[0]
+        else:
+            t = t.mean(dim=0)
+    return t
+
+
+def _explicit_current_frame_slice(entry: dict[str, Any], axis: str) -> tuple[int, int] | None:
+    candidates = (
+        f"current_frame_{axis}",
+        f"cur_frame_{axis}",
+        f"current_{axis}_slice",
+        f"{axis}_current_frame",
+    )
+    for key in candidates:
+        if key in entry:
+            parsed = _parse_slice_like(entry[key])
+            if parsed is not None:
+                return parsed
+    return None
+
+
+def _infer_visual_prefix_tokens(
+    entry: dict[str, Any],
+    axis_tokens: int,
+    frame_seqlen: int,
+) -> int:
+    for key in (
+        "video_token_length",
+        "visual_token_length",
+        "num_video_tokens",
+        "num_visual_tokens",
+        "video_seqlen",
+        "visual_seqlen",
+    ):
+        if key in entry:
+            n = int(entry[key])
+            if n > 0:
+                return min(axis_tokens, n)
+
+    for key in (
+        "action_register_length",
+        "arl",
+    ):
+        if key in entry:
+            arl = int(entry[key])
+            if 0 <= arl < axis_tokens:
+                return axis_tokens - arl
+
+    if frame_seqlen > 0:
+        return (axis_tokens // frame_seqlen) * frame_seqlen
+    return axis_tokens
+
+
+def _current_visual_slice(
+    entry: dict[str, Any],
+    axis: str,
+    axis_tokens: int,
+    frame_seqlen: int,
+) -> tuple[int, int] | None:
+    explicit = _explicit_current_frame_slice(entry, axis)
+    if explicit is not None:
+        start, end = explicit
+        start = max(0, min(axis_tokens, start))
+        end = max(start, min(axis_tokens, end))
+        if end > start:
+            return start, end
+
+    visual_tokens = _infer_visual_prefix_tokens(entry, axis_tokens, frame_seqlen)
+    visual_tokens = min(axis_tokens, visual_tokens)
+    visual_tokens = (visual_tokens // frame_seqlen) * frame_seqlen
+    if visual_tokens < frame_seqlen or frame_seqlen <= 0:
+        return None
+    return visual_tokens - frame_seqlen, visual_tokens
+
+
+def _grid_from_entry(entry: dict[str, Any], frame_seqlen: int) -> tuple[int, int]:
+    for h_key, w_key in (
+        ("h_grid", "w_grid"),
+        ("grid_h", "grid_w"),
+        ("latent_h", "latent_w"),
+        ("token_h", "token_w"),
+    ):
+        if h_key in entry and w_key in entry:
+            return int(entry[h_key]), int(entry[w_key])
+    return _factor_grid(frame_seqlen)
+
+
+def _extract_entry_attn_map(entry: dict[str, Any]) -> tuple[torch.Tensor, tuple[int, int]] | None:
+    attn = _coerce_attn_tensor(entry["attn"])
+    frame_seqlen = int(entry["frame_seqlen"])
+    if frame_seqlen <= 0:
+        return None
+
+    grid_h, grid_w = _grid_from_entry(entry, frame_seqlen)
+
+    if attn.ndim == 1:
+        key_tokens = attn.shape[0]
+        k_slice = _current_visual_slice(entry, "k", key_tokens, frame_seqlen)
+        if k_slice is None:
+            return None
+        k0, k1 = k_slice
+        per_key = attn[k0:k1]
+
+    elif attn.ndim == 2:
+        rows, cols = attn.shape
+
+        # Heuristic: [heads, keys] is common if queries were already reduced upstream.
+        if rows <= 64 and cols >= frame_seqlen and cols >= rows:
+            k_slice = _current_visual_slice(entry, "k", cols, frame_seqlen)
+            if k_slice is None:
+                return None
+            k0, k1 = k_slice
+            per_key_heads = attn[:, k0:k1]  # (heads, frame_seqlen)
+            if entry.get("per_head") and per_key_heads.shape[0] > 1:
+                # Pick the head with the highest peak attention — sharpest spatial signal.
+                best = per_key_heads.max(dim=1).values.argmax()
+                per_key = per_key_heads[best]
+            else:
+                per_key = per_key_heads.mean(dim=0)
+        else:
+            q_slice = _current_visual_slice(entry, "q", rows, frame_seqlen)
+            k_slice = _current_visual_slice(entry, "k", cols, frame_seqlen)
+            if q_slice is None or k_slice is None:
+                return None
+            q0, q1 = q_slice
+            k0, k1 = k_slice
+            if q1 <= q0 or k1 <= k0:
+                return None
+            per_key = attn[q0:q1, k0:k1].mean(dim=0)
+
+    elif attn.ndim == 3:
+        heads, queries, keys = attn.shape
+        q_slice = _current_visual_slice(entry, "q", queries, frame_seqlen)
+        k_slice = _current_visual_slice(entry, "k", keys, frame_seqlen)
+        if q_slice is None or k_slice is None:
+            return None
+        q0, q1 = q_slice
+        k0, k1 = k_slice
+        if q1 <= q0 or k1 <= k0:
+            return None
+        per_key = attn[:, q0:q1, k0:k1].mean(dim=(0, 1))
+    else:
+        logging.warning("Unsupported attention tensor rank %d for block %s", attn.ndim, entry.get("block_idx"))
+        return None
+
+    if per_key.numel() != frame_seqlen:
+        if grid_h * grid_w == per_key.numel():
+            return per_key, (grid_h, grid_w)
+        inferred_h, inferred_w = _factor_grid(int(per_key.numel()))
+        return per_key, (inferred_h, inferred_w)
+
+    return per_key, (grid_h, grid_w)
+
+
 def _compute_attn_map() -> np.ndarray | None:
     buf = get_attn_buffer()
     if not buf:
         return None
 
-    frame_seqlen = buf[0]["frame_seqlen"]
-
-    best_h, best_w = 1, frame_seqlen
-    for h in range(1, int(math.isqrt(frame_seqlen)) + 1):
-        if frame_seqlen % h == 0:
-            w = frame_seqlen // h
-            if abs(h - w) < abs(best_h - best_w):
-                best_h, best_w = h, w
-    h_grid, w_grid = best_h, best_w
+    # The buffer contains one entry per (denoising step × DiT block). Averaging
+    # all steps collapses spatial structure because the KV cache is identical
+    # across all 16 denoising steps. Use only the last entry per block instead
+    # (final denoising step = lowest noise, most confident attention pattern).
+    last_entry_per_block: dict[int, dict] = {}
+    for entry in buf:
+        idx = entry.get("block_idx", -1)
+        if 28 <= idx <= 30:
+            last_entry_per_block[idx] = entry
 
     maps = []
-    for entry in buf:
-        if not (24 <= entry.get("block_idx", -1) <= 28):
-            continue
-        attn = entry["attn"]
-        fsl = entry["frame_seqlen"]
-        n_vis = attn.shape[1]
-        if n_vis < fsl:
-            continue
-        # Use only the most recent frame's tokens for a sharp, current-step map.
-        a = attn[0, -fsl:]
-        maps.append(a)
+    target_grid = None
 
-    if not maps:
+    for entry in last_entry_per_block.values():
+        extracted = _extract_entry_attn_map(entry)
+        if extracted is None:
+            continue
+
+        per_key, grid = extracted
+        if target_grid is None:
+            target_grid = grid
+
+        if per_key.numel() != target_grid[0] * target_grid[1]:
+            continue
+
+        maps.append(per_key)
+
+    if not maps or target_grid is None:
         return None
 
-    mean_map = torch.stack(maps).mean(0)
-    return mean_map.numpy().reshape(h_grid, w_grid)
+    mean_map = torch.stack(maps, dim=0).mean(dim=0)
+    return mean_map.numpy().reshape(target_grid[0], target_grid[1])
 
 
 def _overlay_attn(img_uint8: np.ndarray, attn_map: np.ndarray, alpha: float = 0.5) -> np.ndarray:
@@ -731,7 +912,11 @@ def eval_rank0(args, policy, signal_group, local_rank: int):
                             img = perturb_image(np.ascontiguousarray(obs["agentview_image"]), vis_cfg)
                             wrist = perturb_image(np.ascontiguousarray(obs["robot0_eye_in_hand_image"]), vis_cfg)
 
-                            frame_vis = img[::-1, ::-1].copy()
+                            h_img, w_img = img.shape[:2]
+                            composite = np.zeros((2 * h_img, 2 * w_img, 3), dtype=img.dtype)
+                            composite[:h_img, :w_img] = img
+                            composite[h_img:, :w_img] = wrist
+                            frame_vis = composite[::-1, ::-1].copy()
                             if args.visualize_attention and action_plan and current_attn_map is not None:
                                 frame_vis = _overlay_attn(frame_vis, current_attn_map[::-1, ::-1], alpha=args.attn_alpha)
                             replay_imgs.append(frame_vis)
@@ -784,6 +969,15 @@ def eval_rank0(args, policy, signal_group, local_rank: int):
                                 if need_attn_capture:
                                     set_attn_capture(False)
                                     current_attn_map = _compute_attn_map()
+                                    # The model processes a 2×2 tiled image (agentview top-left,
+                                    # eye_in_hand bottom-left, right columns black). Overlay the
+                                    # full map on the composite frame for visualization; use only
+                                    # the agentview quadrant for IoU (seg mask is front-camera only).
+                                    if current_attn_map is not None:
+                                        H, W = current_attn_map.shape
+                                        agentview_attn_map = current_attn_map[:H // 2, :W // 2]
+                                    else:
+                                        agentview_attn_map = None
                                     if args.visualize_attention and current_attn_map is not None:
                                         replay_imgs[-1] = _overlay_attn(
                                             replay_imgs[-1], current_attn_map[::-1, ::-1], alpha=args.attn_alpha
@@ -810,7 +1004,7 @@ def eval_rank0(args, policy, signal_group, local_rank: int):
                                         if seg_raw.ndim == 3:
                                             seg_raw = seg_raw[:, :, 0]
                                         iou_result = _compute_iou(
-                                            current_attn_map,
+                                            agentview_attn_map,
                                             seg_raw,
                                             percentile=args.iou_threshold_percentile,
                                         )

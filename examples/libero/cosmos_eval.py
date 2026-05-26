@@ -20,6 +20,7 @@ Usage:
 """
 
 import collections
+import contextlib
 import dataclasses
 import json
 import logging
@@ -27,7 +28,9 @@ import math
 import pathlib
 import sys
 
+import cv2
 import imageio
+import matplotlib.cm as cm
 import numpy as np
 from scipy.stats import gaussian_kde
 import tqdm
@@ -106,6 +109,100 @@ from cosmos_policy.experiments.robot.cosmos_utils import (
 from libero.libero import benchmark, get_libero_path
 from libero.libero.envs import OffScreenRenderEnv
 from policy_perturbations import PolicyPerturbConfig, apply_object_shift, maybe_perturb_action
+
+# ── Attention visualization ──────────────────────────────────────────────────
+# Monkey-patches Attention.compute_attention to capture Q, K from self-attention
+# blocks so we can compute action-frame → primary-image spatial attention maps.
+#
+# LIBERO token layout (T=9, H=14, W=14 → 196 tokens/frame):
+#   t=0 blank | t=1 proprio | t=2 wrist | t=3 primary | t=4 action |
+#   t=5 fut-proprio | t=6 fut-wrist | t=7 fut-primary | t=8 value
+#
+# We capture: softmax(Q_action @ K_all^T)[primary_cols]
+# averaged over heads and action-frame queries → [14×14] spatial map.
+
+import torch as _torch
+
+_ATTN_CAPTURE_ENABLED: bool = False
+_ATTN_SA_BUFFER: list = []      # list of [HW] numpy arrays (one per block×step)
+_ATTN_THW: tuple | None = None  # (T, H, W) discovered on first capture call
+_ATTN_ORIG_COMPUTE: object = None  # saved original compute_attention
+
+
+def _install_attn_patch(state_t: int = 9, t_action: int = 4, t_primary: int = 3):
+    """Monkey-patch Attention.compute_attention to enable self-attn capture."""
+    global _ATTN_ORIG_COMPUTE
+    from cosmos_policy._src.predict2.networks.minimal_v4_dit import Attention
+    if _ATTN_ORIG_COMPUTE is not None:
+        return  # already installed
+    _ATTN_ORIG_COMPUTE = Attention.compute_attention
+
+    def _patched(self, q, k, v, video_size=None, kv_cache_cfg=None):
+        global _ATTN_THW
+        if _ATTN_CAPTURE_ENABLED and self.is_selfattn and q.ndim == 4:
+            B, Sq, H_heads, D_head = q.shape
+            # Discover spatial dims from first call
+            if _ATTN_THW is None:
+                HW, rem = divmod(Sq, state_t)
+                if rem == 0:
+                    side = int(HW ** 0.5)
+                    if side * side == HW:
+                        _ATTN_THW = (state_t, side, side)
+            if _ATTN_THW is not None and Sq == _ATTN_THW[0] * _ATTN_THW[1] * _ATTN_THW[2]:
+                T, H, W = _ATTN_THW
+                HW = H * W
+                act_s, act_e = t_action * HW, (t_action + 1) * HW
+                pri_s, pri_e = t_primary * HW, (t_primary + 1) * HW
+                with _torch.no_grad():
+                    scale = D_head ** -0.5
+                    # [B, H_heads, act_HW, D_head]
+                    q_f = q[:, act_s:act_e].permute(0, 2, 1, 3).float()
+                    # [B, H_heads, all_HW, D_head]
+                    k_f = k.permute(0, 2, 1, 3).float()
+                    # logits over all keys, then softmax → [B, H_heads, act_HW, all_THW]
+                    logits = _torch.matmul(q_f, k_f.transpose(-2, -1)) * scale
+                    attn = logits.softmax(dim=-1)
+                    # slice primary frame columns → [B, H_heads, act_HW, HW]
+                    attn_pri = attn[:, :, :, pri_s:pri_e]
+                    # average over heads and action queries → [HW]
+                    attn_map = attn_pri.mean(dim=(1, 2))[0].cpu().float().numpy()
+                    _ATTN_SA_BUFFER.append(attn_map)
+        return _ATTN_ORIG_COMPUTE(self, q, k, v, video_size=video_size, kv_cache_cfg=kv_cache_cfg)
+
+    Attention.compute_attention = _patched
+
+
+def _clear_attn_buffer():
+    global _ATTN_THW
+    _ATTN_SA_BUFFER.clear()
+    _ATTN_THW = None
+
+
+@contextlib.contextmanager
+def attn_capture_ctx():
+    global _ATTN_CAPTURE_ENABLED
+    _clear_attn_buffer()
+    _ATTN_CAPTURE_ENABLED = True
+    try:
+        yield
+    finally:
+        _ATTN_CAPTURE_ENABLED = False
+
+
+def _compute_attn_overlay(img_uint8: np.ndarray, alpha: float = 0.5) -> np.ndarray | None:
+    if not _ATTN_SA_BUFFER or _ATTN_THW is None:
+        return None
+    T, H, W = _ATTN_THW
+    avg = np.stack(_ATTN_SA_BUFFER, axis=0).mean(axis=0)  # [H*W]
+    spatial = avg.reshape(H, W)
+    spatial = (spatial - spatial.min()) / (spatial.max() - spatial.min() + 1e-8)
+    h, w = img_uint8.shape[:2]
+    heatmap_f = cv2.resize(spatial.astype(np.float32), (w, h), interpolation=cv2.INTER_CUBIC)
+    heatmap_f = np.clip(heatmap_f, 0.0, 1.0)
+    rgb = (cm.jet(heatmap_f)[:, :, :3] * 255).astype(np.uint8)
+    return np.clip((1 - alpha) * img_uint8.astype(np.float32) + alpha * rgb, 0, 255).astype(np.uint8)
+
+
 from visual_perturbations import VisualPerturbConfig, perturb_image
 
 
@@ -366,6 +463,14 @@ class Args:
     object_shift_y_std: float = 0.0
     """Std (metres) of Gaussian object shift along y-axis at episode start."""
 
+    # ── Attention visualization ───────────────────────────────────────────────
+    visualize_attention: bool = False
+    """Overlay self-attention maps (action frame → primary image) on rollout video."""
+    attn_task_id: int = -1
+    """Task index to visualize (-1 = all tasks)."""
+    attn_alpha: float = 0.5
+    """Heatmap blend alpha (0=original, 1=full heatmap)."""
+
 
 def _json_default(o):
     if isinstance(o, np.generic):
@@ -405,7 +510,7 @@ def _get_libero_env(task, resolution, seed):
     task_bddl_file = pathlib.Path(get_libero_path("bddl_files")) / task.problem_folder / task.bddl_file
     env_args = {"bddl_file_name": str(task_bddl_file), "camera_heights": resolution, "camera_widths": resolution}
     env = OffScreenRenderEnv(**env_args)
-    env.seed(seed)
+    np.random.seed(seed)
     return env, task_description
 
 
@@ -471,6 +576,11 @@ def eval_libero(args: Args) -> None:
     init_t5_text_embeddings_cache(cfg.t5_text_embeddings_path)
     logging.info("Model loaded.")
 
+    if args.visualize_attention:
+        state_t = getattr(getattr(model, "config", None), "state_t", 9)
+        _install_attn_patch(state_t=state_t)
+        logging.info(f"Attention capture patch installed (state_t={state_t}).")
+
     # ── LIBERO benchmark setup ───────────────────────────────────────────
     benchmark_dict = benchmark.get_benchmark_dict()
     task_suite = benchmark_dict[args.task_suite_name]()
@@ -513,6 +623,8 @@ def eval_libero(args: Args) -> None:
             action_plan = collections.deque()
             action_log = []
             replay_images = []
+            attn_chunk_overlays = []  # one overlay per replan step
+            do_attn = args.visualize_attention and (args.attn_task_id < 0 or args.attn_task_id == task_id)
             t = 0
             done = False
             is_new_chunk = False
@@ -529,16 +641,24 @@ def eval_libero(args: Args) -> None:
 
                     is_new_chunk = not action_plan
                     if is_new_chunk:
-                        action_return_dict = get_action(
-                            cfg,
-                            model,
-                            dataset_stats,
-                            observation,
-                            prompt,
-                            seed=args.seed,
-                            num_denoising_steps_action=args.num_denoising_steps_action,
-                            generate_future_state_and_value_in_parallel=True,
-                        )
+                        ctx = attn_capture_ctx() if do_attn else contextlib.nullcontext()
+                        with ctx:
+                            action_return_dict = get_action(
+                                cfg,
+                                model,
+                                dataset_stats,
+                                observation,
+                                prompt,
+                                seed=args.seed,
+                                num_denoising_steps_action=args.num_denoising_steps_action,
+                                generate_future_state_and_value_in_parallel=True,
+                            )
+                        if do_attn:
+                            overlay = _compute_attn_overlay(
+                                np.asarray(observation["primary_image"]), alpha=args.attn_alpha
+                            )
+                            if overlay is not None:
+                                attn_chunk_overlays.append(overlay)
                         action_chunk = action_return_dict["actions"]
                         assert len(action_chunk) >= args.num_open_loop_steps, (
                             f"Expected >= {args.num_open_loop_steps} actions, got {len(action_chunk)}"
@@ -585,6 +705,19 @@ def eval_libero(args: Args) -> None:
                 [np.asarray(x) for x in replay_images],
                 fps=10,
             )
+
+            if do_attn and attn_chunk_overlays:
+                # Repeat each chunk overlay for num_open_loop_steps to match rollout length
+                attn_frames = []
+                for overlay in attn_chunk_overlays:
+                    attn_frames.extend([overlay] * args.num_open_loop_steps)
+                attn_frames = attn_frames[: len(replay_images)]
+                imageio.mimwrite(
+                    out_path / f"attn_{task_segment}_trial{episode_idx}_{suffix}.mp4",
+                    attn_frames,
+                    fps=10,
+                )
+                logging.info(f"Saved attention video ({len(attn_frames)} frames, {len(attn_chunk_overlays)} chunks).")
 
             # ── Compute & save metrics ───────────────────────────────────
             smoothness_summary = compute_smoothness_metrics(action_log)

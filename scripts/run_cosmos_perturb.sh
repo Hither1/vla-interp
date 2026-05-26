@@ -130,6 +130,11 @@ TASK_SUITE="${TASK_SUITE:-libero_10}"
 NUM_TRIALS="${NUM_TRIALS:-20}"
 SEED="${SEED:-195}"
 
+# ── Attention visualization ────────────────────────────────────────────────────
+VISUALIZE_ATTENTION="${VISUALIZE_ATTENTION:-false}"
+TASK_ID="${TASK_ID:--1}"
+ATTN_ALPHA="${ATTN_ALPHA:-0.5}"
+
 # ── Derived output tag (one segment per active perturbation) ──────────────────
 PROMPT_TAG=""
 if [[ "$PROMPT_MODE" != "original" ]]; then
@@ -205,6 +210,9 @@ echo "Seed:                ${SEED}"
 echo "Chunk size:          ${CHUNK_SIZE}"
 echo "Open-loop steps:     ${NUM_OPEN_LOOP_STEPS}"
 echo "Denoising steps:     ${NUM_DENOISING_STEPS_ACTION}"
+echo "Visualize attention: ${VISUALIZE_ATTENTION}"
+[[ "${VISUALIZE_ATTENTION}" == "true" ]] && echo "  attn_task_id:        ${TASK_ID}"
+[[ "${VISUALIZE_ATTENTION}" == "true" ]] && echo "  attn_alpha:          ${ATTN_ALPHA}"
 echo "============================================================"
 
 for SUITE in "${SUITES[@]}"; do
@@ -237,7 +245,10 @@ for SUITE in "${SUITES[@]}"; do
         --random-action-scale "${RANDOM_ACTION_SCALE}" \
         --object-shift-x-std "${OBJECT_SHIFT_X_STD}" \
         --object-shift-y-std "${OBJECT_SHIFT_Y_STD}" \
-        --video-out-path "${VIDEO_OUT}"
+        --video-out-path "${VIDEO_OUT}" \
+        $( [[ "${VISUALIZE_ATTENTION}" == "true" ]] && echo "--visualize-attention" ) \
+        --attn-task-id "${TASK_ID}" \
+        --attn-alpha "${ATTN_ALPHA}"
 
     echo "Finished: ${SUITE}"
 done
